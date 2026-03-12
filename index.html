@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>자산관리 시스템 v3</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0a0e1a;--sf:#111827;--sf2:#1a2235;--sf3:#1f2d42;--bd:#2a3a52;--ac:#3b82f6;--ac2:#60a5fa;--gn:#10b981;--yw:#f59e0b;--rd:#ef4444;--or:#f97316;--pu:#8b5cf6;--tx:#e2e8f0;--tx2:#94a3b8;--tx3:#64748b;--mono:'JetBrains Mono',monospace;--sans:'Noto Sans KR',sans-serif}
@@ -1011,6 +1012,65 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
 
 <script>
 
+// ═══ SUPABASE CONFIG ═══
+const SUPA_URL = 'https://fmbcrvhyfxkcphveodet.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZtYmNydmh5ZnhrY3BodmVvZGV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNjg4OTgsImV4cCI6MjA4ODg0NDg5OH0.YweP1WaduzmvGPiakyy2okraIHN8FCpRz0-nEcNxiTg';
+const db = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+function showLoading(msg='데이터 로딩 중...') {
+  let el = document.getElementById('db-loading');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'db-loading';
+    el.style.cssText = 'position:fixed;inset:0;background:rgba(10,14,26,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;font-family:var(--sans)';
+    el.innerHTML = '<div style="width:44px;height:44px;border:3px solid #2a3a52;border-top-color:#3b82f6;border-radius:50%;animation:db-spin .8s linear infinite;margin-bottom:18px"></div><div style="color:#94a3b8;font-size:14px">'+msg+'</div>';
+    document.body.appendChild(el);
+    const s=document.createElement('style');s.textContent='@keyframes db-spin{to{transform:rotate(360deg)}}';document.head.appendChild(s);
+  }
+}
+function hideLoading() { const el=document.getElementById('db-loading'); if(el) el.remove(); }
+
+async function loadFromDB() {
+  showLoading();
+  try {
+    const [invRes, storeRes, saRes, reqRes, pkRes] = await Promise.all([
+      db.from('inventory').select('*').order('code'),
+      db.from('stores').select('*').order('name'),
+      db.from('store_assets').select('*'),
+      db.from('requests').select('*').order('created_at', {ascending: false}),
+      db.from('pickups').select('*').order('created_at', {ascending: false})
+    ]);
+    if (invRes.data && invRes.data.length > 0) {
+      LOGI.length = 0;
+      invRes.data.forEach(r => LOGI.push({code:r.code, name:r.name, qty:r.qty, broken:r.broken_qty||0}));
+    }
+    if (storeRes.data && storeRes.data.length > 0) {
+      ADDR.length = 0;
+      storeRes.data.forEach(r => ADDR.push({code:r.code||'', name:r.name, route:r.route||'', address:r.address||''}));
+    }
+    if (saRes.data && saRes.data.length > 0) {
+      Object.keys(SA_DATA).forEach(k => delete SA_DATA[k]);
+      saRes.data.forEach(r => {
+        if (!SA_DATA[r.store_name]) SA_DATA[r.store_name] = {};
+        SA_DATA[r.store_name][r.asset_name] = r.qty;
+      });
+    }
+    if (reqRes.data) {
+      REQS.length = 0;
+      reqRes.data.forEach(r => REQS.push({id:r.id,date:r.date,manager:r.manager,team:r.team,asset:r.asset,code:r.code,qty:r.qty,store:r.store,route:r.route||'',address:r.address||'',note:r.note||'',status:r.status,outDate:r.out_date||'',outMgr:r.out_mgr||'',outMemo:r.out_memo||''}));
+    }
+    if (pkRes.data) {
+      PICKUPS.length = 0;
+      pkRes.data.forEach(r => PICKUPS.push({id:r.id,date:r.date,manager:r.manager||'',team:r.team||'',store:r.store,route:r.route||'',address:r.address||'',asset:r.asset,code:r.code,qty:r.qty,brokenQty:r.broken_qty||0,normalQty:r.qty-(r.broken_qty||0),reason:r.reason||'',note:r.note||'',status:r.status,confDate:r.confirmed_at||'',confMgr:r.confirmed_mgr||'',confMemo:''}));
+    }
+  } catch(e) {
+    console.error('DB load error:', e);
+    notify('데이터 로드 실패 — 로컬 데이터로 실행됩니다', 'error');
+  }
+  hideLoading();
+}
+
+
 // ═══ MASTER DATA (물류재고 기준 단일 코드) ═══
 // LOGI = 물류재고 (단일 소스). 자산현황 코드/명칭은 이것을 따름.
 let LOGI = [{"code":"AST-001","name":"마우스","qty":57},{"code":"AST-002","name":"키보드","qty":56},{"code":"AST-003","name":"마우스패드","qty":12},{"code":"AST-004","name":"모니터(선포함)","qty":48},{"code":"AST-005","name":"본체(선포함)","qty":39},{"code":"AST-006","name":"B5 아크릴","qty":213},{"code":"AST-007","name":"액자","qty":102},{"code":"AST-008","name":"매직(흑색)","qty":120},{"code":"AST-009","name":"건전지AA(2개입)","qty":299},{"code":"AST-010","name":"물레방아 리필용 테이프","qty":94},{"code":"AST-011","name":"박스 테이프","qty":98},{"code":"AST-012","name":"저울","qty":47},{"code":"AST-013","name":"스테이플러 & 리필심(1씩)","qty":49},{"code":"AST-014","name":"3M장갑(M사이즈)","qty":75},{"code":"AST-015","name":"면봉(100개입)","qty":110},{"code":"AST-016","name":"노란고무줄(1묶음)","qty":21},{"code":"AST-017","name":"건전지AAA(2개입)","qty":257},{"code":"AST-018","name":"신문지(묶음)","qty":94},{"code":"AST-019","name":"클립(1통)","qty":55},{"code":"AST-020","name":"저속 충전기 어댑터","qty":49},{"code":"AST-021","name":"집게(대)","qty":208},{"code":"AST-022","name":"집게(중)","qty":118},{"code":"AST-023","name":"집게(소)","qty":103},{"code":"AST-024","name":"알코올 솜","qty":20},{"code":"AST-025","name":"볼펜(1박스 24)","qty":47},{"code":"AST-026","name":"가위","qty":47},{"code":"AST-027","name":"칼(소)","qty":75},{"code":"AST-028","name":"칼 리필심 (소/10개입)","qty":31},{"code":"AST-029","name":"계산기(대)","qty":46},{"code":"AST-030","name":"커피(믹스커피) / 200입","qty":53},{"code":"AST-031","name":"종이컵(50개입)","qty":138},{"code":"AST-032","name":"쓰레기통","qty":28},{"code":"AST-033","name":"핸드타월","qty":91},{"code":"AST-034","name":"타월고리","qty":55},{"code":"AST-035","name":"분리수거용 비닐(50L,40매입)","qty":149},{"code":"AST-036","name":"스티커제거제","qty":41},{"code":"AST-037","name":"극세사걸레(선반, 유리창 겸용)","qty":297},{"code":"AST-038","name":"먼지털이","qty":49},{"code":"AST-039","name":"알콜","qty":48},{"code":"AST-040","name":"사탕","qty":198},{"code":"AST-041","name":"물티슈","qty":251},{"code":"AST-042","name":"유리세정제(본품)","qty":143},{"code":"AST-043","name":"고무장갑","qty":98},{"code":"AST-044","name":"세제본품","qty":50},{"code":"AST-045","name":"세제 리필형 대용량","qty":41},{"code":"AST-046","name":"수세미","qty":138},{"code":"AST-047","name":"사탕바구니","qty":46},{"code":"AST-048","name":"빨래비누","qty":216},{"code":"AST-049","name":"쟁반","qty":40},{"code":"AST-050","name":"비누받침대","qty":42},{"code":"AST-051","name":"줄자(7.5m)","qty":47},{"code":"AST-052","name":"멀티탭 3구(3M)","qty":46},{"code":"AST-053","name":"멀티탭 5구(1.5M)","qty":20},{"code":"AST-054","name":"멀티탭 5구(3M)","qty":20},{"code":"AST-055","name":"바코드스캐너","qty":39},{"code":"AST-056","name":"구급상자","qty":38},{"code":"AST-057","name":"온습도계","qty":47},{"code":"AST-058","name":"방독면","qty":0},{"code":"AST-059","name":"장갑","qty":9},{"code":"AST-060","name":"보호의","qty":1},{"code":"AST-061","name":"방독면 필터","qty":25},{"code":"AST-062","name":"장화","qty":22},{"code":"AST-063","name":"흡착포","qty":9},{"code":"AST-064","name":"키즈락","qty":50},{"code":"AST-065","name":"안전보호구 스티커","qty":21},{"code":"AST-066","name":"리빙박스","qty":94},{"code":"AST-067","name":"소화기 & 소화기 받침대 (각1개)","qty":48},{"code":"AST-068","name":"소화기점검표","qty":220},{"code":"AST-069","name":"접이식 책상","qty":36},{"code":"AST-070","name":"캐치맙 밀대","qty":49},{"code":"AST-071","name":"우산꽂이","qty":39},{"code":"AST-072","name":"빗자루세트","qty":46},{"code":"AST-073","name":"간이 의자(다이소)","qty":20},{"code":"AST-074","name":"휴지 (30개입)","qty":47},{"code":"AST-075","name":"락스(2L)","qty":2},{"code":"AST-076","name":"손세정제 본품","qty":44},{"code":"AST-077","name":"손세정제 리필대용량","qty":14},{"code":"AST-078","name":"세숫대야","qty":47},{"code":"AST-079","name":"분무기","qty":73},{"code":"AST-080","name":"캐치맙 걸레(바닥용)","qty":233},{"code":"AST-081","name":"정전기 청소포","qty":38},{"code":"AST-082","name":"물걸레 청소포","qty":32},{"code":"AST-083","name":"확장 브라켓","qty":61},{"code":"AST-084","name":"3칸 수납 바구니","qty":86},{"code":"AST-085","name":"일반전화기","qty":37},{"code":"AST-086","name":"정부화일","qty":116},{"code":"AST-087","name":"전기모기채","qty":40},{"code":"AST-088","name":"문 종","qty":59},{"code":"AST-089","name":"레인매트","qty":11},{"code":"AST-090","name":"미끄럼주의 표지판","qty":50},{"code":"AST-091","name":"미끄럼방지 테이프","qty":4},{"code":"AST-092","name":"몬스타겔","qty":39},{"code":"AST-093","name":"일반 바구니","qty":53},{"code":"AST-094","name":"문풍지","qty":62},{"code":"AST-095","name":"손 세정제 리필대용량","qty":30},{"code":"AST-096","name":"스프레이형 락스","qty":21},{"code":"AST-097","name":"면봉(500,1통)","qty":8},{"code":"AST-098","name":"일반 전화기 & AA건전지 2","qty":17},{"code":"AST-099","name":"도어사인","qty":8},{"code":"AST-100","name":"볼펜(1박스 24)(물류용)","qty":48},{"code":"AST-101","name":"도어사인","qty":20},{"code":"AST-102","name":"도어사인","qty":20},{"code":"AST-103","name":"변기솔","qty":15},{"code":"AST-104","name":"외부용 빗자루","qty":38},{"code":"AST-105","name":"종이컵 (2000개입)","qty":2},{"code":"AST-106","name":"바퀴약","qty":3},{"code":"AST-107","name":"바퀴약","qty":17},{"code":"AST-108","name":"바코드 케이블","qty":3},{"code":"AST-109","name":"양면 테이프(동전 크기)","qty":10},{"code":"AST-110","name":"물조리개","qty":4},{"code":"AST-111","name":"화분받침대 (사각/화이트/5호)","qty":3},{"code":"AST-112","name":"공유기","qty":4},{"code":"AST-113","name":"화분받침대 (원형/화이트/4호)","qty":3},{"code":"AST-114","name":"화분받침대 (원형/화이트/小3호)","qty":4},{"code":"AST-115","name":"무지봉투","qty":3},{"code":"AST-116","name":"두꺼운문풍지","qty":5},{"code":"AST-117","name":"멀티탭 3구(1.5M)","qty":10},{"code":"AST-118","name":"미니물조리개","qty":4},{"code":"AST-119","name":"USB 허브","qty":6}];
@@ -1323,6 +1383,7 @@ function confirmRepair(){
   if(actual<=0){notify('고장 재고가 부족합니다','error');return;}
   l.broken=(l.broken||0)-actual;
   l.qty+=actual;
+  db.from('inventory').update({qty:l.qty, broken_qty:l.broken}).eq('code',repairCode).then(()=>{});
   // 자산현황 반영
   const inv=INV.find(i=>i.code===repairCode);
   if(inv) inv.total+=actual;
@@ -1685,6 +1746,9 @@ function saveNewStore(){
     entry[inp.dataset.col] = inp.value==='' ? null : parseInt(inp.value);
   });
   SA_DATA[name] = entry;
+  db.from('stores').insert({code:storeCode, name:name, route:'직영', address:entry['지역']||''}).then(()=>{});
+  const _saEntries=Object.entries(entry).filter(([k,v])=>typeof v==='number').map(([k,v])=>({store_name:name,asset_name:k,qty:v}));
+  if(_saEntries.length) db.from('store_assets').insert(_saEntries).then(()=>{});
   // ADDR에도 등록 (자산신청·수거 자동완성에서 검색 가능하도록)
   const region = entry['지역']||'';
   if(!ADDR.find(a=>a.name===name)){
@@ -1709,6 +1773,7 @@ function applyStoreAssetDelta(storeName, assetName, delta, memo){
   if(before==='구매장'||before===null||before===undefined) return;
   const after = Math.max(0, (before||0) + delta);
   d[col] = after;
+  db.from('store_assets').upsert({store_name:storeName, asset_name:col, qty:after},{onConflict:'store_name,asset_name'}).then(()=>{});
   SA_HIST.push({
     date: new Date().toLocaleString('ko-KR'),
     store: storeName, col,
@@ -1838,6 +1903,7 @@ function submitReq(){
   if(logi&&qty>logi.qty){notify(`재고 부족 — 물류재고 ${logi.qty}개`,'error');return}
   const id='REQ-'+new Date().getFullYear()+'-'+String(REQS.length+1).padStart(3,'0');
   REQS.push({id,date,manager,team,asset,code,qty,store,route,address,note,status:'pending',outDate:'',outMgr:'',outMemo:''});
+  db.from('requests').insert({id,date,manager,team,asset,code,qty,store,route,address,note,status:'pending',out_date:'',out_mgr:'',out_memo:''}).then(()=>{});
   closeMo('moReq');notify(`신청 완료! (${id})`);updateBadge();renderReqs();
 }
 
@@ -1886,6 +1952,8 @@ function doShip(){
   applyStoreAssetDelta(r.store, r.asset, r.qty, `자산신청 출고 / ${oMgr}`);
   // ⑤ 상태 변경
   r.status='shipped';r.outDate=oDate;r.outMgr=oMgr;r.route=route;r.outMemo=oMemo;
+  db.from('requests').update({status:'shipped',out_date:oDate,out_mgr:oMgr,out_memo:oMemo}).eq('id',curOutId).then(()=>{});
+  const _liShip=LOGI.find(l=>l.code===r.code); if(_liShip) db.from('inventory').update({qty:_liShip.qty}).eq('code',r.code).then(()=>{});
   closeMo('moOut');
   notify(`출고 완료 ✓  물류재고 -${r.qty} · 직영점[${r.store}] 출고 기록 저장`,'success');
   updateBadge();renderOut();renderInv();
@@ -1893,6 +1961,7 @@ function doShip(){
 function rejectReq(){
   const r=REQS.find(x=>x.id===curOutId);if(!r)return;
   r.status='rejected';
+  db.from('requests').update({status:'rejected'}).eq('id',curOutId).then(()=>{});
   closeMo('moOut');notify('신청 반려 처리됨','error');
   updateBadge();renderReqs();renderOut();
 }
@@ -2011,6 +2080,7 @@ function confirmDeleteInv(){
   const logiIdx = LOGI.findIndex(l=>l.code===code);
   if(logiIdx > -1) LOGI.splice(logiIdx, 1);
 
+  db.from('inventory').delete().eq('code',code).then(()=>{});
   closeMo('moDeleteInv');
   deleteInvCode = null;
   notify(`"${name}" (${code}) 삭제 완료 — 물류재고에서도 제거됨`, 'success');
@@ -2087,6 +2157,8 @@ function saveEditInv(){
     LOGI.push({code:editInvCode, name:newName, qty:newStock, broken:0});
   }
 
+  const newQtyLogi = Math.max(0, newTotal - newOut);
+  db.from('inventory').update({name:newName, qty:newQtyLogi}).eq('code',editInvCode).then(()=>{});
   closeMo('moEditInv');
   const diff = newStock - oldStock;
   const msg = diff===0 ? `"${newName}" 수정 완료` : diff>0
@@ -2127,6 +2199,7 @@ function addAsset(){
     const before=inv.total;
     inv.total+=qty;
     if(li) li.qty+=qty;
+    if(li) db.from('inventory').update({qty:li.qty}).eq('code',addExistingCode).then(()=>{});
     closeMo('moAdd');
     notify(`"${name}" 수량 추가 완료 — ${before}개 → ${inv.total}개`,'success');
     renderInv();renderLogi();renderDash();
@@ -2142,6 +2215,7 @@ function addAsset(){
   if(INV.find(i=>i.name===name)){notify('이미 존재하는 자산명입니다','error');return}
   INV.push({code,name,cat,total:qty,out:0,note,fixed:false});
   syncLogiFromInv();
+  db.from('inventory').upsert({code,name,qty,broken_qty:0}).then(()=>{});
   closeMo('moAdd');
   notify(`"${name}" (${code}) 신규 등록 완료`,'success');
   renderInv();renderLogi();renderDash();
@@ -2346,6 +2420,7 @@ function submitPickup(){
   }
   const id='PKU-'+new Date().getFullYear()+'-'+String(PICKUPS.length+1).padStart(3,'0');
   PICKUPS.push({id,date,manager,team,reason,asset,code,qty,brokenQty,normalQty,store,route,address,note,status:'pending',confDate:'',confMgr:'',confMemo:''});
+  db.from('pickups').insert({id,date,manager,team,reason,asset,code,qty,broken_qty:brokenQty,store,route,address,note,status:'pending'}).then(()=>{});
   closeMo('moPk');
   notify(`수거 신청 완료! (${id}) · 사유: ${reason}`);
   updateBadge();renderPickup();
@@ -2408,6 +2483,8 @@ function confirmPickup(){
   applyStoreAssetDelta(p.store, p.asset, -p.qty, `수거 확인 / ${confMgr}`);
   // 상태 변경
   p.status='confirmed';p.confDate=confDate;p.confMgr=confMgr;p.confMemo=confMemo;
+  db.from('pickups').update({status:'confirmed',confirmed_at:confDate,confirmed_mgr:confMgr}).eq('id',curPkId).then(()=>{});
+  const _liPk=LOGI.find(l=>l.code===p.code); if(_liPk) db.from('inventory').update({qty:_liPk.qty,broken_qty:_liPk.broken||0}).eq('code',p.code).then(()=>{});
   closeMo('moPkConfirm');
   notify(`수거 확인 완료 ✓  물류재고 +${p.qty}개 증가`,'success');
   updateBadge();renderPickupMgmt();renderLogi();renderInv();renderDash();
@@ -2416,6 +2493,7 @@ function confirmPickup(){
 function rejectPickup(){
   const p=PICKUPS.find(x=>x.id===curPkId);if(!p)return;
   p.status='rejected';
+  db.from('pickups').update({status:'rejected'}).eq('id',curPkId).then(()=>{});
   closeMo('moPkConfirm');notify('수거 신청 반려 처리됨','error');
   updateBadge();renderPickup();renderPickupMgmt();
 }
@@ -2664,8 +2742,7 @@ function downloadInvExcel(){
 }
 
 // ═══ INIT ═══
-syncLogiFromInv(); // INV → LOGI 초기 동기화
-renderDash();updateBadge();
+(async()=>{ await loadFromDB(); syncLogiFromInv(); STORE_OUT_LOG=REQS.filter(r=>r.status==='shipped').map(r=>({store:r.store,code:r.code,name:r.asset,qty:r.qty,date:r.outDate,route:r.route,manager:r.outMgr,memo:r.outMemo})); renderDash(); updateBadge(); })();
 </script>
 </body>
 </html>
