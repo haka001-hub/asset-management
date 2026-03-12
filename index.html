@@ -1144,23 +1144,23 @@ function hideLoading() { const el=document.getElementById('db-loading'); if(el) 
 async function loadFromDB() {
   showLoading();
   try {
-    const [invRes, storeRes, saRes, reqRes, pkRes] = await Promise.all([
+    const [invRes, storeRes, saRes, reqRes, pkRes, purchReqRes, purchItemRes] = await Promise.all([
       db.from('inventory').select('*').order('id'),
       db.from('stores').select('*').order('name'),
       db.from('store_assets').select('*'),
       db.from('requests').select('*').order('created_at', {ascending: false}),
-      db.from('pickups').select('*').order('created_at', {ascending: false})
+      db.from('pickups').select('*').order('created_at', {ascending: false}),
+      db.from('purchase_requests').select('*').order('created_at', {ascending: false}),
+      db.from('purchase_items').select('*').order('id')
     ]);
     if (invRes.data && invRes.data.length > 0) {
       LOGI.length = 0;
       invRes.data.forEach(r => LOGI.push({code:r.code, name:r.name, qty:r.qty, broken:r.broken_qty||0}));
-      // INV를 DB 데이터 기준으로 재구성
       INV.length = 0;
       LOGI.forEach(l => INV.push({
         code:l.code, name:l.name, cat:guessCategory(l.name),
         total:l.qty, out:0, note:'', fixed:FIXED_CODES.has(l.code)
       }));
-      // NEW_ITEMS 중 DB에 없는 항목 추가
       NEW_ITEMS.forEach(item => {
         if(!INV.find(i=>i.code===item.code))
           INV.push({code:item.code,name:item.name,cat:guessCategory(item.name),total:0,out:0,note:'',fixed:false});
@@ -1185,15 +1185,24 @@ async function loadFromDB() {
       PICKUPS.length = 0;
       pkRes.data.forEach(r => PICKUPS.push({id:r.id,date:r.date,manager:r.manager||'',team:r.team||'',store:r.store,route:r.route||'',address:r.address||'',asset:r.asset,code:r.code,qty:r.qty,brokenQty:r.broken_qty||0,normalQty:r.qty-(r.broken_qty||0),reason:r.reason||'',note:r.note||'',shipType:r.ship_type||'직납',status:r.status,confDate:r.confirmed_at||'',confMgr:r.confirmed_mgr||'',confMemo:''}));
     }
-    // load store_history
+    // store_history
     const histRes = await db.from('store_history').select('*').order('created_at', {ascending: false}).limit(1000);
     if (histRes.data) {
       SA_HIST.length = 0;
       histRes.data.forEach(r => SA_HIST.push({date:r.created_at ? new Date(r.created_at).toLocaleString('ko-KR') : r.date_str||'', store:r.store_name, col:r.asset_name||'', before:r.before_val, after:r.after_val, type:r.type||'', memo:r.memo||''}));
     }
+    // purchase_requests + purchase_items (통합 로드)
+    if (purchReqRes.data) {
+      PURCHASE_REQS.length = 0;
+      purchReqRes.data.forEach(r => PURCHASE_REQS.push(r));
+    }
+    if (purchItemRes.data) {
+      PURCHASE_ITEMS.length = 0;
+      purchItemRes.data.forEach(r => PURCHASE_ITEMS.push(r));
+    }
   } catch(e) {
     console.error('DB load error:', e);
-    notify('데이터 로드 실패 — 로컬 데이터로 실행됩니다', 'error');
+    notify('데이터 로드 실패 — 새로고침 해주세요', 'error');
   }
   hideLoading();
 }
@@ -3284,18 +3293,13 @@ function renderOrderHist() {
     : '<tr><td colspan="8" style="text-align:center;color:var(--tx3);padding:24px">주문이력이 없습니다</td></tr>';
 }
 
-// ─── loadFromDB 에 주문 데이터 로드 추가 (별도 함수) ───
-async function loadPurchaseData() {
-  const [reqRes, itemRes] = await Promise.all([
-    db.from('purchase_requests').select('*').order('created_at',{ascending:false}),
-    db.from('purchase_items').select('*').order('id')
-  ]);
-  if(reqRes.data){ PURCHASE_REQS.length=0; reqRes.data.forEach(r=>PURCHASE_REQS.push(r)); }
-  if(itemRes.data){ PURCHASE_ITEMS.length=0; itemRes.data.forEach(r=>PURCHASE_ITEMS.push(r)); }
-}
-
 // ═══ INIT ═══
-(async()=>{ await loadFromDB(); STORE_OUT_LOG=REQS.filter(r=>r.status==='shipped').map(r=>({store:r.store,code:r.code,name:r.asset,qty:r.qty,date:r.outDate,route:r.route,manager:r.outMgr,memo:r.outMemo})); renderDash(); updateBadge(); await loadPurchaseData(); renderOrderMgmt(); renderPurchaseHist(); renderOrderHist(); updateOrderBadge(); })();
+(async()=>{
+  await loadFromDB();
+  STORE_OUT_LOG = REQS.filter(r=>r.status==='shipped').map(r=>({store:r.store,code:r.code,name:r.asset,qty:r.qty,date:r.outDate,route:r.route,manager:r.outMgr,memo:r.outMemo}));
+  renderDash(); updateBadge();
+  renderOrderMgmt(); renderPurchaseHist(); renderOrderHist(); updateOrderBadge();
+})();
 </script>
 </body>
 </html>
