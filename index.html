@@ -590,8 +590,14 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
       <div class="tw" style="margin-bottom:18px">
         <div class="th"><span class="tt">✏️ 직접 입력</span><button class="btn btn-pri btn-sm" onclick="addPurchaseRow()">+ 행 추가</button></div>
         <div class="md-bd" style="padding:16px 20px">
-          <div style="display:grid;grid-template-columns:140px 140px 1fr 80px 1fr 80px;gap:8px;align-items:center;margin-bottom:8px;font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.08em">
-            <span>담당자 *</span><span>구매요청일 *</span><span>품목 *</span><span>요청수량 *</span><span>비고</span><span></span>
+          <!-- 공통 정보 -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--bd)">
+            <div class="fgrp"><label class="flb">담당자 <span>*</span></label><input type="text" class="fi" id="prManager" placeholder="이름 입력"></div>
+            <div class="fgrp"><label class="flb">구매요청일 <span>*</span></label><input type="date" class="fi" id="prDate"></div>
+          </div>
+          <!-- 품목 행 -->
+          <div style="display:grid;grid-template-columns:1fr 80px 1fr 60px;gap:8px;align-items:center;margin-bottom:6px;font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.08em">
+            <span>품목 *</span><span>요청수량 *</span><span>비고</span><span></span>
           </div>
           <div id="purchaseRows"></div>
           <div style="margin-top:12px;display:flex;justify-content:flex-end">
@@ -2868,10 +2874,8 @@ function addPurchaseRow() {
   const id = 'pr-row-' + Date.now();
   const div = document.createElement('div');
   div.id = id;
-  div.style.cssText = 'display:grid;grid-template-columns:140px 140px 1fr 80px 1fr 80px;gap:8px;align-items:center;margin-bottom:6px';
+  div.style.cssText = 'display:grid;grid-template-columns:1fr 80px 1fr 60px;gap:8px;align-items:center;margin-bottom:6px';
   div.innerHTML = `
-    <input type="text" class="fi" placeholder="담당자" style="padding:7px 9px;font-size:12px">
-    <input type="date" class="fi" style="padding:7px 9px;font-size:12px">
     <div class="acw" style="position:relative">
       <input type="text" class="fi" placeholder="품목명 검색..." style="padding:7px 9px;font-size:12px"
         autocomplete="off" oninput="acPurchaseItem(this)" data-code="">
@@ -2910,8 +2914,9 @@ function downloadPurchaseTemplate() {
   const loadAndDl = () => {
     const wb = XLSX.utils.book_new();
     const headers = ['담당자','구매요청일','자산코드','품목명','요청수량','비고'];
+    const today = new Date().toISOString().split('T')[0];
     const data = [headers];
-    ORDER_PRODUCTS.slice(0,5).forEach(p => data.push(['', '', p.code, p.name, '', '']));
+    ORDER_PRODUCTS.slice(0,5).forEach((p,i) => data.push([i===0?'담당자이름':'', i===0?today:'', p.code, p.name, '', '']));
     const ws = XLSX.utils.aoa_to_sheet(data);
     ws['!cols'] = [{wch:12},{wch:14},{wch:12},{wch:30},{wch:10},{wch:20}];
     XLSX.utils.book_append_sheet(wb, ws, '구매요청서');
@@ -2921,34 +2926,53 @@ function downloadPurchaseTemplate() {
   if(typeof XLSX==='undefined'){const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=loadAndDl;document.head.appendChild(s);}else{loadAndDl();}
 }
 
+// ─── 엑셀 날짜 직렬번호 → YYYY-MM-DD 변환 ───
+function xlDateToStr(v) {
+  if(!v) return '';
+  if(v instanceof Date) return v.toISOString().split('T')[0];
+  if(typeof v==='number') {
+    const d = new Date(Math.round((v-25569)*86400*1000));
+    return isNaN(d)?'':d.toISOString().split('T')[0];
+  }
+  if(typeof v==='string') {
+    if(/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+    const d=new Date(v); return isNaN(d)?'':d.toISOString().split('T')[0];
+  }
+  return '';
+}
+
 // ─── 엑셀 업로드 ───
 function handlePurchaseUpload(e) {
   const file = e.target.files[0]; if(!file) return;
   const reader = new FileReader();
   reader.onload = ev => {
     const loadAndParse = () => {
-      const wb = XLSX.read(ev.target.result, {type:'binary'});
+      const wb = XLSX.read(ev.target.result, {type:'binary', cellDates:true});
       const ws = wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
       const dataRows = rows.slice(1).filter(r => r[0] || r[3]);
       if(!dataRows.length){notify('데이터가 없습니다','error');return;}
+      // 공통 담당자·날짜 설정 (첫 데이터 행 기준)
+      const firstManager = (dataRows[0][0]||'').toString().trim();
+      const firstDate = xlDateToStr(dataRows[0][1]);
+      if(firstManager) document.getElementById('prManager').value = firstManager;
+      if(firstDate)    document.getElementById('prDate').value = firstDate;
+      // 품목 행 추가
       const container = document.getElementById('purchaseRows');
       container.innerHTML = '';
       dataRows.forEach(r => {
         addPurchaseRow();
         const last = container.lastElementChild;
-        const inputs = last.querySelectorAll('input');
-        inputs[0].value = r[0]||''; // 담당자
-        inputs[1].value = r[1]||''; // 날짜
         const assetInp = last.querySelector('.acw input');
-        // 자산코드로 이름 찾기
-        const code = r[2]||''; const name = r[3]||'';
+        const code = (r[2]||'').toString(); const name = (r[3]||'').toString();
         assetInp.dataset.code = code;
         assetInp.value = name || (ORDER_PRODUCTS.find(p=>p.code===code)?.name||code);
-        inputs[3].value = r[4]||0; // 요청수량
-        inputs[4].value = r[5]||''; // 비고
+        const qtyInp = last.querySelector('input[type=number]');
+        if(qtyInp) qtyInp.value = r[4]||0;
+        const noteInp = [...last.querySelectorAll('input[type=text]')].find(i=>!i.closest('.acw'));
+        if(noteInp) noteInp.value = r[5]||'';
       });
-      notify(`${dataRows.length}개 행 불러오기 완료 — 확인 후 제출하세요`);
+      notify(`${dataRows.length}개 행 불러오기 완료 — 담당자·날짜 확인 후 제출하세요`);
     };
     if(typeof XLSX==='undefined'){const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=loadAndParse;document.head.appendChild(s);}else{loadAndParse();}
   };
@@ -2958,27 +2982,36 @@ function handlePurchaseUpload(e) {
 
 // ─── 구매요청 제출 ───
 async function submitPurchaseRequest() {
+  const manager = document.getElementById('prManager').value.trim();
+  const reqDate = document.getElementById('prDate').value;
+  if(!manager){notify('담당자를 입력해주세요','error');return;}
+  if(!reqDate){notify('구매요청일을 선택해주세요','error');return;}
+
   const rows = [...document.getElementById('purchaseRows').children];
   if(!rows.length){notify('행을 추가해주세요','error');return;}
   const items = rows.map(row => {
-    const inputs = row.querySelectorAll('input');
     const assetInp = row.querySelector('.acw input');
+    const inputs = row.querySelectorAll('input:not([type=hidden])');
+    // inputs: [품목명(acw), 수량, 비고]
+    const allInputs = [...row.querySelectorAll('input')];
+    const qtyInp = allInputs.find(i=>i.type==='number');
+    const noteInp = allInputs.filter(i=>i.type==='text').find(i=>!i.closest('.acw'));
     return {
-      manager: inputs[0].value.trim(),
-      date: inputs[1].value,
-      code: assetInp.dataset.code||'',
-      name: assetInp.value.trim(),
-      qty: parseInt(inputs[3].value)||0,
-      note: inputs[4].value.trim()
+      code: assetInp?.dataset.code||'',
+      name: assetInp?.value.trim()||'',
+      qty: parseInt(qtyInp?.value)||0,
+      note: noteInp?.value.trim()||''
     };
   }).filter(i=>i.name&&i.qty>0);
-  if(!items.length){notify('유효한 품목을 입력해주세요','error');return;}
-  if(!items[0].manager){notify('담당자를 입력해주세요','error');return;}
-  if(!items[0].date){notify('구매요청일을 입력해주세요','error');return;}
+  if(!items.length){notify('품목명과 수량을 입력해주세요','error');return;}
 
-  const maxNum = PURCHASE_REQS.reduce((mx,r)=>{const m=r.id&&r.id.match(/(\d+)$/);return m?Math.max(mx,parseInt(m[1])):mx;},0);
-  const rid = 'PO-' + new Date().getFullYear() + '-' + String(maxNum+1).padStart(3,'0');
-  const reqData = {id:rid, request_date:items[0].date, manager:items[0].manager, status:'pending', note:''};
+  // DB에서 최신 ID 조회해서 다음 번호 결정 (중복 방지)
+  const {data:lastReqs} = await db.from('purchase_requests').select('id').order('created_at',{ascending:false}).limit(1);
+  let nextNum = 1;
+  if(lastReqs&&lastReqs.length>0){const m=lastReqs[0].id.match(/(\d+)$/);if(m)nextNum=parseInt(m[1])+1;}
+  const rid = 'PO-' + new Date().getFullYear() + '-' + String(nextNum).padStart(3,'0');
+
+  const reqData = {id:rid, request_date:reqDate, manager, status:'pending', note:''};
   const {error:e1} = await db.from('purchase_requests').insert(reqData);
   if(e1){notify('제출 실패: '+e1.message,'error');return;}
 
@@ -2989,9 +3022,12 @@ async function submitPurchaseRequest() {
 
   PURCHASE_REQS.unshift({...reqData});
   document.getElementById('purchaseRows').innerHTML = '';
-  notify(`구매요청 완료! (${rid})`);
+  document.getElementById('prManager').value = '';
+  document.getElementById('prDate').value = '';
+  notify(`구매요청 완료! (${rid})`,'success');
   renderPurchaseHist();
   renderOrderMgmt();
+  renderOrderHist();
   updateOrderBadge();
 }
 
