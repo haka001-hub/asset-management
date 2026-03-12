@@ -171,6 +171,9 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
     <button class="ni" onclick="showPage('logistics',this)"><span class="ic">▦</span>물류 재고</button>
     <button class="ni" onclick="showPage('storeout',this)"><span class="ic">⊛</span>직영점 출고 현황</button>
     <button class="ni" onclick="showPage('storeasset',this)"><span class="ic">◈</span>직영점 자산 현황</button>
+    <div class="nav-sec">주문 관리</div>
+    <button class="ni" onclick="showPage('purchase-req',this)"><span class="ic">📋</span>구매요청서</button>
+    <button class="ni" id="navOrderMgmt" onclick="showPage('order-mgmt',this)"><span class="ic">📦</span>비품주문표<span class="nbadge" id="orderBadge"></span></button>
   </div>
 </nav>
 
@@ -568,6 +571,51 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
         <button class="btn btn-gst" onclick="closeMo('moSAAddStore')">취소</button>
         <button class="btn btn-pri" onclick="saveNewStore()">등록하기</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ── PURCHASE REQUEST (구매요청서) ── -->
+  <div id="page-purchase-req" class="hidden">
+    <div class="topbar">
+      <div><div class="page-title">구매요청서</div><div class="page-sub">물류팀 → 구매요청 등록</div></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-gst btn-sm" onclick="downloadPurchaseTemplate()">⬇ 양식 다운로드</button>
+        <button class="btn btn-pri btn-sm" onclick="document.getElementById('purchaseFileInput').click()">⬆ 엑셀 등록</button>
+        <input type="file" id="purchaseFileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handlePurchaseUpload(event)">
+      </div>
+    </div>
+    <div class="content">
+      <!-- 직접입력 폼 -->
+      <div class="tw" style="margin-bottom:18px">
+        <div class="th"><span class="tt">✏️ 직접 입력</span><button class="btn btn-pri btn-sm" onclick="addPurchaseRow()">+ 행 추가</button></div>
+        <div class="md-bd" style="padding:16px 20px">
+          <div style="display:grid;grid-template-columns:140px 140px 1fr 80px 1fr 80px;gap:8px;align-items:center;margin-bottom:8px;font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.08em">
+            <span>담당자 *</span><span>구매요청일 *</span><span>품목 *</span><span>요청수량 *</span><span>비고</span><span></span>
+          </div>
+          <div id="purchaseRows"></div>
+          <div style="margin-top:12px;display:flex;justify-content:flex-end">
+            <button class="btn btn-suc" onclick="submitPurchaseRequest()">📤 구매요청 제출</button>
+          </div>
+        </div>
+      </div>
+      <!-- 내 요청 이력 -->
+      <div class="tw">
+        <div class="th"><span class="tt">📋 구매요청 이력</span></div>
+        <table><thead><tr>
+          <th>요청번호</th><th>요청일</th><th>담당자</th><th>품목수</th><th>상태</th><th>비고</th>
+        </tr></thead>
+        <tbody id="purchaseHistBody"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ORDER MGMT (비품주문표) ── -->
+  <div id="page-order-mgmt" class="hidden">
+    <div class="topbar">
+      <div><div class="page-title">비품주문표</div><div class="page-sub">주문관리팀 승인 · 물류팀 입고확인</div></div>
+    </div>
+    <div class="content">
+      <div id="orderMgmtBody"></div>
     </div>
   </div>
 
@@ -1210,6 +1258,8 @@ const META={
   pickupmgmt:['수거 관리','수거 확인 처리 — 확인 시 물류재고 자동 증가'],
   pickuphist:['수거 이력','전체 수거 요청·확인 이력'],
   bulkorder:['일괄 자산 신청','엑셀 양식으로 여러 매장·품목 한번에 출고 처리'],
+  'purchase-req':['구매요청서','물류팀 → 구매요청 등록'],
+  'order-mgmt':['비품주문표','주문관리팀 승인 · 물류팀 입고확인'],
 };
 function showPage(id,btn){
   document.querySelectorAll('[id^="page-"]').forEach(e=>e.classList.add('hidden'));
@@ -1220,7 +1270,7 @@ function showPage(id,btn){
   const[t,s]=META[id]||['',''];
   document.getElementById('pgTitle').textContent=t;
   document.getElementById('pgSub').textContent=s;
-  ({dashboard:renderDash,inventory:renderInv,request:renderReqs,outgoing:renderOut,history:renderHist,logistics:renderLogi,storeout:renderStoreOut,storeasset:renderSA,pickup:renderPickup,pickupmgmt:renderPickupMgmt,pickuphist:renderPickupHist,bulkorder:renderBulkHist})[id]?.();
+  ({dashboard:renderDash,inventory:renderInv,request:renderReqs,outgoing:renderOut,history:renderHist,logistics:renderLogi,storeout:renderStoreOut,storeasset:renderSA,pickup:renderPickup,pickupmgmt:renderPickupMgmt,pickuphist:renderPickupHist,bulkorder:renderBulkHist,'purchase-req':renderPurchaseHist,'order-mgmt':renderOrderMgmt})[id]?.();
   updateBadge();
 }
 
@@ -2778,8 +2828,299 @@ function downloadInvExcel(){
   } else { loadAndExport(); }
 }
 
+// ═══ PURCHASE REQUEST DATA ═══
+let PURCHASE_REQS = [];
+let PURCHASE_ITEMS = [];
+
+// 주문 비품 마스터 (엑셀에서 추출)
+const ORDER_PRODUCTS = [{"code": "AST-001", "name": "마우스", "vendor": "쿠팡", "productName": "로지텍 무소음 무선 마우스 M331", "productCode": ""}, {"code": "AST-002", "name": "키보드", "vendor": "쿠팡", "productName": "삼성전자 유선 일반형 키보드 + 키스킨", "productCode": "링크"}, {"code": "AST-003", "name": "마우스패드", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-004", "name": "모니터(선포함)", "vendor": "네이버", "productName": "한성컴퓨터 ULTRON 2760G PLUS 180Hz 게이밍 모니터 68~69cm(27인치), 일반", "productCode": "링크"}, {"code": "AST-005", "name": "본체(선포함)", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-006", "name": "B5 아크릴", "vendor": "네이버", "productName": "", "productCode": ""}, {"code": "AST-007", "name": "액자", "vendor": "네이버", "productName": "상장 사진 가벼운 틀 프레임 사업자등록증 액자 도매 제작 사이즈 A4", "productCode": "링크"}, {"code": "AST-008", "name": "매직흑색", "vendor": "다이소", "productName": "둥근 닙 유성 매직 3개입 블랙", "productCode": "56463"}, {"code": "AST-009", "name": "건전지AA (2개입)", "vendor": "쿠팡", "productName": "벡셀 베이직 알카라인 AA건전지, 48개입, 1개", "productCode": ""}, {"code": "AST-010", "name": "물레방아 리필용 테이프", "vendor": "쿠팡", "productName": "대박테이프 다용도 물레방아 리필테이프 15mm x 25m, 30개", "productCode": ""}, {"code": "AST-011", "name": "박스테이프", "vendor": "네이버", "productName": "우림 박스테이프 투명테이프 80M 50개", "productCode": ""}, {"code": "AST-012", "name": "저울 & AAA건전지 (1씩)", "vendor": "쿠팡", "productName": "레토 가정용 디지털 주방저울", "productCode": ""}, {"code": "AST-013", "name": "스테이플러 & 리필 심 (1씩)", "vendor": "다이소", "productName": "평화 스테이플러 33호 심포함", "productCode": "1007785"}, {"code": "AST-014", "name": "3M장갑 / M사이즈", "vendor": "다이소", "productName": "슬림 논슬립 코팅장갑 S 여성용", "productCode": "58635"}, {"code": "AST-097", "name": "면봉 (500 1통)", "vendor": "다이소", "productName": "나무 스틱 둥근 면봉 400개입", "productCode": "1005518"}, {"code": "AST-016", "name": "노란고무줄 (1묶음)", "vendor": "쿠팡", "productName": "코멧 대용량 노란고무줄 1kg 70 x 1.5 mm", "productCode": ""}, {"code": "AST-017", "name": "건전지AAA (2개입)", "vendor": "쿠팡", "productName": "벡셀 베이직 알카라인 AA건전지, 48개입, 1개", "productCode": ""}, {"code": "AST-018", "name": "신문지 (묶음)", "vendor": "네이버", "productName": "신문지 포장지 신문포장 택배포장 10-12kg", "productCode": ""}, {"code": "AST-019", "name": "클립 (1통)", "vendor": "쿠팡", "productName": "피스코리아 평화크립 500, 1개입, 50개", "productCode": ""}, {"code": "AST-020", "name": "저속 충전기 어댑터", "vendor": "쿠팡", "productName": "서가 5V 1A 저전력 USB 충전기 어댑터", "productCode": ""}, {"code": "AST-021", "name": "집게 (대)", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-022", "name": "집게 (중)", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-023", "name": "집게 (소)", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-025", "name": "볼펜 (1박스 24)", "vendor": "쿠팡", "productName": "동아 스피디볼 유성펜 1.0mm 24p, 흑색, 6개", "productCode": ""}, {"code": "AST-026", "name": "가위", "vendor": "다이소", "productName": "오피스 블랙코팅 가위 6 cm", "productCode": "1048670"}, {"code": "AST-027", "name": "칼(소)", "vendor": "다이소", "productName": "컬러 커터 칼 9mm 5개입", "productCode": "1034261"}, {"code": "AST-028", "name": "칼 리필심 (소 / 10개입)", "vendor": "다이소", "productName": "커터날 9mm 30개입", "productCode": "1040207"}, {"code": "AST-029", "name": "계산기(대)", "vendor": "다이소", "productName": "고급 알루미늄 계산기 (12자리)", "productCode": "1034279"}, {"code": "AST-030", "name": "커피 (믹스커피) / 200입", "vendor": "쿠팡", "productName": "맥심 모카 210TX4", "productCode": ""}, {"code": "AST-031", "name": "종이컵 (5줄이 1개)", "vendor": "쿠팡", "productName": "서연 계량 눈금 종이컵 175ml, 2000개입, 2세트", "productCode": ""}, {"code": "AST-032", "name": "쓰레기통", "vendor": "다이소", "productName": "원터치 푸시 휴지통 10 L", "productCode": "1054330"}, {"code": "AST-033", "name": "핸드타월", "vendor": "다이소", "productName": "송월 면 핸드타월 30 X 30 cm 민트", "productCode": "1058363"}, {"code": "AST-034", "name": "타월고리", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-035", "name": "분리수거용 비닐 50L (40개입)", "vendor": "다이소", "productName": "뽑아 쓰는 분리수거 봉투 63X80cm 40매입", "productCode": "1042385"}, {"code": "AST-036", "name": "스티커제거제", "vendor": "쿠팡", "productName": "탐사 스티커 앤 타르 제거제, 250ml, 2개", "productCode": ""}, {"code": "AST-037", "name": "극세사걸레", "vendor": "쿠팡", "productName": "월드크린 고급 바둑 극세사 손걸레 그레이", "productCode": ""}, {"code": "AST-038", "name": "먼지털이", "vendor": "쿠팡", "productName": "크린메이트 그물망 먼지털이 대형, 혼합색상, 6개", "productCode": ""}, {"code": "AST-131", "name": "알콜스왑", "vendor": "다이소", "productName": "오죤 알콜스왑 100매입", "productCode": "1032539"}, {"code": "AST-040", "name": "사탕", "vendor": "쿠팡", "productName": "코피코 커피맛 캔디, 800g", "productCode": ""}, {"code": "AST-041", "name": "물티슈", "vendor": "다이소", "productName": "두툼한 물티슈 100매", "productCode": "1059142"}, {"code": "AST-042", "name": "유리세정제 (본품)", "vendor": "쿠팡", "productName": "산도깨비 유리세정제 600ml, 12개", "productCode": ""}, {"code": "AST-043", "name": "고무장갑", "vendor": "다이소", "productName": "3M 스카치 브라이트 고무장갑 중", "productCode": "1021629"}, {"code": "AST-044", "name": "세제본품", "vendor": "쿠팡", "productName": "탐사 베이킹소다 주방세제 레몬향, 780ml", "productCode": ""}, {"code": "AST-045", "name": "세제 리필형 대용량", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-046", "name": "수세미", "vendor": "다이소", "productName": "하드 부직포 수세미 6개입", "productCode": "1017096"}, {"code": "AST-132", "name": "커피바구니", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-047", "name": "사탕바구니", "vendor": "다이소", "productName": "멜라민 각진 다용도 볼 13 cm", "productCode": "1042157"}, {"code": "AST-048", "name": "빨래비누", "vendor": "다이소", "productName": "EM 세탁비누 250g", "productCode": "59157"}, {"code": "AST-049", "name": "쟁반", "vendor": "다이소", "productName": "PP컬러쟁반(약29*21.2 cm)", "productCode": "1048897"}, {"code": "AST-049", "name": "쟁반", "vendor": "다이소", "productName": "밀함유 쟁반 31x22cm", "productCode": "1037309"}, {"code": "AST-050", "name": "비누받침대", "vendor": "다이소", "productName": "세라픽 오픈 비누 받침", "productCode": "1018321"}, {"code": "AST-051", "name": "줄자(7.5m)", "vendor": "쿠팡", "productName": "탐사 고급형 줄자 7.5m", "productCode": ""}, {"code": "AST-052", "name": "멀티탭 3구 (3M)", "vendor": "쿠팡", "productName": "써지오 3구 개별 안전커버 멀티탭 DH-2039-RT + 안전커버", "productCode": ""}, {"code": "AST-117", "name": "멀티탭 3구 (1.5M)", "vendor": "쿠팡", "productName": "써지오 3구 개별 안전커버 멀티탭 DH-2039-RT + 안전커버", "productCode": ""}, {"code": "AST-053", "name": "멀티탭 5구 (1.5M)", "vendor": "쿠팡", "productName": "써지오 스위치 개별 멀티탭 5구 DH-1658-MT + 안전커버 2p", "productCode": ""}, {"code": "AST-054", "name": "멀티탭 5구 (3M)", "vendor": "쿠팡", "productName": "써지오 스위치 개별 멀티탭 5구 DH-1658-MT + 안전커버 2p", "productCode": ""}, {"code": "AST-055", "name": "바코드스캐너", "vendor": "네이버", "productName": "모토로라 지브라 심볼 DS-2208 바코드 스캐너 블랙", "productCode": ""}, {"code": "AST-098", "name": "일반 전화기 + AA건전지 2", "vendor": "쿠팡", "productName": "iTEK 발신자 표시 유선 전화기", "productCode": ""}, {"code": "AST-057", "name": "온습도계", "vendor": "네이버", "productName": "디지털 온도계 미니 탁상 자석 온습도계 LT-20", "productCode": ""}, {"code": "AST-058", "name": "방독면", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-059", "name": "장갑", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-060", "name": "보호의", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-061", "name": "방독면 필터", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-062", "name": "장화", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-063", "name": "흡착포", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-064", "name": "키즈락", "vendor": "네이버", "productName": "링크", "productCode": ""}, {"code": "AST-065", "name": "안전보호구 스티커", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-067", "name": "소화기 + 소화기 받침대 (각 1개)", "vendor": "쿠팡", "productName": "국가검정품 분말소화기 세트, 3.3kg, 1세트", "productCode": ""}, {"code": "AST-068", "name": "소화기점검표", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-069", "name": "접이식 책상", "vendor": "네이버", "productName": "접이식 사각 테이블 소 컴퓨터 책상 원목 탁자 식탁 다용도", "productCode": ""}, {"code": "AST-070", "name": "밀대", "vendor": "쿠팡", "productName": "캐치맙 밀대", "productCode": ""}, {"code": "AST-071", "name": "우산꽂이", "vendor": "다이소", "productName": "라탄무늬 우산꽂이", "productCode": "1011713"}, {"code": "AST-072", "name": "빗자루세트", "vendor": "다이소", "productName": "접이식 빗자루 세트", "productCode": "57634"}, {"code": "AST-073", "name": "간이 의자", "vendor": "다이소", "productName": "라탄무늬 원형 회전 의자", "productCode": "1019623"}, {"code": "AST-074", "name": "휴지 (30개입)", "vendor": "대량 주문", "productName": "", "productCode": ""}, {"code": "AST-075", "name": "락스2L", "vendor": "쿠팡", "productName": "탐사 락스, 2L", "productCode": ""}, {"code": "AST-076", "name": "손세정제 본품", "vendor": "다이소", "productName": "세꼼마 버블 항균 핸드워시 파우더 250ml", "productCode": "1034032"}, {"code": "AST-077", "name": "손 세정제 리필대용량", "vendor": "쿠팡", "productName": "비앙카 거품비누 핸드워시 손세정제 대용량 리필, 4L", "productCode": ""}, {"code": "AST-078", "name": "세숫대야", "vendor": "다이소", "productName": "SKY 타원형 대야", "productCode": "47517"}, {"code": "AST-133", "name": "펜꽂이", "vendor": "다이소", "productName": "스틸 원형 펜꽂이", "productCode": ""}, {"code": "AST-103", "name": "변기솔", "vendor": "다이소", "productName": "케이스 변기솔", "productCode": "24492"}, {"code": "AST-134", "name": "청소포", "vendor": "다이소", "productName": "정전기 청소포 21X38cm 50매", "productCode": "1033409"}, {"code": "AST-079", "name": "분무기", "vendor": "다이소", "productName": "원통 심플 분무기 500 ml", "productCode": "1060609"}, {"code": "AST-083", "name": "확장 브라캣", "vendor": "쿠팡", "productName": "[NEXI] 넥시 NX-SERIAL-BL1P 시리얼 확장 브라켓 [NX254] [LP 포함] [50CM]", "productCode": ""}, {"code": "AST-088", "name": "문 종", "vendor": "쿠팡", "productName": "데코스토리 미니멀 호박종 현관문종 문종 도어벨 자석식 풍경종 인테리어 벽장식 선물로 좋은", "productCode": "링크"}, {"code": "AST-087", "name": "전기파리채", "vendor": "네이버", "productName": "YP LTD-001A 리티안 전자모기채 모기라켓 모기파리채 캠핑벌레퇴치", "productCode": "링크"}, {"code": "AST-090", "name": "미끄럼주의 표지판", "vendor": "네이버", "productName": "영스토어 미끄럼주의 A형 스탠드 표지판 위험표지판 경고표지 매장표시판 도로표지판", "productCode": "링크"}, {"code": "AST-089", "name": "레인매트", "vendor": "네이버", "productName": "여기로 미끄럼방지매트 패드 수영장 고무 욕실 화장실 발판 4T 90x30cm", "productCode": "링크"}, {"code": "AST-091", "name": "미끄럼방지 테이프", "vendor": "쿠팡", "productName": "뿌푸 미끄럼 방지 논슬립 테이프 검정노랑, 2개", "productCode": "링크"}, {"code": "AST-092", "name": "몬스타겔", "vendor": "쿠팡", "productName": "몬스터클리어겔 다용도 초강력 실리콘 양면테이프 30mm x 1m, 투명, 5개", "productCode": "링크"}, {"code": "AST-056", "name": "구급상자", "vendor": "쿠팡", "productName": "한양 구급함 17종 중형세트 구급상자 구급용품", "productCode": "링크"}, {"code": "AST-093", "name": "일반 바구니", "vendor": "다이소", "productName": "리빙메쉬바구니7호(화이트)", "productCode": "36084"}, {"code": "AST-039", "name": "알콜", "vendor": "쿠팡", "productName": "삼현제약 청솔 소독용 에탄올, 8개, 250ml", "productCode": ""}, {"code": "AST-084", "name": "3칸 수납 바구니", "vendor": "다이소", "productName": "칸막이정리함(낮은형)", "productCode": "58371"}, {"code": "AST-094", "name": "문풍지", "vendor": "다이소", "productName": "4계절용 투명 문풍지", "productCode": "24694"}];
+
+// ─── 구매요청서 행 추가 ───
+function addPurchaseRow() {
+  const id = 'pr-row-' + Date.now();
+  const div = document.createElement('div');
+  div.id = id;
+  div.style.cssText = 'display:grid;grid-template-columns:140px 140px 1fr 80px 1fr 80px;gap:8px;align-items:center;margin-bottom:6px';
+  div.innerHTML = `
+    <input type="text" class="fi" placeholder="담당자" style="padding:7px 9px;font-size:12px">
+    <input type="date" class="fi" style="padding:7px 9px;font-size:12px">
+    <div class="acw" style="position:relative">
+      <input type="text" class="fi" placeholder="품목명 검색..." style="padding:7px 9px;font-size:12px"
+        autocomplete="off" oninput="acPurchaseItem(this)" data-code="">
+      <div class="acl" style="z-index:700"></div>
+    </div>
+    <input type="number" class="fi" placeholder="0" min="1" style="padding:7px 9px;font-size:12px">
+    <input type="text" class="fi" placeholder="비고" style="padding:7px 9px;font-size:12px">
+    <button class="btn btn-sm" style="background:rgba(239,68,68,.1);color:#f87171;border-color:rgba(239,68,68,.25);padding:6px 10px" onclick="this.closest('[id^=pr-row]').remove()">삭제</button>
+  `;
+  document.getElementById('purchaseRows').appendChild(div);
+}
+
+// ─── 품목 자동완성 ───
+function acPurchaseItem(inp) {
+  const val = inp.value.toLowerCase();
+  const list = inp.nextElementSibling;
+  if (!val) { list.classList.remove('show'); return; }
+  const matches = ORDER_PRODUCTS.filter(p => p.name.toLowerCase().includes(val) || p.code.toLowerCase().includes(val)).slice(0, 8);
+  if (!matches.length) { list.classList.remove('show'); return; }
+  list.innerHTML = matches.map(p => `
+    <div class="aci" onclick="selPurchaseItem(this.closest('.acw').querySelector('input'), '${p.code}', '${p.name.replace(/'/g,"\\'")}')">
+      <div class="aci-nm">${p.name}</div>
+      <div class="aci-sb">${p.code}${p.vendor ? ' · ' + p.vendor : ''}</div>
+    </div>`).join('');
+  list.classList.add('show');
+}
+
+function selPurchaseItem(inp, code, name) {
+  inp.value = name;
+  inp.dataset.code = code;
+  inp.nextElementSibling.classList.remove('show');
+}
+
+// ─── 구매요청서 엑셀 양식 다운로드 ───
+function downloadPurchaseTemplate() {
+  const loadAndDl = () => {
+    const wb = XLSX.utils.book_new();
+    const headers = ['담당자','구매요청일','자산코드','품목명','요청수량','비고'];
+    const data = [headers];
+    ORDER_PRODUCTS.slice(0,5).forEach(p => data.push(['', '', p.code, p.name, '', '']));
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    ws['!cols'] = [{wch:12},{wch:14},{wch:12},{wch:30},{wch:10},{wch:20}];
+    XLSX.utils.book_append_sheet(wb, ws, '구매요청서');
+    XLSX.writeFile(wb, '구매요청서_양식.xlsx');
+    notify('구매요청서 양식 다운로드 완료');
+  };
+  if(typeof XLSX==='undefined'){const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=loadAndDl;document.head.appendChild(s);}else{loadAndDl();}
+}
+
+// ─── 엑셀 업로드 ───
+function handlePurchaseUpload(e) {
+  const file = e.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const loadAndParse = () => {
+      const wb = XLSX.read(ev.target.result, {type:'binary'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      const dataRows = rows.slice(1).filter(r => r[0] || r[3]);
+      if(!dataRows.length){notify('데이터가 없습니다','error');return;}
+      const container = document.getElementById('purchaseRows');
+      container.innerHTML = '';
+      dataRows.forEach(r => {
+        addPurchaseRow();
+        const last = container.lastElementChild;
+        const inputs = last.querySelectorAll('input');
+        inputs[0].value = r[0]||''; // 담당자
+        inputs[1].value = r[1]||''; // 날짜
+        const assetInp = last.querySelector('.acw input');
+        // 자산코드로 이름 찾기
+        const code = r[2]||''; const name = r[3]||'';
+        assetInp.dataset.code = code;
+        assetInp.value = name || (ORDER_PRODUCTS.find(p=>p.code===code)?.name||code);
+        inputs[3].value = r[4]||0; // 요청수량
+        inputs[4].value = r[5]||''; // 비고
+      });
+      notify(`${dataRows.length}개 행 불러오기 완료 — 확인 후 제출하세요`);
+    };
+    if(typeof XLSX==='undefined'){const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=loadAndParse;document.head.appendChild(s);}else{loadAndParse();}
+  };
+  reader.readAsBinaryString(file);
+  e.target.value='';
+}
+
+// ─── 구매요청 제출 ───
+async function submitPurchaseRequest() {
+  const rows = [...document.getElementById('purchaseRows').children];
+  if(!rows.length){notify('행을 추가해주세요','error');return;}
+  const items = rows.map(row => {
+    const inputs = row.querySelectorAll('input');
+    const assetInp = row.querySelector('.acw input');
+    return {
+      manager: inputs[0].value.trim(),
+      date: inputs[1].value,
+      code: assetInp.dataset.code||'',
+      name: assetInp.value.trim(),
+      qty: parseInt(inputs[3].value)||0,
+      note: inputs[4].value.trim()
+    };
+  }).filter(i=>i.name&&i.qty>0);
+  if(!items.length){notify('유효한 품목을 입력해주세요','error');return;}
+  if(!items[0].manager){notify('담당자를 입력해주세요','error');return;}
+  if(!items[0].date){notify('구매요청일을 입력해주세요','error');return;}
+
+  const rid = 'PO-' + new Date().getFullYear() + '-' + String(PURCHASE_REQS.length+1).padStart(3,'0');
+  const reqData = {id:rid, request_date:items[0].date, manager:items[0].manager, status:'pending', note:''};
+  const {error:e1} = await db.from('purchase_requests').insert(reqData);
+  if(e1){notify('제출 실패: '+e1.message,'error');return;}
+
+  const itemsData = items.map(i=>({request_id:rid, asset_code:i.code, asset_name:i.name, req_qty:i.qty, order_qty:i.qty, status:'pending', note:i.note}));
+  const {error:e2} = await db.from('purchase_items').insert(itemsData);
+  if(e2){notify('품목 저장 실패: '+e2.message,'error');return;}
+
+  PURCHASE_REQS.unshift({...reqData});
+  document.getElementById('purchaseRows').innerHTML = '';
+  notify(`구매요청 완료! (${rid})`);
+  renderPurchaseHist();
+  renderOrderMgmt();
+  updateOrderBadge();
+}
+
+// ─── 구매요청 이력 렌더 ───
+function renderPurchaseHist() {
+  const statusLabel = {pending:'<span class="badge b-pend">검토중</span>', approved:'<span class="badge b-ship">승인</span>', rejected:'<span class="badge b-rejt">반려</span>', partial:'<span class="badge b-warn">부분승인</span>'};
+  document.getElementById('purchaseHistBody').innerHTML = PURCHASE_REQS.length
+    ? PURCHASE_REQS.map(r=>`<tr>
+        <td class="tm">${r.id}</td>
+        <td>${r.request_date||''}</td>
+        <td class="tb2">${r.manager||''}</td>
+        <td class="tm">${(PURCHASE_ITEMS.filter(i=>i.request_id===r.id).length)||'-'}</td>
+        <td>${statusLabel[r.status]||r.status}</td>
+        <td style="font-size:12px;color:var(--tx3)">${r.note||'-'}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="6" style="text-align:center;color:var(--tx3);padding:24px">구매요청 이력이 없습니다</td></tr>';
+}
+
+// ─── 비품주문표 렌더 ───
+function renderOrderMgmt() {
+  const container = document.getElementById('orderMgmtBody');
+  if(!container) return;
+  if(!PURCHASE_REQS.length){
+    container.innerHTML='<div style="text-align:center;color:var(--tx3);padding:48px;font-size:14px">등록된 구매요청이 없습니다</div>';
+    return;
+  }
+  container.innerHTML = PURCHASE_REQS.map(req => {
+    const items = PURCHASE_ITEMS.filter(i=>i.request_id===req.id);
+    const statusColor = {pending:'var(--yw)',approved:'var(--gn)',rejected:'var(--rd)'};
+    const statusLabel = {pending:'검토중',approved:'승인완료',rejected:'반려'};
+    const isApproved = req.status==='approved';
+    const isRejected = req.status==='rejected';
+    return `<div class="tw" style="margin-bottom:18px">
+      <div class="th">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span class="tt">${req.id}</span>
+          <span style="font-size:12px;color:var(--tx3)">요청일: ${req.request_date} · 담당자: ${req.manager}</span>
+          <span class="badge" style="background:rgba(0,0,0,.1);border-color:${statusColor[req.status]||'var(--bd)'};color:${statusColor[req.status]||'var(--tx2)'}">${statusLabel[req.status]||req.status}</span>
+        </div>
+        ${!isApproved&&!isRejected?`<div style="display:flex;gap:8px">
+          <button class="btn btn-dan btn-sm" onclick="rejectPurchaseReq('${req.id}')">✕ 반려</button>
+          <button class="btn btn-suc btn-sm" onclick="approvePurchaseReq('${req.id}')">✓ 승인</button>
+        </div>`:''}
+      </div>
+      <table><thead><tr>
+        <th>자산코드</th><th>품목명</th><th>요청수량</th><th>구매수량</th><th>비고</th>
+        ${isApproved?'<th>입고상태</th><th>입고확인</th>':''}
+      </tr></thead><tbody>
+      ${items.map(item=>{
+        const prod = ORDER_PRODUCTS.find(p=>p.code===item.asset_code);
+        const allReceived = item.received_qty>=(item.order_qty||item.req_qty);
+        return `<tr ondblclick="showProductDetail('${item.asset_code}')" style="cursor:pointer" title="더블클릭 시 구매처 정보">
+          <td class="tm">${item.asset_code||'-'}</td>
+          <td class="tb2">${item.asset_name}</td>
+          <td class="tm">${item.req_qty}</td>
+          <td>${!isApproved&&!isRejected
+            ?`<input type="number" class="fi" value="${item.order_qty}" min="0" style="width:80px;padding:4px 8px;font-size:12px" onchange="updateOrderQty(${item.id},'${req.id}',this.value)">`
+            :`<span class="tm">${item.order_qty}</span>`}</td>
+          <td style="font-size:12px;color:var(--tx3)">${item.note||'-'}</td>
+          ${isApproved?`
+          <td>${allReceived
+            ?'<span class="badge b-ship">입고완료</span>'
+            :item.received_qty>0
+              ?`<span class="badge b-warn">부분입고 (${item.received_qty}/${item.order_qty})</span>`
+              :'<span class="badge b-pend">대기중</span>'}</td>
+          <td>${!allReceived?`<button class="btn btn-suc btn-sm" style="font-size:11px" onclick="confirmReceiving(${item.id},'${item.asset_code}','${item.asset_name}',${item.order_qty-(item.received_qty||0)})">입고확인</button>`:'—'}</td>
+          `:''}
+        </tr>`;
+      }).join('')}
+      </tbody></table>
+    </div>`;
+  }).join('');
+}
+
+// ─── 구매수량 수정 ───
+async function updateOrderQty(itemId, reqId, val) {
+  const qty = parseInt(val)||0;
+  const item = PURCHASE_ITEMS.find(i=>i.id===itemId);
+  if(item) item.order_qty = qty;
+  await db.from('purchase_items').update({order_qty:qty}).eq('id',itemId);
+}
+
+// ─── 승인 ───
+async function approvePurchaseReq(reqId) {
+  const {error} = await db.from('purchase_requests').update({status:'approved'}).eq('id',reqId);
+  if(error){notify('승인 실패: '+error.message,'error');return;}
+  const req = PURCHASE_REQS.find(r=>r.id===reqId);
+  if(req) req.status='approved';
+  notify(`${reqId} 승인 완료 — 물류팀 입고확인 대기`,'success');
+  renderOrderMgmt(); renderPurchaseHist(); updateOrderBadge();
+}
+
+// ─── 반려 ───
+async function rejectPurchaseReq(reqId) {
+  const {error} = await db.from('purchase_requests').update({status:'rejected'}).eq('id',reqId);
+  if(error){notify('반려 실패: '+error.message,'error');return;}
+  const req = PURCHASE_REQS.find(r=>r.id===reqId);
+  if(req) req.status='rejected';
+  notify(`${reqId} 반려 처리됨`,'error');
+  renderOrderMgmt(); renderPurchaseHist(); updateOrderBadge();
+}
+
+// ─── 입고확인 ───
+async function confirmReceiving(itemId, assetCode, assetName, maxQty) {
+  const qty = parseInt(prompt(`"${assetName}" 입고수량 입력 (최대 ${maxQty}개):`, maxQty));
+  if(!qty||qty<=0){return;}
+  const actual = Math.min(qty, maxQty);
+
+  // DB 업데이트
+  const item = PURCHASE_ITEMS.find(i=>i.id===itemId);
+  const newReceived = (item?.received_qty||0) + actual;
+  const newStatus = newReceived>=(item?.order_qty||0)?'received':'partial';
+  await db.from('purchase_items').update({received_qty:newReceived, status:newStatus}).eq('id',itemId);
+  if(item){item.received_qty=newReceived; item.status=newStatus;}
+
+  // 물류재고 & 자산현황 증가
+  const li = LOGI.find(l=>l.code===assetCode);
+  if(li){
+    li.qty += actual;
+    await db.from('inventory').update({qty:li.qty}).eq('code',assetCode);
+  }
+  const inv = INV.find(i=>i.code===assetCode);
+  if(inv) inv.total += actual;
+
+  // 이력
+  histPush({date:new Date().toLocaleString('ko-KR'), store:'물류창고', col:assetName, before:(li?li.qty-actual:0), after:(li?li.qty:actual), type:'입고확인', memo:`구매입고 +${actual}개`});
+
+  notify(`✅ "${assetName}" ${actual}개 입고확인 완료 — 물류재고 반영`,'success');
+  renderOrderMgmt(); renderLogi(); renderInv(); renderDash();
+}
+
+// ─── 제품 상세 팝업 ───
+function showProductDetail(code) {
+  const p = ORDER_PRODUCTS.find(x=>x.code===code);
+  if(!p||((!p.vendor)&&(!p.productName)&&(!p.productCode))){
+    notify('등록된 구매처 정보가 없습니다','error'); return;
+  }
+  alert(`📦 구매처 정보\n\n자산코드: ${p.code}\n품목명: ${p.name}\n구매처: ${p.vendor||'-'}\n상품명: ${p.productName||'-'}\n제품코드: ${p.productCode||'-'}`);
+}
+
+// ─── 뱃지 업데이트 ───
+function updateOrderBadge() {
+  const n = PURCHASE_REQS.filter(r=>r.status==='pending').length;
+  const b = document.getElementById('orderBadge');
+  if(b){b.textContent=n; b.style.display=n?'inline-block':'none';}
+}
+
+// ─── loadFromDB 에 주문 데이터 로드 추가 (별도 함수) ───
+async function loadPurchaseData() {
+  const [reqRes, itemRes] = await Promise.all([
+    db.from('purchase_requests').select('*').order('created_at',{ascending:false}),
+    db.from('purchase_items').select('*').order('id')
+  ]);
+  if(reqRes.data){ PURCHASE_REQS.length=0; reqRes.data.forEach(r=>PURCHASE_REQS.push(r)); }
+  if(itemRes.data){ PURCHASE_ITEMS.length=0; itemRes.data.forEach(r=>PURCHASE_ITEMS.push(r)); }
+}
+
 // ═══ INIT ═══
-(async()=>{ await loadFromDB(); STORE_OUT_LOG=REQS.filter(r=>r.status==='shipped').map(r=>({store:r.store,code:r.code,name:r.asset,qty:r.qty,date:r.outDate,route:r.route,manager:r.outMgr,memo:r.outMemo})); renderDash(); updateBadge(); })();
+(async()=>{ await loadFromDB(); STORE_OUT_LOG=REQS.filter(r=>r.status==='shipped').map(r=>({store:r.store,code:r.code,name:r.asset,qty:r.qty,date:r.outDate,route:r.route,manager:r.outMgr,memo:r.outMemo})); renderDash(); updateBadge(); await loadPurchaseData(); renderOrderMgmt(); updateOrderBadge(); })();
 </script>
 </body>
 </html>
