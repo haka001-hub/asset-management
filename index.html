@@ -1043,6 +1043,17 @@ async function loadFromDB() {
     if (invRes.data && invRes.data.length > 0) {
       LOGI.length = 0;
       invRes.data.forEach(r => LOGI.push({code:r.code, name:r.name, qty:r.qty, broken:r.broken_qty||0}));
+      // INV를 DB 데이터 기준으로 재구성
+      INV.length = 0;
+      LOGI.forEach(l => INV.push({
+        code:l.code, name:l.name, cat:guessCategory(l.name),
+        total:l.qty, out:0, note:'', fixed:FIXED_CODES.has(l.code)
+      }));
+      // NEW_ITEMS 중 DB에 없는 항목 추가
+      NEW_ITEMS.forEach(item => {
+        if(!INV.find(i=>i.code===item.code))
+          INV.push({code:item.code,name:item.name,cat:guessCategory(item.name),total:0,out:0,note:'',fixed:false});
+      });
     }
     if (storeRes.data && storeRes.data.length > 0) {
       ADDR.length = 0;
@@ -1389,7 +1400,7 @@ function confirmRepair(){
   if(actual<=0){notify('고장 재고가 부족합니다','error');return;}
   l.broken=(l.broken||0)-actual;
   l.qty+=actual;
-  db.from('inventory').update({qty:l.qty, broken_qty:l.broken}).eq('code',repairCode).then(()=>{});
+  db.from('inventory').update({qty:l.qty, broken_qty:l.broken}).eq('code',repairCode).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   // 자산현황 반영
   const inv=INV.find(i=>i.code===repairCode);
   if(inv) inv.total+=actual;
@@ -1752,9 +1763,9 @@ function saveNewStore(){
     entry[inp.dataset.col] = inp.value==='' ? null : parseInt(inp.value);
   });
   SA_DATA[name] = entry;
-  db.from('stores').insert({code:storeCode, name:name, route:'직영', address:entry['지역']||''}).then(()=>{});
+  db.from('stores').insert({code:storeCode, name:name, route:'직영', address:entry['지역']||''}).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   const _saEntries=Object.entries(entry).filter(([k,v])=>typeof v==='number').map(([k,v])=>({store_name:name,asset_name:k,qty:v}));
-  if(_saEntries.length) db.from('store_assets').insert(_saEntries).then(()=>{});
+  if(_saEntries.length) db.from('store_assets').insert(_saEntries).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   // ADDR에도 등록 (자산신청·수거 자동완성에서 검색 가능하도록)
   const region = entry['지역']||'';
   if(!ADDR.find(a=>a.name===name)){
@@ -1779,7 +1790,7 @@ function applyStoreAssetDelta(storeName, assetName, delta, memo){
   if(before==='구매장'||before===null||before===undefined) return;
   const after = Math.max(0, (before||0) + delta);
   d[col] = after;
-  db.from('store_assets').upsert({store_name:storeName, asset_name:col, qty:after},{onConflict:'store_name,asset_name'}).then(()=>{});
+  db.from('store_assets').upsert({store_name:storeName, asset_name:col, qty:after}).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   histPush({
     date: new Date().toLocaleString('ko-KR'),
     store: storeName, col,
@@ -1802,7 +1813,7 @@ function histPush(entry) {
     type:       entry.type||null,
     memo:       entry.memo||null,
     date_str:   entry.date||null
-  }).then(()=>{});
+  }).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
 }
 // ═══ BADGE ═══
 function updateBadge(){
@@ -1922,7 +1933,7 @@ function submitReq(){
   if(logi&&qty>logi.qty){notify(`재고 부족 — 물류재고 ${logi.qty}개`,'error');return}
   const id='REQ-'+new Date().getFullYear()+'-'+String(REQS.length+1).padStart(3,'0');
   REQS.push({id,date,manager,team,asset,code,qty,store,route,address,note,status:'pending',outDate:'',outMgr:'',outMemo:''});
-  db.from('requests').insert({id,date,manager,team,asset,code,qty,store,route,address,note,status:'pending',out_date:'',out_mgr:'',out_memo:''}).then(()=>{});
+  db.from('requests').insert({id,date,manager,team,asset,code,qty,store,route,address,note,status:'pending',out_date:'',out_mgr:'',out_memo:''}).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   closeMo('moReq');notify(`신청 완료! (${id})`);updateBadge();renderReqs();
 }
 
@@ -1964,15 +1975,15 @@ function doShip(){
   if(li)li.qty=Math.max(0,li.qty-r.qty);
   // ② 자산현황 out 증가
   const inv=INV.find(i=>i.code===r.code);
-  if(inv)inv.out+=r.qty;
+  if(inv){inv.out+=r.qty; db.from('inventory').update({qty:li?li.qty:0}).eq('code',r.code).then(r2=>{if(r2&&r2.error)console.error('[DB오류]',r2.error.message);});}
   // ③ 직영점 출고 로그에 기록 (누적 트래킹)
   STORE_OUT_LOG.push({store:r.store,code:r.code,name:r.asset,qty:r.qty,date:oDate,route,manager:oMgr,memo:oMemo});
   // ④ 직영점 자산 현황 반영 (+수량)
   applyStoreAssetDelta(r.store, r.asset, r.qty, `자산신청 출고 / ${oMgr}`);
   // ⑤ 상태 변경
   r.status='shipped';r.outDate=oDate;r.outMgr=oMgr;r.route=route;r.outMemo=oMemo;
-  db.from('requests').update({status:'shipped',out_date:oDate,out_mgr:oMgr,out_memo:oMemo}).eq('id',curOutId).then(()=>{});
-  const _liShip=LOGI.find(l=>l.code===r.code); if(_liShip) db.from('inventory').update({qty:_liShip.qty}).eq('code',r.code).then(()=>{});
+  db.from('requests').update({status:'shipped',out_date:oDate,out_mgr:oMgr,out_memo:oMemo}).eq('id',curOutId).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
+  const _liShip=LOGI.find(l=>l.code===r.code); if(_liShip) db.from('inventory').update({qty:_liShip.qty}).eq('code',r.code).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   closeMo('moOut');
   notify(`출고 완료 ✓  물류재고 -${r.qty} · 직영점[${r.store}] 출고 기록 저장`,'success');
   updateBadge();renderOut();renderInv();
@@ -1980,7 +1991,7 @@ function doShip(){
 function rejectReq(){
   const r=REQS.find(x=>x.id===curOutId);if(!r)return;
   r.status='rejected';
-  db.from('requests').update({status:'rejected'}).eq('id',curOutId).then(()=>{});
+  db.from('requests').update({status:'rejected'}).eq('id',curOutId).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   closeMo('moOut');notify('신청 반려 처리됨','error');
   updateBadge();renderReqs();renderOut();
 }
@@ -2099,7 +2110,7 @@ function confirmDeleteInv(){
   const logiIdx = LOGI.findIndex(l=>l.code===code);
   if(logiIdx > -1) LOGI.splice(logiIdx, 1);
 
-  db.from('inventory').delete().eq('code',code).then(()=>{});
+  db.from('inventory').delete().eq('code',code).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   closeMo('moDeleteInv');
   deleteInvCode = null;
   notify(`"${name}" (${code}) 삭제 완료 — 물류재고에서도 제거됨`, 'success');
@@ -2177,7 +2188,7 @@ function saveEditInv(){
   }
 
   const newQtyLogi = Math.max(0, newTotal - newOut);
-  db.from('inventory').update({name:newName, qty:newQtyLogi}).eq('code',editInvCode).then(()=>{});
+  db.from('inventory').update({name:newName, qty:newQtyLogi}).eq('code',editInvCode).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   closeMo('moEditInv');
   const diff = newStock - oldStock;
   const msg = diff===0 ? `"${newName}" 수정 완료` : diff>0
@@ -2218,7 +2229,7 @@ function addAsset(){
     const before=inv.total;
     inv.total+=qty;
     if(li) li.qty+=qty;
-    if(li) db.from('inventory').update({qty:li.qty}).eq('code',addExistingCode).then(()=>{});
+    db.from('inventory').update({qty: (li?li.qty:inv.total)}).eq('code',addExistingCode).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
     closeMo('moAdd');
     notify(`"${name}" 수량 추가 완료 — ${before}개 → ${inv.total}개`,'success');
     renderInv();renderLogi();renderDash();
@@ -2234,7 +2245,7 @@ function addAsset(){
   if(INV.find(i=>i.name===name)){notify('이미 존재하는 자산명입니다','error');return}
   INV.push({code,name,cat,total:qty,out:0,note,fixed:false});
   syncLogiFromInv();
-  db.from('inventory').upsert({code,name,qty,broken_qty:0}).then(()=>{});
+  db.from('inventory').upsert({code,name,qty,broken_qty:0},{onConflict:'code'}).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   closeMo('moAdd');
   notify(`"${name}" (${code}) 신규 등록 완료`,'success');
   renderInv();renderLogi();renderDash();
@@ -2439,7 +2450,7 @@ function submitPickup(){
   }
   const id='PKU-'+new Date().getFullYear()+'-'+String(PICKUPS.length+1).padStart(3,'0');
   PICKUPS.push({id,date,manager,team,reason,asset,code,qty,brokenQty,normalQty,store,route,address,note,status:'pending',confDate:'',confMgr:'',confMemo:''});
-  db.from('pickups').insert({id,date,manager,team,reason,asset,code,qty,broken_qty:brokenQty,store,route,address,note,status:'pending'}).then(()=>{});
+  db.from('pickups').insert({id,date,manager,team,reason,asset,code,qty,broken_qty:brokenQty,store,route,address,note,status:'pending'}).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   closeMo('moPk');
   notify(`수거 신청 완료! (${id}) · 사유: ${reason}`);
   updateBadge();renderPickup();
@@ -2502,8 +2513,8 @@ function confirmPickup(){
   applyStoreAssetDelta(p.store, p.asset, -p.qty, `수거 확인 / ${confMgr}`);
   // 상태 변경
   p.status='confirmed';p.confDate=confDate;p.confMgr=confMgr;p.confMemo=confMemo;
-  db.from('pickups').update({status:'confirmed',confirmed_at:confDate,confirmed_mgr:confMgr}).eq('id',curPkId).then(()=>{});
-  const _liPk=LOGI.find(l=>l.code===p.code); if(_liPk) db.from('inventory').update({qty:_liPk.qty,broken_qty:_liPk.broken||0}).eq('code',p.code).then(()=>{});
+  db.from('pickups').update({status:'confirmed',confirmed_at:confDate,confirmed_mgr:confMgr}).eq('id',curPkId).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
+  const _liPk=LOGI.find(l=>l.code===p.code); if(_liPk) db.from('inventory').update({qty:_liPk.qty,broken_qty:_liPk.broken||0}).eq('code',p.code).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   closeMo('moPkConfirm');
   notify(`수거 확인 완료 ✓  물류재고 +${p.qty}개 증가`,'success');
   updateBadge();renderPickupMgmt();renderLogi();renderInv();renderDash();
@@ -2512,7 +2523,7 @@ function confirmPickup(){
 function rejectPickup(){
   const p=PICKUPS.find(x=>x.id===curPkId);if(!p)return;
   p.status='rejected';
-  db.from('pickups').update({status:'rejected'}).eq('id',curPkId).then(()=>{});
+  db.from('pickups').update({status:'rejected'}).eq('id',curPkId).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   closeMo('moPkConfirm');notify('수거 신청 반려 처리됨','error');
   updateBadge();renderPickup();renderPickupMgmt();
 }
@@ -2761,7 +2772,7 @@ function downloadInvExcel(){
 }
 
 // ═══ INIT ═══
-(async()=>{ await loadFromDB(); syncLogiFromInv(); STORE_OUT_LOG=REQS.filter(r=>r.status==='shipped').map(r=>({store:r.store,code:r.code,name:r.asset,qty:r.qty,date:r.outDate,route:r.route,manager:r.outMgr,memo:r.outMemo})); renderDash(); updateBadge(); })();
+(async()=>{ await loadFromDB(); STORE_OUT_LOG=REQS.filter(r=>r.status==='shipped').map(r=>({store:r.store,code:r.code,name:r.asset,qty:r.qty,date:r.outDate,route:r.route,manager:r.outMgr,memo:r.outMemo})); renderDash(); updateBadge(); })();
 </script>
 </body>
 </html>
