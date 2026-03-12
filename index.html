@@ -598,12 +598,18 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
           </div>
         </div>
         <div class="fgrp"><label class="flb">수량 <span>*</span></label><input type="number" class="fi" id="rQty" placeholder="0" min="1"></div>
-        <div class="fgrp"><label class="flb">배송코스</label>
-          <div class="acw"><input type="text" class="fi" id="rRoute" placeholder="코스 입력..." autocomplete="off" oninput="acRoute(this.value,'acRtList','rRoute')" onfocus="acRoute(this.value,'acRtList','rRoute')"><div class="acl" id="acRtList"></div></div>
+        <div class="fgrp"><label class="flb">배송방법 <span>*</span></label>
+          <select class="fsel" id="rShipType">
+            <option value="직납">🚚 직납</option>
+            <option value="택배">📦 택배</option>
+          </select>
         </div>
         <div class="sdiv s2" style="grid-column:span 2">매장 정보</div>
         <div class="fgrp s2"><label class="flb">보낼 매장명 <span>*</span></label>
           <div class="acw"><input type="text" class="fi" id="rStore" placeholder="매장명 앞글자 입력..." autocomplete="off" oninput="acStore(this.value)" onfocus="acStore(this.value)"><div class="acl" id="acStList"></div></div>
+        </div>
+        <div class="fgrp s2"><label class="flb">배송코스</label>
+          <div class="acw"><input type="text" class="fi" id="rRoute" placeholder="코스 입력 (매장 선택 시 자동 입력)" autocomplete="off" oninput="acRoute(this.value,'acRtList','rRoute')" onfocus="acRoute(this.value,'acRtList','rRoute')"><div class="acl" id="acRtList"></div></div>
         </div>
         <div class="fgrp s2"><label class="flb">매장 주소지 <span>*</span></label><input type="text" class="fi" id="rAddr" placeholder="매장 선택 시 자동 입력"></div>
         <div class="fgrp s2"><label class="flb">비고</label><textarea class="fta" id="rNote" placeholder="특이사항"></textarea></div>
@@ -884,8 +890,11 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
           </div>
         </div>
         <div class="fgrp"><label class="flb">수량 <span>*</span></label><input type="number" class="fi" id="pkQty" placeholder="0" min="1" oninput="onPkQtyChange()"></div>
-        <div class="fgrp"><label class="flb">배송코스</label>
-          <div class="acw"><input type="text" class="fi" id="pkRoute" placeholder="코스 입력..." autocomplete="off" oninput="acRoute(this.value,'acPkRtList','pkRoute')" onfocus="acRoute(this.value,'acPkRtList','pkRoute')"><div class="acl" id="acPkRtList"></div></div>
+        <div class="fgrp"><label class="flb">배송방법 <span>*</span></label>
+          <select class="fsel" id="pkShipType">
+            <option value="직납">🚚 직납</option>
+            <option value="택배">📦 택배</option>
+          </select>
         </div>
 
         <!-- 고장 전용 패널 -->
@@ -911,6 +920,9 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
         <div class="sdiv s2" style="grid-column:span 2">수거 매장 정보</div>
         <div class="fgrp s2"><label class="flb">수거 매장명 <span>*</span></label>
           <div class="acw"><input type="text" class="fi" id="pkStore" placeholder="매장명 앞글자 입력..." autocomplete="off" oninput="acStorePk(this.value)" onfocus="acStorePk(this.value)"><div class="acl" id="acPkStList"></div></div>
+        </div>
+        <div class="fgrp s2"><label class="flb">배송코스</label>
+          <div class="acw"><input type="text" class="fi" id="pkRoute" placeholder="코스 입력 (매장 선택 시 자동 입력)" autocomplete="off" oninput="acRoute(this.value,'acPkRtList','pkRoute')" onfocus="acRoute(this.value,'acPkRtList','pkRoute')"><div class="acl" id="acPkRtList"></div></div>
         </div>
         <div class="fgrp s2"><label class="flb">매장 주소지 <span>*</span></label><input type="text" class="fi" id="pkAddr" placeholder="매장 선택 시 자동 입력"></div>
         <div class="fgrp s2"><label class="flb">비고</label><textarea class="fta" id="pkNote" placeholder="특이사항 등"></textarea></div>
@@ -1068,11 +1080,11 @@ async function loadFromDB() {
     }
     if (reqRes.data) {
       REQS.length = 0;
-      reqRes.data.forEach(r => REQS.push({id:r.id,date:r.date,manager:r.manager,team:r.team,asset:r.asset,code:r.code,qty:r.qty,store:r.store,route:r.route||'',address:r.address||'',note:r.note||'',status:r.status,outDate:r.out_date||'',outMgr:r.out_mgr||'',outMemo:r.out_memo||''}));
+      reqRes.data.forEach(r => REQS.push({id:r.id,date:r.date,manager:r.manager,team:r.team,asset:r.asset,code:r.code,qty:r.qty,store:r.store,route:r.route||'',address:r.address||'',note:r.note||'',status:r.status,shipType:r.ship_type||'직납',outDate:r.out_date||'',outMgr:r.out_mgr||'',outMemo:r.out_memo||''}));
     }
     if (pkRes.data) {
       PICKUPS.length = 0;
-      pkRes.data.forEach(r => PICKUPS.push({id:r.id,date:r.date,manager:r.manager||'',team:r.team||'',store:r.store,route:r.route||'',address:r.address||'',asset:r.asset,code:r.code,qty:r.qty,brokenQty:r.broken_qty||0,normalQty:r.qty-(r.broken_qty||0),reason:r.reason||'',note:r.note||'',status:r.status,confDate:r.confirmed_at||'',confMgr:r.confirmed_mgr||'',confMemo:''}));
+      pkRes.data.forEach(r => PICKUPS.push({id:r.id,date:r.date,manager:r.manager||'',team:r.team||'',store:r.store,route:r.route||'',address:r.address||'',asset:r.asset,code:r.code,qty:r.qty,brokenQty:r.broken_qty||0,normalQty:r.qty-(r.broken_qty||0),reason:r.reason||'',note:r.note||'',shipType:r.ship_type||'직납',status:r.status,confDate:r.confirmed_at||'',confMgr:r.confirmed_mgr||'',confMemo:''}));
     }
     // load store_history
     const histRes = await db.from('store_history').select('*').order('created_at', {ascending: false}).limit(1000);
@@ -1919,14 +1931,15 @@ function submitReq(){
   const store=document.getElementById('rStore').value.trim();
   const address=document.getElementById('rAddr').value.trim();
   const route=document.getElementById('rRoute').value.trim();
+  const shipType=document.getElementById('rShipType').value;
   const note=document.getElementById('rNote').value.trim();
   if(!date||!manager||!team||!code||!asset||!qty||!store||!address){notify('필수 항목을 입력해주세요','error');return}
   if(qty<=0){notify('수량을 확인해주세요','error');return}
   const logi=LOGI.find(l=>l.code===code);
   if(logi&&qty>logi.qty){notify(`재고 부족 — 물류재고 ${logi.qty}개`,'error');return}
   const id='REQ-'+new Date().getFullYear()+'-'+String(REQS.length+1).padStart(3,'0');
-  REQS.push({id,date,manager,team,asset,code,qty,store,route,address,note,status:'pending',outDate:'',outMgr:'',outMemo:''});
-  db.from('requests').insert({id,date,manager,team,asset,code,qty,store,route,address,note,status:'pending',out_date:'',out_mgr:'',out_memo:''}).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
+  REQS.push({id,date,manager,team,asset,code,qty,store,route,shipType,address,note,status:'pending',outDate:'',outMgr:'',outMemo:''});
+  db.from('requests').insert({id,date,manager,team,asset,code,qty,store,route,ship_type:shipType,address,note,status:'pending',out_date:'',out_mgr:'',out_memo:''}).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   closeMo('moReq');notify(`신청 완료! (${id})`);updateBadge();renderReqs();
 }
 
@@ -2431,6 +2444,7 @@ function submitPickup(){
   const store=document.getElementById('pkStore').value.trim();
   const address=document.getElementById('pkAddr').value.trim();
   const route=document.getElementById('pkRoute').value.trim();
+  const shipType=document.getElementById('pkShipType').value;
   const note=document.getElementById('pkNote').value.trim();
   if(!date||!manager||!team||!reasonSel||!code||!asset||!qty||!store||!address){notify('필수 항목을 입력해주세요','error');return}
   if(reasonSel==='기타'&&!reasonEtc){notify('기타 사유를 입력해주세요','error');return}
@@ -2442,8 +2456,8 @@ function submitPickup(){
     if(brokenQty<0||brokenQty>qty){notify('고장 수량이 총 수량을 초과합니다','error');return}
   }
   const id='PKU-'+new Date().getFullYear()+'-'+String(PICKUPS.length+1).padStart(3,'0');
-  PICKUPS.push({id,date,manager,team,reason,asset,code,qty,brokenQty,normalQty,store,route,address,note,status:'pending',confDate:'',confMgr:'',confMemo:''});
-  db.from('pickups').insert({id,date,manager,team,reason,asset,code,qty,broken_qty:brokenQty,store,route,address,note,status:'pending'}).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
+  PICKUPS.push({id,date,manager,team,reason,asset,code,qty,brokenQty,normalQty,store,route,shipType,address,note,status:'pending',confDate:'',confMgr:'',confMemo:''});
+  db.from('pickups').insert({id,date,manager,team,reason,asset,code,qty,broken_qty:brokenQty,store,route,ship_type:shipType,address,note,status:'pending'}).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   closeMo('moPk');
   notify(`수거 신청 완료! (${id}) · 사유: ${reason}`);
   updateBadge();renderPickup();
