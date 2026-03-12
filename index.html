@@ -1234,7 +1234,7 @@ function renderDash(){
 function renderInv(){
   syncLogiFromInv(); // INV 마스터 → LOGI 동기화
   const q=(document.getElementById('invSrch')?.value||'').toLowerCase();
-  document.getElementById('invTable').innerHTML=INV.filter(i=>i.name.toLowerCase().includes(q)||i.code.toLowerCase().includes(q)).map(i=>{
+  document.getElementById('invTable').innerHTML=[...INV.filter(i=>i.name.toLowerCase().includes(q)||i.code.toLowerCase().includes(q))].sort((a,b)=>{const n=s=>{const m=s.code.match(/(\d+)$/);return m?parseInt(m[1]):9999;};return n(a)-n(b);}).map(i=>{
     const s=i.total-i.out;
     const fixBadge=i.fixed?'<span class="badge b-fix" style="font-size:10px;padding:2px 6px">고정출고</span>':'';
     return`<tr>
@@ -1310,7 +1310,7 @@ function renderHist(){
 // ═══ LOGISTICS ═══
 function renderLogi(){
   const q=(document.getElementById('logiSrch')?.value||'').toLowerCase();
-  const data=LOGI.filter(l=>{
+  let data=LOGI.filter(l=>{
     const ms=l.name.toLowerCase().includes(q)||l.code.toLowerCase().includes(q);
     if(logiFilter==='zero') return ms&&l.qty===0;
     if(logiFilter==='low')  return ms&&l.qty>0&&l.qty<=10;
@@ -1319,6 +1319,7 @@ function renderLogi(){
     if(logiFilter==='broken') return ms&&(l.broken||0)>0;
     return ms;
   });
+  data=[...data].sort((a,b)=>{const n=s=>{const m=s.code.match(/(\d+)$/);return m?parseInt(m[1]):9999;};return n(a)-n(b);});
   document.getElementById('lsTotal').textContent=LOGI.length;
   document.getElementById('lsZero').textContent=LOGI.filter(l=>l.qty===0).length;
   document.getElementById('lsLow').textContent=LOGI.filter(l=>l.qty>0&&l.qty<=10).length;
