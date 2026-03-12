@@ -174,6 +174,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
     <div class="nav-sec">주문 관리</div>
     <button class="ni" onclick="showPage('purchase-req',this)"><span class="ic">📋</span>구매요청서</button>
     <button class="ni" id="navOrderMgmt" onclick="showPage('order-mgmt',this)"><span class="ic">📦</span>비품주문표<span class="nbadge" id="orderBadge"></span></button>
+    <button class="ni" onclick="showPage('order-hist',this)"><span class="ic">📑</span>주문이력서</button>
   </div>
 </nav>
 
@@ -616,6 +617,32 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
     </div>
     <div class="content">
       <div id="orderMgmtBody"></div>
+    </div>
+  </div>
+
+  <!-- ── ORDER HIST (주문이력서) ── -->
+  <div id="page-order-hist" class="hidden">
+    <div class="content">
+      <div class="tw">
+        <div class="th">
+          <span class="tt">📑 주문이력서</span>
+          <div style="display:flex;gap:8px;align-items:center">
+            <label style="font-size:12px;color:var(--tx3)">상태 필터:</label>
+            <select class="fsel" id="orderHistFilter" onchange="renderOrderHist()" style="font-size:12px;padding:4px 10px;min-width:100px">
+              <option value="">전체</option>
+              <option value="pending">검토중</option>
+              <option value="approved">승인완료</option>
+              <option value="rejected">반려</option>
+            </select>
+          </div>
+        </div>
+        <table>
+          <thead><tr>
+            <th>요청번호</th><th>요청일</th><th>담당자</th><th>품목수</th><th>품목 내역</th><th>총수량</th><th>상태</th><th>비고</th>
+          </tr></thead>
+          <tbody id="orderHistBody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -1260,6 +1287,7 @@ const META={
   bulkorder:['일괄 자산 신청','엑셀 양식으로 여러 매장·품목 한번에 출고 처리'],
   'purchase-req':['구매요청서','물류팀 → 구매요청 등록'],
   'order-mgmt':['비품주문표','주문관리팀 승인 · 물류팀 입고확인'],
+  'order-hist':['주문이력서','전체 구매주문 이력 조회'],
 };
 function showPage(id,btn){
   document.querySelectorAll('[id^="page-"]').forEach(e=>e.classList.add('hidden'));
@@ -1270,7 +1298,7 @@ function showPage(id,btn){
   const[t,s]=META[id]||['',''];
   document.getElementById('pgTitle').textContent=t;
   document.getElementById('pgSub').textContent=s;
-  ({dashboard:renderDash,inventory:renderInv,request:renderReqs,outgoing:renderOut,history:renderHist,logistics:renderLogi,storeout:renderStoreOut,storeasset:renderSA,pickup:renderPickup,pickupmgmt:renderPickupMgmt,pickuphist:renderPickupHist,bulkorder:renderBulkHist,'purchase-req':renderPurchaseHist,'order-mgmt':renderOrderMgmt})[id]?.();
+  ({dashboard:renderDash,inventory:renderInv,request:renderReqs,outgoing:renderOut,history:renderHist,logistics:renderLogi,storeout:renderStoreOut,storeasset:renderSA,pickup:renderPickup,pickupmgmt:renderPickupMgmt,pickuphist:renderPickupHist,bulkorder:renderBulkHist,'purchase-req':renderPurchaseHist,'order-mgmt':renderOrderMgmt,'order-hist':renderOrderHist})[id]?.();
   updateBadge();
 }
 
@@ -2954,8 +2982,9 @@ async function submitPurchaseRequest() {
   if(e1){notify('제출 실패: '+e1.message,'error');return;}
 
   const itemsData = items.map(i=>({request_id:rid, asset_code:i.code, asset_name:i.name, req_qty:i.qty, order_qty:i.qty, status:'pending', note:i.note}));
-  const {error:e2} = await db.from('purchase_items').insert(itemsData);
+  const {data:insertedItems, error:e2} = await db.from('purchase_items').insert(itemsData).select();
   if(e2){notify('품목 저장 실패: '+e2.message,'error');return;}
+  if(insertedItems) insertedItems.forEach(item => PURCHASE_ITEMS.push(item));
 
   PURCHASE_REQS.unshift({...reqData});
   document.getElementById('purchaseRows').innerHTML = '';
@@ -2971,7 +3000,7 @@ function renderPurchaseHist() {
   document.getElementById('purchaseHistBody').innerHTML = PURCHASE_REQS.length
     ? PURCHASE_REQS.map(r=>`<tr>
         <td class="tm">${r.id}</td>
-        <td>${r.request_date||''}</td>
+        <td>${r.request_date||(r.created_at?r.created_at.split('T')[0]:'')||''}</td>
         <td class="tb2">${r.manager||''}</td>
         <td class="tm">${(PURCHASE_ITEMS.filter(i=>i.request_id===r.id).length)||'-'}</td>
         <td>${statusLabel[r.status]||r.status}</td>
@@ -3107,6 +3136,35 @@ function updateOrderBadge() {
   const n = PURCHASE_REQS.filter(r=>r.status==='pending').length;
   const b = document.getElementById('orderBadge');
   if(b){b.textContent=n; b.style.display=n?'inline-block':'none';}
+}
+
+// ─── 주문이력서 렌더 ───
+function renderOrderHist() {
+  const filter = document.getElementById('orderHistFilter')?.value || '';
+  const statusLabel = {
+    pending:'<span class="badge b-pend">검토중</span>',
+    approved:'<span class="badge b-ship">승인완료</span>',
+    rejected:'<span class="badge b-rejt">반려</span>'
+  };
+  const rows = PURCHASE_REQS.filter(r => !filter || r.status === filter);
+  document.getElementById('orderHistBody').innerHTML = rows.length
+    ? rows.map(r => {
+        const items = PURCHASE_ITEMS.filter(i => i.request_id === r.id);
+        const dateStr = r.request_date || (r.created_at ? r.created_at.split('T')[0] : '-');
+        const itemsStr = items.map(i => `${i.asset_name}×${i.order_qty||i.req_qty}`).join(', ') || '-';
+        const totalQty = items.reduce((s,i)=>s+(i.order_qty||i.req_qty||0),0);
+        return `<tr>
+          <td class="tm">${r.id}</td>
+          <td>${dateStr}</td>
+          <td class="tb2">${r.manager||'-'}</td>
+          <td class="tm">${items.length||'-'}</td>
+          <td style="font-size:11px;color:var(--tx2);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${itemsStr.replace(/"/g,'&quot;')}">${itemsStr}</td>
+          <td class="tm">${totalQty||'-'}</td>
+          <td>${statusLabel[r.status]||r.status}</td>
+          <td style="font-size:12px;color:var(--tx3)">${r.note||'-'}</td>
+        </tr>`;
+      }).join('')
+    : '<tr><td colspan="8" style="text-align:center;color:var(--tx3);padding:24px">주문이력이 없습니다</td></tr>';
 }
 
 // ─── loadFromDB 에 주문 데이터 로드 추가 (별도 함수) ───
