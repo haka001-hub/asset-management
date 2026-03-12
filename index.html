@@ -1063,6 +1063,12 @@ async function loadFromDB() {
       PICKUPS.length = 0;
       pkRes.data.forEach(r => PICKUPS.push({id:r.id,date:r.date,manager:r.manager||'',team:r.team||'',store:r.store,route:r.route||'',address:r.address||'',asset:r.asset,code:r.code,qty:r.qty,brokenQty:r.broken_qty||0,normalQty:r.qty-(r.broken_qty||0),reason:r.reason||'',note:r.note||'',status:r.status,confDate:r.confirmed_at||'',confMgr:r.confirmed_mgr||'',confMemo:''}));
     }
+    // load store_history
+    const histRes = await db.from('store_history').select('*').order('created_at', {ascending: false}).limit(1000);
+    if (histRes.data) {
+      SA_HIST.length = 0;
+      histRes.data.forEach(r => SA_HIST.push({date:r.created_at ? new Date(r.created_at).toLocaleString('ko-KR') : r.date_str||'', store:r.store_name, col:r.asset_name||'', before:r.before_val, after:r.after_val, type:r.type||'', memo:r.memo||''}));
+    }
   } catch(e) {
     console.error('DB load error:', e);
     notify('데이터 로드 실패 — 로컬 데이터로 실행됩니다', 'error');
@@ -1388,7 +1394,7 @@ function confirmRepair(){
   const inv=INV.find(i=>i.code===repairCode);
   if(inv) inv.total+=actual;
   // 이력 기록
-  SA_HIST.push({
+  histPush({
     date:new Date().toLocaleString('ko-KR'),
     store:'물류창고', col:l.name,
     before:`고장${l.broken+actual}`, after:`고장${l.broken}`,
@@ -1663,7 +1669,7 @@ function saveSDSection(tab){
       if(!el) return;
       const val = el.value||'';
       if((d[f.col]||'') !== val){
-        SA_HIST.push({date:new Date().toLocaleString('ko-KR'),store:saDetailStore,col:f.col,before:d[f.col]||'',after:val,type:'수동수정',memo:'매장정보 수정'});
+        histPush({date:new Date().toLocaleString('ko-KR'),store:saDetailStore,col:f.col,before:d[f.col]||'',after:val,type:'수동수정',memo:'매장정보 수정'});
         d[f.col] = val;
       }
     });
@@ -1672,7 +1678,7 @@ function saveSDSection(tab){
     if(scEl){
       const newCode = scEl.value.trim();
       if(newCode && newCode !== (d['매장코드']||'')){
-        SA_HIST.push({date:new Date().toLocaleString('ko-KR'),store:saDetailStore,col:'매장코드',before:d['매장코드']||'',after:newCode,type:'수동수정',memo:'매장코드 수정'});
+        histPush({date:new Date().toLocaleString('ko-KR'),store:saDetailStore,col:'매장코드',before:d['매장코드']||'',after:newCode,type:'수동수정',memo:'매장코드 수정'});
         d['매장코드'] = newCode;
         // ADDR 동기화
         const addrEntry = ADDR.find(a=>a.name===saDetailStore);
@@ -1691,7 +1697,7 @@ function saveSDSection(tab){
       const before = d[col];
       const val = inp.value==='' ? null : parseInt(inp.value);
       if(before !== val){
-        SA_HIST.push({date:new Date().toLocaleString('ko-KR'),store:saDetailStore,col,before,after:val,type:'수동수정',memo:'직접수정'});
+        histPush({date:new Date().toLocaleString('ko-KR'),store:saDetailStore,col,before,after:val,type:'수동수정',memo:'직접수정'});
         d[col] = val;
       }
     });
@@ -1754,7 +1760,7 @@ function saveNewStore(){
   if(!ADDR.find(a=>a.name===name)){
     ADDR.push({code:storeCode, name:name, route:'직영', address:region});
   }
-  SA_HIST.push({date:new Date().toLocaleString('ko-KR'),store:name,col:'(전체)',before:null,after:null,type:'매장등록',memo:'신규 매장 등록'});
+  histPush({date:new Date().toLocaleString('ko-KR'),store:name,col:'(전체)',before:null,after:null,type:'매장등록',memo:'신규 매장 등록'});
   closeMo('moSAAddStore');
   notify(`"${name}" 매장 등록 완료`, 'success');
   renderSA();
@@ -1774,7 +1780,7 @@ function applyStoreAssetDelta(storeName, assetName, delta, memo){
   const after = Math.max(0, (before||0) + delta);
   d[col] = after;
   db.from('store_assets').upsert({store_name:storeName, asset_name:col, qty:after},{onConflict:'store_name,asset_name'}).then(()=>{});
-  SA_HIST.push({
+  histPush({
     date: new Date().toLocaleString('ko-KR'),
     store: storeName, col,
     before, after,
@@ -1785,6 +1791,19 @@ function applyStoreAssetDelta(storeName, assetName, delta, memo){
 
 
 
+
+function histPush(entry) {
+  SA_HIST.push(entry);
+  db.from('store_history').insert({
+    store_name: entry.store,
+    asset_name: entry.col||null,
+    before_val: entry.before!==undefined ? String(entry.before) : null,
+    after_val:  entry.after!==undefined  ? String(entry.after)  : null,
+    type:       entry.type||null,
+    memo:       entry.memo||null,
+    date_str:   entry.date||null
+  }).then(()=>{});
+}
 // ═══ BADGE ═══
 function updateBadge(){
   const n=REQS.filter(r=>r.status==='pending').length;
