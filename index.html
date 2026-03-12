@@ -1034,7 +1034,7 @@ async function loadFromDB() {
   showLoading();
   try {
     const [invRes, storeRes, saRes, reqRes, pkRes] = await Promise.all([
-      db.from('inventory').select('*').order('code'),
+      db.from('inventory').select('*').order('id'),
       db.from('stores').select('*').order('name'),
       db.from('store_assets').select('*'),
       db.from('requests').select('*').order('created_at', {ascending: false}),
@@ -1152,18 +1152,10 @@ function syncLogiFromInv(){
 }
 
 // 출고 기록 (자산 신청 데이터)
-let REQS = [
-  {id:'REQ-2025-001',date:'2025-03-01',manager:'김지수',team:'경영지원(본사)',asset:'마우스',code:'AST-001',qty:2,store:'강남역직영점',route:'C3',address:'서울특별시 서초구 강남대로65길 12, 101호',note:'',status:'shipped',outDate:'2025-03-03',outMgr:'박태준',outMemo:''},
-  {id:'REQ-2025-002',date:'2025-03-05',manager:'이민재',team:'물류팀',asset:'박스 테이프',code:'AST-011',qty:3,store:'동래역직영점',route:'A2',address:'부산광역시 동래구 명륜동 542-7',note:'',status:'shipped',outDate:'2025-03-07',outMgr:'박태준',outMemo:''},
-  {id:'REQ-2025-003',date:'2025-03-08',manager:'최수빈',team:'재무팀',asset:'물티슈',code:'AST-041',qty:10,store:'인천청라직영점',route:'A4',address:'인천광역시 서구 청라커낼로 252',note:'',status:'approved',outDate:'',outMgr:'',outMemo:''},
-  {id:'REQ-2025-004',date:'2025-03-10',manager:'정우성',team:'경영지원(본사)',asset:'사탕',code:'AST-040',qty:5,store:'수원광교신도시직영점',route:'B4',address:'경기도 수원시 영통구 이의동 1325-6',note:'긴급',status:'pending',outDate:'',outMgr:'',outMemo:''},
-  {id:'REQ-2025-005',date:'2025-03-10',manager:'한예슬',team:'물류팀',asset:'볼펜(1박스 24)',code:'AST-025',qty:4,store:'성남분당정자역직영점',route:'B4',address:'경기도 성남시 분당구 정자동 15-7',note:'',status:'pending',outDate:'',outMgr:'',outMemo:''},
-];
+let REQS = [];
 
 // 직영점 출고 누적 로그 {store, code, name, qty, date, route, manager}
-let STORE_OUT_LOG = REQS.filter(r=>r.status==='shipped').map(r=>
-  ({store:r.store,code:r.code,name:r.asset,qty:r.qty,date:r.outDate,route:r.route,manager:r.outMgr,memo:r.outMemo})
-);
+let STORE_OUT_LOG = [];
 
 let reqFilter='all', logiFilter='all', curOutId=null;
 let pkFilter='all', curPkId=null;
