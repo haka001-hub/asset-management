@@ -2976,7 +2976,8 @@ async function submitPurchaseRequest() {
   if(!items[0].manager){notify('담당자를 입력해주세요','error');return;}
   if(!items[0].date){notify('구매요청일을 입력해주세요','error');return;}
 
-  const rid = 'PO-' + new Date().getFullYear() + '-' + String(PURCHASE_REQS.length+1).padStart(3,'0');
+  const maxNum = PURCHASE_REQS.reduce((mx,r)=>{const m=r.id&&r.id.match(/(\d+)$/);return m?Math.max(mx,parseInt(m[1])):mx;},0);
+  const rid = 'PO-' + new Date().getFullYear() + '-' + String(maxNum+1).padStart(3,'0');
   const reqData = {id:rid, request_date:items[0].date, manager:items[0].manager, status:'pending', note:''};
   const {error:e1} = await db.from('purchase_requests').insert(reqData);
   if(e1){notify('제출 실패: '+e1.message,'error');return;}
@@ -3178,7 +3179,7 @@ async function loadPurchaseData() {
 }
 
 // ═══ INIT ═══
-(async()=>{ await loadFromDB(); STORE_OUT_LOG=REQS.filter(r=>r.status==='shipped').map(r=>({store:r.store,code:r.code,name:r.asset,qty:r.qty,date:r.outDate,route:r.route,manager:r.outMgr,memo:r.outMemo})); renderDash(); updateBadge(); await loadPurchaseData(); renderOrderMgmt(); updateOrderBadge(); })();
+(async()=>{ await loadFromDB(); STORE_OUT_LOG=REQS.filter(r=>r.status==='shipped').map(r=>({store:r.store,code:r.code,name:r.asset,qty:r.qty,date:r.outDate,route:r.route,manager:r.outMgr,memo:r.outMemo})); renderDash(); updateBadge(); await loadPurchaseData(); renderOrderMgmt(); renderPurchaseHist(); renderOrderHist(); updateOrderBadge(); })();
 </script>
 </body>
 </html>
