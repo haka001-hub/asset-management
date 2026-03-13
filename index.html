@@ -2542,7 +2542,7 @@ function onPkBrokenQtyChange(){
   }
 }
 
-function submitPickup(){
+async function submitPickup(){
   const date=document.getElementById('pkDate').value;
   const manager=document.getElementById('pkMgr').value.trim();
   const team=document.getElementById('pkTeam').value;
@@ -2566,9 +2566,15 @@ function submitPickup(){
     normalQty=Math.max(0,qty-brokenQty);
     if(brokenQty<0||brokenQty>qty){notify('고장 수량이 총 수량을 초과합니다','error');return}
   }
-  const id='PKU-'+new Date().getFullYear()+'-'+String(PICKUPS.length+1).padStart(3,'0');
+  // DB 최신 ID 조회 후 +1 채번 (중복 방지)
+  const yr=new Date().getFullYear();
+  const {data:lastRows}=await db.from('pickups').select('id').like('id',`PKU-${yr}-%`).order('id',{ascending:false}).limit(1);
+  let nextNum=1;
+  if(lastRows&&lastRows.length>0){const m=lastRows[0].id.match(/(\d+)$/);if(m)nextNum=parseInt(m[1])+1;}
+  const id='PKU-'+yr+'-'+String(nextNum).padStart(3,'0');
+  const {data:inserted,error:insErr}=await db.from('pickups').insert({id,date,manager,team,reason,asset,code,qty,broken_qty:brokenQty,store,route,ship_type:shipType,address,note,status:'pending'}).select();
+  if(insErr){notify('수거 신청 저장 실패: '+insErr.message,'error');return}
   PICKUPS.push({id,date,manager,team,reason,asset,code,qty,brokenQty,normalQty,store,route,shipType,address,note,status:'pending',confDate:'',confMgr:'',confMemo:''});
-  db.from('pickups').insert({id,date,manager,team,reason,asset,code,qty,broken_qty:brokenQty,store,route,ship_type:shipType,address,note,status:'pending'}).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   closeMo('moPk');
   notify(`수거 신청 완료! (${id}) · 사유: ${reason}`);
   updateBadge();renderPickup();
@@ -2608,7 +2614,7 @@ function openPkConfirmModal(pkId){
   openMo('moPkConfirm');
 }
 
-function confirmPickup(){
+async function confirmPickup(){
   const p=PICKUPS.find(x=>x.id===curPkId);if(!p)return;
   const confDate=document.getElementById('pkConfDate').value;
   const confMgr=document.getElementById('pkConfMgr').value.trim();
@@ -2631,7 +2637,8 @@ function confirmPickup(){
   applyStoreAssetDelta(p.store, p.asset, -p.qty, `수거 확인 / ${confMgr}`);
   // 상태 변경
   p.status='confirmed';p.confDate=confDate;p.confMgr=confMgr;p.confMemo=confMemo;
-  db.from('pickups').update({status:'confirmed',confirmed_at:confDate,confirmed_mgr:confMgr}).eq('id',curPkId).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
+  const {error:updErr}=await db.from('pickups').update({status:'confirmed',confirmed_at:confDate,confirmed_mgr:confMgr}).eq('id',curPkId);
+  if(updErr){notify('수거 확인 저장 실패: '+updErr.message,'error');return}
   const _liPk=LOGI.find(l=>l.code===p.code); if(_liPk) db.from('inventory').update({qty:_liPk.qty,broken_qty:_liPk.broken||0}).eq('code',p.code).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   closeMo('moPkConfirm');
   notify(`수거 확인 완료 ✓  물류재고 +${p.qty}개 증가`,'success');
