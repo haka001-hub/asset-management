@@ -2842,24 +2842,52 @@ function clearBulkPreview(){
   document.getElementById('bulkPreviewWrap').style.display='none';
 }
 
-function confirmBulkShip(){
+async function confirmBulkShip(){
   const valid=BULK_ROWS.filter(r=>r.status!=='error');
   if(!valid.length){notify('처리할 유효한 행이 없습니다','error');return;}
   const now=new Date().toLocaleString('ko-KR');
+  const todayStr=new Date().toISOString().slice(0,10);
+  const yr=new Date().getFullYear();
+
+  // DB에서 최신 REQ ID 조회해서 채번 시작점 결정
+  const {data:lastReqRows}=await db.from('requests').select('id').like('id',`REQ-${yr}-%`).order('id',{ascending:false}).limit(1);
+  let nextNum=1;
+  if(lastReqRows&&lastReqRows.length>0){const m=lastReqRows[0].id.match(/(\d+)$/);if(m)nextNum=parseInt(m[1])+1;}
+
   let shipped=0,skipped=0;
-  valid.forEach(r=>{
+  for(const r of valid){
     const li=LOGI.find(l=>l.code===r.assetCode);
     const inv=INV.find(i=>i.code===r.assetCode);
-    if(!li||!inv){skipped++;return;}
+    if(!li||!inv){skipped++;continue;}
+
+    const reqId=`REQ-${yr}-${String(nextNum).padStart(3,'0')}`;nextNum++;
+    const storeInfo=getAllStores().find(s=>s.code===r.storeCode)||{};
+    const route=storeInfo.route||'';
+    const address=storeInfo.address||'';
+
+    // 재고 차감
     li.qty-=r.qty; inv.out+=r.qty;
+    await db.from('inventory').update({qty:li.qty}).eq('code',r.assetCode);
+
+    // requests 테이블에 shipped 상태로 저장
+    const reqObj={id:reqId,date:todayStr,manager:'물류팀',team:'물류팀',asset:r.assetName,
+      code:r.assetCode,qty:r.qty,store:r.storeName,route,ship_type:'직납',address,note:'일괄자산신청',
+      status:'shipped',out_date:r.dateVal,out_mgr:'물류팀',out_memo:'일괄출고',arr_date:''};
+    await db.from('requests').insert(reqObj);
+    REQS.push({id:reqId,date:todayStr,manager:'물류팀',team:'물류팀',asset:r.assetName,
+      code:r.assetCode,qty:r.qty,store:r.storeName,route,shipType:'직납',address,note:'일괄자산신청',
+      status:'shipped',outDate:r.dateVal,outMgr:'물류팀',outMemo:'일괄출고',arrDate:''});
+
     applyStoreAssetDelta(r.storeName,r.assetName,r.qty,`일괄출고 / ${r.dateVal}`);
+    histPush({date:now,store:r.storeName,col:r.assetName,before:li.qty+r.qty,after:li.qty,type:'일괄출고',memo:`일괄자산신청 (${reqId})`});
     BULK_HIST.unshift({processedAt:now,dateVal:r.dateVal,storeCode:r.storeCode,
       storeName:r.storeName,assetCode:r.assetCode,assetName:r.assetName,qty:r.qty,mgr:'물류팀'});
     shipped++;
-  });
+  }
+  STORE_OUT_LOG=REQS.filter(r=>r.status==='shipped').map(r=>({store:r.store,code:r.code,name:r.asset,qty:r.qty,date:r.outDate,route:r.route,manager:r.outMgr,memo:r.outMemo}));
   clearBulkPreview();
   notify(`일괄 출고 완료 — ${shipped}건 처리, ${skipped}건 스킵`,'success');
-  renderBulkHist();renderLogi();renderInv();renderDash();
+  renderBulkHist();renderLogi();renderInv();renderDash();renderOut();renderHist();renderReqs();
 }
 
 function renderBulkHist(){
