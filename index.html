@@ -3244,11 +3244,13 @@ async function markOrdered(reqId) {
 
 // ─── 일괄 주문완료 ───
 async function bulkMarkItemOrdered(reqId) {
-  const reqItems = PURCHASE_ITEMS.filter(i=>i.request_id===reqId&&!i.status);
+  const reqItems = PURCHASE_ITEMS.filter(i=>i.request_id===reqId&&!i.status&&!((i.received_qty||0)>=(i.order_qty||i.req_qty)));
   if(!reqItems.length){notify('주문할 품목이 없습니다','error');return;}
   for(const item of reqItems){
-    await db.from('purchase_items').update({status:'ordered'}).eq('id',item.id);
-    item.status='ordered';
+    const oq=parseInt(item.order_qty||0), rq=parseInt(item.req_qty||0);
+    const st = oq!==rq ? 'modified_ordered' : 'ordered';
+    await db.from('purchase_items').update({status:st}).eq('id',item.id);
+    item.status=st;
   }
   await db.from('purchase_requests').update({status:'ordered'}).eq('id',reqId);
   const req=PURCHASE_REQS.find(r=>r.id===reqId);
@@ -3260,14 +3262,23 @@ async function bulkMarkItemOrdered(reqId) {
 // ─── 품목별 주문완료 ───
 async function markItemOrdered(itemId, reqId) {
   const item = PURCHASE_ITEMS.find(i=>i.id===itemId);
-  // 구매수량이 요청수량과 다르면 modified_ordered (주문변동)
-  const newStatus = (item && parseInt(item.order_qty||0) !== parseInt(item.req_qty||0)) ? 'modified_ordered' : 'ordered';
+  // 인라인 편집 중인 input이 있으면 그 값을 먼저 반영
+  const liveInput = document.getElementById('oqtyinput-'+itemId);
+  if(liveInput && item) {
+    const inputQty = parseInt(liveInput.value)||0;
+    item.order_qty = inputQty;
+    await db.from('purchase_items').update({order_qty:inputQty}).eq('id',itemId);
+  }
+  // 구매수량이 요청수량과 다르면 modified_ordered
+  const orderQty = parseInt(item?.order_qty||0);
+  const reqQty   = parseInt(item?.req_qty||0);
+  const newStatus = (item && orderQty !== reqQty) ? 'modified_ordered' : 'ordered';
   const {error} = await db.from('purchase_items').update({status:newStatus}).eq('id',itemId);
   if(error){notify('주문완료 저장 실패: '+error.message,'error');return;}
   if(item) item.status=newStatus;
   // 해당 요청의 모든 품목이 주문완료이면 요청도 ordered로 전환
   const reqItems = PURCHASE_ITEMS.filter(i=>i.request_id===reqId);
-  const allOrdered = reqItems.every(i=>i.status==='ordered'||i.status==='partial'||i.status==='received');
+  const allOrdered = reqItems.every(i=>i.status==='ordered'||i.status==='modified_ordered'||i.status==='partial'||i.status==='received');
   if(allOrdered){
     await db.from('purchase_requests').update({status:'ordered'}).eq('id',reqId);
     const req = PURCHASE_REQS.find(r=>r.id===reqId);
