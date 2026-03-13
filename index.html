@@ -181,7 +181,6 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
     <div class="nav-sec">주문 관리</div>
     <button class="ni" onclick="showPage('purchase-req',this)"><span class="ic">📋</span>구매요청서</button>
     <button class="ni" id="navOrderMgmt" onclick="showPage('order-mgmt',this)"><span class="ic">📦</span>비품주문표<span class="nbadge" id="orderBadge"></span></button>
-    <button class="ni" onclick="showPage('order-hist',this)"><span class="ic">📑</span>주문이력서</button>
   </div>
   <div style="padding:12px 16px;border-top:1px solid var(--bd)">
     <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="라이트/다크 모드 전환" style="width:100%;display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:12px;color:var(--tx2);border-radius:6px;border:1px solid var(--bd);background:transparent;cursor:pointer">
@@ -655,32 +654,6 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
     </div>
   </div>
 
-  <!-- ── ORDER HIST (주문이력서) ── -->
-  <div id="page-order-hist" class="hidden">
-    <div class="content">
-      <!-- 필터 바 -->
-      <div class="tw" style="margin-bottom:14px">
-        <div style="display:grid;grid-template-columns:1fr 150px 150px 130px auto;gap:10px;align-items:center;padding:14px 18px">
-          <input type="text" class="fi" id="ohSearch" placeholder="요청번호 · 담당자 · 품목명 검색..." oninput="renderOrderHist()" style="font-size:13px">
-          <input type="date" class="fi" id="ohDateFrom" oninput="renderOrderHist()" title="시작일">
-          <input type="date" class="fi" id="ohDateTo" oninput="renderOrderHist()" title="종료일">
-          <select class="fsel" id="orderHistFilter" onchange="renderOrderHist()" style="font-size:13px">
-            <option value="">전체</option>
-            <option value="completed">완료</option>
-          </select>
-          <button class="btn btn-gst btn-sm" onclick="document.getElementById('ohSearch').value='';document.getElementById('ohDateFrom').value='';document.getElementById('ohDateTo').value='';document.getElementById('orderHistFilter').value='';renderOrderHist()">초기화</button>
-        </div>
-      </div>
-      <div class="tw">
-        <table>
-          <thead><tr>
-            <th>요청번호</th><th>요청일</th><th>담당자</th><th>품목수</th><th>품목 내역</th><th>총수량</th><th>상태</th><th>비고</th>
-          </tr></thead>
-          <tbody id="orderHistBody"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
 
   </div>
 </main>
@@ -1326,7 +1299,6 @@ const META={
   bulkorder:['일괄 자산 신청','엑셀 양식으로 여러 매장·품목 한번에 출고 처리'],
   'purchase-req':['구매요청서','물류팀 → 구매요청 등록'],
   'order-mgmt':['비품주문표','주문관리팀 승인 · 물류팀 입고확인'],
-  'order-hist':['주문이력서','전체 구매주문 이력 조회'],
 };
 function showPage(id,btn){
   document.querySelectorAll('[id^="page-"]').forEach(e=>e.classList.add('hidden'));
@@ -1337,7 +1309,7 @@ function showPage(id,btn){
   const[t,s]=META[id]||['',''];
   document.getElementById('pgTitle').textContent=t;
   document.getElementById('pgSub').textContent=s;
-  ({dashboard:renderDash,inventory:renderInv,request:renderReqs,outgoing:renderOut,history:renderHist,logistics:renderLogi,storeout:renderStoreOut,storeasset:renderSA,pickup:renderPickup,pickupmgmt:renderPickupMgmt,pickuphist:renderPickupHist,bulkorder:renderBulkHist,'purchase-req':renderPurchaseHist,'order-mgmt':renderOrderMgmt,'order-hist':renderOrderHist})[id]?.();
+  ({dashboard:renderDash,inventory:renderInv,request:renderReqs,outgoing:renderOut,history:renderHist,logistics:renderLogi,storeout:renderStoreOut,storeasset:renderSA,pickup:renderPickup,pickupmgmt:renderPickupMgmt,pickuphist:renderPickupHist,bulkorder:renderBulkHist,'purchase-req':renderPurchaseHist,'order-mgmt':renderOrderMgmt})[id]?.();
   updateBadge();
 }
 
@@ -3076,7 +3048,7 @@ async function submitPurchaseRequest() {
   notify(`구매요청 완료! (${rid})`,'success');
   renderPurchaseHist();
   renderOrderMgmt();
-  renderOrderHist();
+  
   updateOrderBadge();
 }
 
@@ -3124,8 +3096,8 @@ function renderOrderMgmt() {
     return;
   }
 
-  // 비품주문표: 완료(completed)·반려(rejected) 제외하고 표시
-  reqs = reqs.filter(req => req.status !== 'completed' && req.status !== 'rejected');
+  // 반려 제외, 완료 포함해서 전체 표시
+  reqs = reqs.filter(req => req.status !== 'rejected');
   if(!reqs.length){
     container.innerHTML='<div style="text-align:center;color:var(--tx3);padding:48px;font-size:14px">조건에 맞는 구매요청이 없습니다</div>';
     return;
@@ -3133,22 +3105,32 @@ function renderOrderMgmt() {
 
   container.innerHTML = reqs.map(req => {
     const items = PURCHASE_ITEMS.filter(i=>i.request_id===req.id);
-    const statusColor = {pending:'var(--ac2)',ordered:'var(--pu)'};
-    const statusLabel = {pending:'처리중',approved:'처리중',ordered:'주문완료'};
-    const pendingItems = items.filter(i=>(i.received_qty||0)<(i.order_qty||i.req_qty));
+    const isCompleted = req.status==='completed';
+    const statusColor = {pending:'var(--ac2)',ordered:'var(--pu)',completed:'var(--gn)'};
+    const statusLabel = {pending:'처리중',approved:'처리중',ordered:'주문완료',completed:'완료'};
+    const pendingItems = !isCompleted ? items.filter(i=>(i.received_qty||0)<(i.order_qty||i.req_qty)) : [];
     const dateStr = req.request_date||(req.created_at?req.created_at.split('T')[0]:'');
-    return `<div class="tw" style="margin-bottom:18px">
-      <div class="th">
+    const summaryText = items.map(i=>`${i.asset_name} ×${i.order_qty||i.req_qty||0}`).join(' · ')||'품목 없음';
+    return `<div class="tw" style="margin-bottom:12px${isCompleted?';opacity:.8':''}">
+      <div class="th" style="${isCompleted?'background:var(--sf2)':''}">
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
           <span class="tt">${req.id}</span>
           <span style="font-size:12px;color:var(--tx3)">요청일: ${dateStr} · 담당자: ${req.manager||'-'}</span>
           <span class="badge" style="background:rgba(0,0,0,.1);border-color:${statusColor[req.status]||'var(--ac2)'};color:${statusColor[req.status]||'var(--ac2)'}">${statusLabel[req.status]||'처리중'}</span>
         </div>
         <div style="display:flex;gap:8px">
-          ${items.some(i=>i.status!=='ordered'&&i.status!=='modified'&&i.status!=='partial'&&i.status!=='received')?`<button class="btn btn-sm" style="background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.4);color:#a78bfa" onclick="bulkMarkItemOrdered('${req.id}')">🛒 일괄주문완료</button>`:''}
-          ${pendingItems.length?`<button class="btn btn-pri btn-sm" onclick="bulkConfirmReceiving('${req.id}')">📦 일괄입고확인 (${pendingItems.length}건)</button>`:''}
+          ${!isCompleted&&items.some(i=>i.status!=='ordered'&&i.status!=='modified'&&i.status!=='partial'&&i.status!=='received')?`<button class="btn btn-sm" style="background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.4);color:#a78bfa" onclick="bulkMarkItemOrdered('${req.id}')">🛒 일괄주문완료</button>`:''}
+          ${!isCompleted&&pendingItems.length?`<button class="btn btn-pri btn-sm" onclick="bulkConfirmReceiving('${req.id}')">📦 일괄입고확인 (${pendingItems.length}건)</button>`:''}
         </div>
       </div>
+      <!-- 요약 줄 (더블클릭으로 펼치기) -->
+      <div ondblclick="toggleOrderDetail('${req.id}')" style="cursor:pointer;padding:9px 18px;font-size:12px;color:var(--tx2);display:flex;align-items:center;gap:8px;user-select:none;border-top:1px solid var(--bd)">
+        <span id="order-arrow-${req.id}" style="color:var(--tx3);font-size:10px;flex-shrink:0">▶</span>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${summaryText}</span>
+        <span style="font-size:11px;color:var(--tx3);flex-shrink:0">더블클릭 상세보기</span>
+      </div>
+      <!-- 상세 테이블 (기본 숨김) -->
+      <div id="order-detail-${req.id}" style="display:none">
       <table><thead><tr>
         <th>자산코드</th><th>품목명</th><th>현재재고</th><th>요청수량</th><th>구매수량</th><th>비고</th>
         <th>주문</th><th>입고상태</th><th>입고확인</th>
@@ -3166,11 +3148,11 @@ function renderOrderMgmt() {
           <td class="tm" style="color:${(()=>{const li=LOGI.find(l=>l.code===item.asset_code);return li?(li.qty<=0?'var(--rd)':li.qty<=10?'var(--yw)':'var(--gn)'):'var(--tx3)';})()}">${(()=>{const li=LOGI.find(l=>l.code===item.asset_code);return li!==undefined?li.qty+'개':'-';})()}</td>
           <td class="tm">${item.req_qty}</td>
           <td id="oqty-${item.id}" data-qty="${item.order_qty||0}">
-            ${!item.status?`<input type="number" class="fi" value="${item.order_qty||0}" min="0" style="width:80px;padding:4px 8px;font-size:12px" onchange="updateOrderQty(${item.id},'${req.id}',this.value)">`
+            ${!item.status&&!isCompleted?`<input type="number" class="fi" value="${item.order_qty||0}" min="0" style="width:80px;padding:4px 8px;font-size:12px" onchange="updateOrderQty(${item.id},'${req.id}',this.value)">`
             :`<span class="tm">${item.order_qty}</span>`}
           </td>
           <td style="font-size:12px;color:var(--tx3)">${item.note||'-'}</td>
-          <td id="oitemstatus-${item.id}" style="white-space:nowrap">${itemStatusBadge} <button id="oeditbtn-${item.id}" class="btn btn-sm" style="font-size:11px;padding:4px 10px;margin-left:2px;background:rgba(249,115,22,.15);border-color:rgba(249,115,22,.4);color:var(--or)" onclick="openItemEdit(${item.id})">주문변동</button></td>
+          <td id="oitemstatus-${item.id}" style="white-space:nowrap">${itemStatusBadge}${!isCompleted?` <button id="oeditbtn-${item.id}" class="btn btn-sm" style="font-size:11px;padding:4px 10px;margin-left:2px;background:rgba(249,115,22,.15);border-color:rgba(249,115,22,.4);color:var(--or)" onclick="openItemEdit(${item.id})">주문변동</button>`:''}</td>
           <td>${allReceived
             ?'<span class="badge b-ship">입고완료</span>'
             :(item.received_qty||0)>0
@@ -3178,12 +3160,22 @@ function renderOrderMgmt() {
               :(item.status==='ordered'||item.status==='modified')
                 ?'<span class="badge b-fix" style="font-size:11px">주문완료</span>'
                 :'<span class="badge b-pend">대기중</span>'}</td>
-          <td>${!allReceived?`<button class="btn btn-suc btn-sm" style="font-size:11px" onclick="confirmReceiving(${item.id},'${item.asset_code}','${item.asset_name}',${(item.order_qty||item.req_qty)-(item.received_qty||0)},'${req.id}')">입고확인</button>`:'—'}</td>
+          <td>${!allReceived&&!isCompleted?`<button class="btn btn-suc btn-sm" style="font-size:11px" onclick="confirmReceiving(${item.id},'${item.asset_code}','${item.asset_name}',${(item.order_qty||item.req_qty)-(item.received_qty||0)},'${req.id}')">입고확인</button>`:'—'}</td>
         </tr>`;
       }).join('')}
       </tbody></table>
+      </div>
     </div>`;
   }).join('');
+}
+
+function toggleOrderDetail(reqId) {
+  const el = document.getElementById('order-detail-'+reqId);
+  const arrow = document.getElementById('order-arrow-'+reqId);
+  if(!el) return;
+  const isHidden = el.style.display==='none'||el.style.display==='';
+  el.style.display = isHidden?'block':'none';
+  if(arrow) arrow.textContent = isHidden?'▼':'▶';
 }
 
 // ─── 주문변동 (인라인 수량 편집 토글) ───
@@ -3371,7 +3363,7 @@ async function checkAndCompleteRequest(reqId) {
   const req = PURCHASE_REQS.find(r=>r.id===reqId);
   if(req) req.status='completed';
   notify(`✅ ${reqId} 주문이력서로 이동 완료`,'success');
-  renderOrderMgmt(); renderPurchaseHist(); renderOrderHist(); updateOrderBadge();
+  renderOrderMgmt(); renderPurchaseHist(); updateOrderBadge();
 }
 
 // ─── 제품 상세 팝업 ───
@@ -3390,47 +3382,6 @@ function updateOrderBadge() {
   if(b){b.textContent=n; b.style.display=n?'inline-block':'none';}
 }
 
-// ─── 주문이력서 렌더 ───
-function renderOrderHist() {
-  const search   = (document.getElementById('ohSearch')?.value||'').toLowerCase();
-  const dateFrom = document.getElementById('ohDateFrom')?.value||'';
-  const dateTo   = document.getElementById('ohDateTo')?.value||'';
-  const filter   = document.getElementById('orderHistFilter')?.value||'';
-  const statusLabel = {
-    completed:'<span class="badge b-ship">주문완료</span>'
-  };
-  const rows = PURCHASE_REQS.filter(r => {
-    if(r.status !== 'completed') return false;
-    if(filter && r.status !== filter) return false;
-    const d = r.request_date||(r.created_at?r.created_at.split('T')[0]:'');
-    if(dateFrom && d < dateFrom) return false;
-    if(dateTo   && d > dateTo)   return false;
-    if(search) {
-      const items = PURCHASE_ITEMS.filter(i=>i.request_id===r.id);
-      const haystack = [r.id, r.manager||'', ...items.map(i=>i.asset_name||'')].join(' ').toLowerCase();
-      if(!haystack.includes(search)) return false;
-    }
-    return true;
-  });
-  document.getElementById('orderHistBody').innerHTML = rows.length
-    ? rows.map(r => {
-        const items = PURCHASE_ITEMS.filter(i => i.request_id === r.id);
-        const dateStr = r.request_date || (r.created_at ? r.created_at.split('T')[0] : '-');
-        const itemsStr = items.map(i => `${i.asset_name}×${i.order_qty||i.req_qty}`).join(', ') || '-';
-        const totalQty = items.reduce((s,i)=>s+(i.order_qty||i.req_qty||0),0);
-        return `<tr>
-          <td class="tm">${r.id}</td>
-          <td>${dateStr}</td>
-          <td class="tb2">${r.manager||'-'}</td>
-          <td class="tm">${items.length||'-'}</td>
-          <td style="font-size:11px;color:var(--tx2);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${itemsStr.replace(/"/g,'&quot;')}">${itemsStr}</td>
-          <td class="tm">${totalQty||'-'}</td>
-          <td>${statusLabel[r.status]||r.status}</td>
-          <td style="font-size:12px;color:var(--tx3)">${r.note||'-'}</td>
-        </tr>`;
-      }).join('')
-    : '<tr><td colspan="8" style="text-align:center;color:var(--tx3);padding:24px">주문이력이 없습니다</td></tr>';
-}
 
 // 테마 초기화
 if(localStorage.getItem('ams-theme')==='light'){
@@ -3444,7 +3395,7 @@ if(localStorage.getItem('ams-theme')==='light'){
   await loadFromDB();
   STORE_OUT_LOG = REQS.filter(r=>r.status==='shipped').map(r=>({store:r.store,code:r.code,name:r.asset,qty:r.qty,date:r.outDate,route:r.route,manager:r.outMgr,memo:r.outMemo}));
   renderDash(); updateBadge();
-  renderOrderMgmt(); renderPurchaseHist(); renderOrderHist(); updateOrderBadge();
+  renderOrderMgmt(); renderPurchaseHist(); updateOrderBadge();
 })();
 </script>
 </body>
