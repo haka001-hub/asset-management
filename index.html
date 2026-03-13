@@ -2792,7 +2792,7 @@ function parseBulkCSV(text){
     else if(!assetCode||!invItem){status='warn';statusMsg='자산코드 없음';}
     else if(qtyRaw<=0){status='error';statusMsg='수량 오류';}
     else if(stock<qtyRaw){status='warn';statusMsg=`재고 부족 (${stock}개)`;}
-    return{rowNum:i+1,dateVal,storeCode,storeName,assetCode,assetName,qty:qtyRaw,stock,status,statusMsg};
+    return{rowNum:i+1,dateVal,storeCode,storeName,route:storeInfo?.route||'',address:storeInfo?.address||'',assetCode,assetName,qty:qtyRaw,stock,status,statusMsg};
   });
   renderBulkPreview();
 }
@@ -2849,33 +2849,36 @@ async function confirmBulkShip(){
   const todayStr=new Date().toISOString().slice(0,10);
   const yr=new Date().getFullYear();
 
-  // DB에서 최신 REQ ID 조회해서 채번 시작점 결정
+  // DB에서 최신 REQ ID 조회 후 채번
   const {data:lastReqRows}=await db.from('requests').select('id').like('id',`REQ-${yr}-%`).order('id',{ascending:false}).limit(1);
   let nextNum=1;
   if(lastReqRows&&lastReqRows.length>0){const m=lastReqRows[0].id.match(/(\d+)$/);if(m)nextNum=parseInt(m[1])+1;}
 
-  let shipped=0,skipped=0;
+  let shipped=0,skipped=0,errors=[];
   for(const r of valid){
     const li=LOGI.find(l=>l.code===r.assetCode);
     const inv=INV.find(i=>i.code===r.assetCode);
     if(!li||!inv){skipped++;continue;}
 
     const reqId=`REQ-${yr}-${String(nextNum).padStart(3,'0')}`;nextNum++;
-    const storeInfo=getAllStores().find(s=>s.code===r.storeCode)||{};
-    const route=storeInfo.route||'';
-    const address=storeInfo.address||'';
 
     // 재고 차감
     li.qty-=r.qty; inv.out+=r.qty;
     await db.from('inventory').update({qty:li.qty}).eq('code',r.assetCode);
 
     // requests 테이블에 shipped 상태로 저장
-    const reqObj={id:reqId,date:todayStr,manager:'물류팀',team:'물류팀',asset:r.assetName,
-      code:r.assetCode,qty:r.qty,store:r.storeName,route,ship_type:'직납',address,note:'일괄자산신청',
-      status:'shipped',out_date:r.dateVal,out_mgr:'물류팀',out_memo:'일괄출고',arr_date:''};
-    await db.from('requests').insert(reqObj);
+    const {error:insErr}=await db.from('requests').insert({
+      id:reqId, date:todayStr, manager:'물류팀', team:'물류팀',
+      asset:r.assetName, code:r.assetCode, qty:r.qty,
+      store:r.storeName, route:r.route||'', ship_type:'직납',
+      address:r.address||'', note:'일괄자산신청',
+      status:'shipped', out_date:r.dateVal, out_mgr:'물류팀', out_memo:'일괄출고'
+    });
+    if(insErr){errors.push(`${reqId}: ${insErr.message}`);skipped++;li.qty+=r.qty;inv.out-=r.qty;continue;}
+
     REQS.push({id:reqId,date:todayStr,manager:'물류팀',team:'물류팀',asset:r.assetName,
-      code:r.assetCode,qty:r.qty,store:r.storeName,route,shipType:'직납',address,note:'일괄자산신청',
+      code:r.assetCode,qty:r.qty,store:r.storeName,route:r.route||'',shipType:'직납',
+      address:r.address||'',note:'일괄자산신청',
       status:'shipped',outDate:r.dateVal,outMgr:'물류팀',outMemo:'일괄출고',arrDate:''});
 
     applyStoreAssetDelta(r.storeName,r.assetName,r.qty,`일괄출고 / ${r.dateVal}`);
@@ -2884,9 +2887,10 @@ async function confirmBulkShip(){
       storeName:r.storeName,assetCode:r.assetCode,assetName:r.assetName,qty:r.qty,mgr:'물류팀'});
     shipped++;
   }
+  if(errors.length) console.error('[일괄출고 오류]',errors);
   STORE_OUT_LOG=REQS.filter(r=>r.status==='shipped').map(r=>({store:r.store,code:r.code,name:r.asset,qty:r.qty,date:r.outDate,route:r.route,manager:r.outMgr,memo:r.outMemo}));
   clearBulkPreview();
-  notify(`일괄 출고 완료 — ${shipped}건 처리, ${skipped}건 스킵`,'success');
+  notify(`일괄 출고 완료 — ${shipped}건 처리${skipped?', '+skipped+'건 스킵':''}${errors.length?' / 오류 '+errors.length+'건 (콘솔 확인)':''}`, shipped?'success':'error');
   renderBulkHist();renderLogi();renderInv();renderDash();renderOut();renderHist();renderReqs();
 }
 
