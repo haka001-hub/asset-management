@@ -3145,29 +3145,29 @@ function renderOrderMgmt() {
       ${items.map(item=>{
         const allReceived = (item.received_qty||0)>=(item.order_qty||item.req_qty);
         const _orderedDone = item.status==='ordered'||item.status==='modified_ordered'||item.status==='partial'||item.status==='received';
+        const canEditQty = !_orderedDone && !isCompleted && !allReceived;
         const itemStatusBadge = _orderedDone
           ?'<span class="badge b-fix" style="font-size:10px">주문완료</span>'
-          :item.status==='modified'
-            ?`<span class="badge" style="font-size:10px;background:rgba(249,115,22,.15);border-color:rgba(249,115,22,.4);color:var(--or)">주문변동</span> <button class="btn btn-sm" style="background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.4);color:#a78bfa;font-size:11px;padding:4px 10px;margin-left:2px" onclick="markItemOrdered(${item.id},'${req.id}')">🛒 주문</button>`
-            :`<button class="btn btn-sm" style="background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.4);color:#a78bfa;font-size:11px;padding:4px 10px" onclick="markItemOrdered(${item.id},'${req.id}')">🛒 주문</button>`;
-        return `<tr ondblclick="showProductDetail('${item.asset_code}')" style="cursor:pointer" title="더블클릭 시 구매처 정보">
+          :`<button class="btn btn-sm" style="background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.4);color:#a78bfa;font-size:11px;padding:4px 10px" onclick="markItemOrdered(${item.id},'${req.id}')">🛒 주문</button>`;
+        return `<tr>
           <td class="tm">${item.asset_code||'-'}</td>
-          <td class="tb2">${item.asset_name}</td>
+          <td class="tb2" ondblclick="showProductDetail('${item.asset_code}')" style="cursor:pointer" title="더블클릭 시 구매처 정보">${item.asset_name}</td>
           <td class="tm" style="color:${(()=>{const li=LOGI.find(l=>l.code===item.asset_code);return li?(li.qty<=0?'var(--rd)':li.qty<=10?'var(--yw)':'var(--gn)'):'var(--tx3)';})()}">${(()=>{const li=LOGI.find(l=>l.code===item.asset_code);return li!==undefined?li.qty+'개':'-';})()}</td>
           <td class="tm">${item.req_qty}</td>
-          <td id="oqty-${item.id}" data-qty="${item.order_qty||0}">
-            ${!item.status&&!isCompleted?`<input type="number" class="fi" value="${item.order_qty||0}" min="0" style="width:80px;padding:4px 8px;font-size:12px" onchange="updateOrderQty(${item.id},'${req.id}',this.value)">`
-            :`<span class="tm">${item.order_qty}</span>`}
+          <td id="oqty-${item.id}" data-qty="${item.order_qty||0}" data-reqqty="${item.req_qty||0}">
+            ${canEditQty
+              ?`<span class="tm" ondblclick="editOrderQty(${item.id})" title="더블클릭으로 수량 수정" style="cursor:text;border-bottom:1px dashed var(--tx3);padding-bottom:1px">${item.order_qty||0}</span>`
+              :`<span class="tm">${item.order_qty||0}</span>`}
           </td>
           <td style="font-size:12px;color:var(--tx3)">${item.note||'-'}</td>
-          <td id="oitemstatus-${item.id}" style="white-space:nowrap">${itemStatusBadge}${!isCompleted&&!allReceived&&!item.status?` <button id="oeditbtn-${item.id}" class="btn btn-sm" style="font-size:11px;padding:4px 10px;margin-left:2px;background:rgba(249,115,22,.15);border-color:rgba(249,115,22,.4);color:var(--or)" onclick="openItemEdit(${item.id})">주문변동</button>`:''}</td>
+          <td id="oitemstatus-${item.id}" style="white-space:nowrap">${itemStatusBadge}</td>
           <td>${allReceived
             ?'<span class="badge b-ship">입고완료</span>'
             :(item.received_qty||0)>0
               ?`<span class="badge b-warn">부분입고 (${item.received_qty}/${item.order_qty})</span>`
               :item.status==='modified_ordered'
                 ?'<span class="badge b-fix" style="font-size:11px">주문(변동)완료</span>'
-                :(item.status==='ordered'||item.status==='modified')
+                :_orderedDone
                   ?'<span class="badge b-fix" style="font-size:11px">주문완료</span>'
                   :'<span class="badge b-pend">대기중</span>'}</td>
           <td>${!allReceived&&!isCompleted?`<button class="btn btn-suc btn-sm" style="font-size:11px" onclick="confirmReceiving(${item.id},'${item.asset_code}','${item.asset_name}',${(item.order_qty||item.req_qty)-(item.received_qty||0)},'${req.id}')">입고확인</button>`:'—'}</td>
@@ -3201,58 +3201,24 @@ function toggleOrderDetail(reqId) {
   if(isHidden) markOrderSeen(reqId);
 }
 
-// ─── 주문변동 (인라인 수량 편집 토글) ───
-function openItemEdit(itemId) {
-  const qtyCell = document.getElementById('oqty-'+itemId);
-  const editBtn = document.getElementById('oeditbtn-'+itemId);
-  if(!qtyCell||!editBtn) return;
-  if(editBtn.getAttribute('data-editing')==='1') {
-    // 두 번째 클릭 → 저장
-    saveItemOrderQty(itemId);
-    return;
-  }
-  // 첫 번째 클릭 → 편집 모드
-  const curQty = qtyCell.getAttribute('data-qty')||'0';
-  qtyCell.innerHTML = `<input type="number" id="oqtyinput-${itemId}" class="fi" value="${curQty}" min="0" style="width:80px;padding:4px 8px;font-size:12px">`;
-  editBtn.setAttribute('data-editing','1');
-  editBtn.style.background='rgba(245,158,11,.2)';
-  editBtn.style.borderColor='rgba(245,158,11,.5)';
-  editBtn.style.color='var(--yw)';
-  document.getElementById('oqtyinput-'+itemId)?.focus();
+// ─── 구매수량 더블클릭 인라인 편집 ───
+function editOrderQty(itemId) {
+  const cell = document.getElementById('oqty-'+itemId);
+  if(!cell) return;
+  const curQty = cell.getAttribute('data-qty')||'0';
+  cell.innerHTML = `<input type="number" id="oqtyinput-${itemId}" class="fi" value="${curQty}" min="0" style="width:70px;padding:4px 8px;font-size:12px" onblur="saveOrderQtyInline(${itemId})" onkeydown="if(event.key==='Enter')this.blur()">`;
+  document.getElementById('oqtyinput-'+itemId)?.select();
 }
-async function saveItemOrderQty(itemId) {
+async function saveOrderQtyInline(itemId) {
   const input = document.getElementById('oqtyinput-'+itemId);
   if(!input) return;
   const qty = parseInt(input.value)||0;
-  const item = PURCHASE_ITEMS.find(i=>i.id===itemId);
-  if(item){item.order_qty=qty; item.status='modified';}
-  const {error} = await db.from('purchase_items').update({order_qty:qty, status:'modified'}).eq('id',itemId);
-  if(error){notify('수정 실패: '+error.message,'error');return;}
-  // 구매수량 셀 복구
-  const qtyCell = document.getElementById('oqty-'+itemId);
-  if(qtyCell){qtyCell.innerHTML=`<span class="tm">${qty}</span>`;qtyCell.setAttribute('data-qty',String(qty));}
-  // 버튼 원래대로
-  const editBtn = document.getElementById('oeditbtn-'+itemId);
-  if(editBtn){
-    editBtn.removeAttribute('data-editing');
-    editBtn.style.background='rgba(139,92,246,.15)';
-    editBtn.style.borderColor='rgba(139,92,246,.4)';
-    editBtn.style.color='#a78bfa';
-  }
-  // 주문 상태 뱃지를 "주문변동"으로 교체
-  const statusCell = document.getElementById('oitemstatus-'+itemId);
-  if(statusCell){
-    const badge = statusCell.querySelector('.badge,button.btn-sm:first-child');
-    if(badge) badge.outerHTML='<span class="badge" style="font-size:10px;background:rgba(249,115,22,.15);border-color:rgba(249,115,22,.4);color:var(--or)">주문변동</span>';
-  }
-  notify('구매수량 수정됨 (주문변동 처리)','success');
-}
-
-// ─── 구매수량 수정 ───
-async function updateOrderQty(itemId, reqId, val) {
-  const qty = parseInt(val)||0;
+  const cell = document.getElementById('oqty-'+itemId);
+  const reqQty = parseInt(cell?.getAttribute('data-reqqty')||'0');
   const item = PURCHASE_ITEMS.find(i=>i.id===itemId);
   if(item) item.order_qty = qty;
+  cell?.setAttribute('data-qty', String(qty));
+  if(cell) cell.innerHTML = `<span class="tm" ondblclick="editOrderQty(${itemId})" title="더블클릭으로 수량 수정" style="cursor:text;border-bottom:1px dashed var(--tx3);padding-bottom:1px">${qty}</span>`;
   await db.from('purchase_items').update({order_qty:qty}).eq('id',itemId);
 }
 
@@ -3294,7 +3260,8 @@ async function bulkMarkItemOrdered(reqId) {
 // ─── 품목별 주문완료 ───
 async function markItemOrdered(itemId, reqId) {
   const item = PURCHASE_ITEMS.find(i=>i.id===itemId);
-  const newStatus = item?.status==='modified' ? 'modified_ordered' : 'ordered';
+  // 구매수량이 요청수량과 다르면 modified_ordered (주문변동)
+  const newStatus = (item && parseInt(item.order_qty||0) !== parseInt(item.req_qty||0)) ? 'modified_ordered' : 'ordered';
   const {error} = await db.from('purchase_items').update({status:newStatus}).eq('id',itemId);
   if(error){notify('주문완료 저장 실패: '+error.message,'error');return;}
   if(item) item.status=newStatus;
