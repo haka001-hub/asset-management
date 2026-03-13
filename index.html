@@ -10,6 +10,13 @@
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:var(--sans);background:var(--bg);color:var(--tx);min-height:100vh;overflow-x:hidden}
 body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(59,130,246,.04)1px,transparent 1px),linear-gradient(90deg,rgba(59,130,246,.04)1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+.theme-toggle{width:34px;height:34px;border-radius:8px;border:1px solid var(--bd);background:transparent;color:var(--tx2);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+.theme-toggle:hover{background:var(--sf2);color:var(--tx)}
+body.light{--bg:#f0f4f8;--sf:#ffffff;--sf2:#f8fafc;--sf3:#e2e8f0;--bd:#cbd5e1;--ac:#2563eb;--ac2:#1d4ed8;--gn:#059669;--yw:#d97706;--rd:#dc2626;--or:#ea580c;--pu:#7c3aed;--tx:#1e293b;--tx2:#475569;--tx3:#94a3b8}
+body.light .notif{box-shadow:0 8px 24px rgba(0,0,0,.12)}
+body.light tbody tr:hover{background:var(--sf3)}
+body.light .mo{background:rgba(0,0,0,.45)}
+body.light body::before{background-image:linear-gradient(rgba(37,99,235,.03)1px,transparent 1px),linear-gradient(90deg,rgba(37,99,235,.03)1px,transparent 1px)}
 .sidebar{position:fixed;left:0;top:0;bottom:0;width:220px;background:var(--sf);border-right:1px solid var(--bd);z-index:100;display:flex;flex-direction:column}
 .logo{padding:22px 20px 18px;border-bottom:1px solid var(--bd)}
 .logo-t{font-size:13px;font-weight:700;letter-spacing:.12em;color:var(--ac2);text-transform:uppercase}
@@ -175,6 +182,11 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
     <button class="ni" onclick="showPage('purchase-req',this)"><span class="ic">📋</span>구매요청서</button>
     <button class="ni" id="navOrderMgmt" onclick="showPage('order-mgmt',this)"><span class="ic">📦</span>비품주문표<span class="nbadge" id="orderBadge"></span></button>
     <button class="ni" onclick="showPage('order-hist',this)"><span class="ic">📑</span>주문이력서</button>
+  </div>
+  <div style="padding:12px 16px;border-top:1px solid var(--bd)">
+    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="라이트/다크 모드 전환" style="width:100%;display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:12px;color:var(--tx2);border-radius:6px;border:1px solid var(--bd);background:transparent;cursor:pointer">
+      <span id="themeIcon">☀️</span><span id="themeLabel">라이트 모드</span>
+    </button>
   </div>
 </nav>
 
@@ -349,6 +361,10 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
       <button class="lf p" onclick="setLF('fix',this)">고정출고</button>
       <button class="lf" onclick="setLF('ok',this)">정상</button>
       <button class="lf" style="color:#f87171;border-color:rgba(248,113,113,.3)" onclick="setLF('broken',this)">🔧고장있음</button>
+      <span style="width:1px;height:18px;background:var(--bd);display:inline-block;margin:0 4px"></span>
+      <button class="lf" style="color:#10b981;border-color:rgba(16,185,129,.3)" onclick="setLF('cat-소모품',this)">소모품</button>
+      <button class="lf" style="color:#60a5fa;border-color:rgba(96,165,250,.3)" onclick="setLF('cat-비품',this)">비품</button>
+      <button class="lf" style="color:#f59e0b;border-color:rgba(245,158,11,.3)" onclick="setLF('cat-인쇄물',this)">인쇄물</button>
     </div>
     <div class="lg-grid" id="logiGrid"></div>
   </div>
@@ -632,6 +648,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
             <option value="">전체 상태</option>
             <option value="pending">검토중</option>
             <option value="approved">승인완료</option>
+            <option value="ordered">주문완료</option>
             <option value="rejected">반려</option>
           </select>
           <button class="btn btn-gst btn-sm" onclick="document.getElementById('omSearch').value='';document.getElementById('omDateFrom').value='';document.getElementById('omDateTo').value='';document.getElementById('omStatus').value='';renderOrderMgmt()">초기화</button>
@@ -654,6 +671,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
             <option value="">전체 상태</option>
             <option value="pending">검토중</option>
             <option value="approved">승인완료</option>
+            <option value="ordered">주문완료</option>
             <option value="rejected">반려</option>
           </select>
           <button class="btn btn-gst btn-sm" onclick="document.getElementById('ohSearch').value='';document.getElementById('ohDateFrom').value='';document.getElementById('ohDateTo').value='';document.getElementById('orderHistFilter').value='';renderOrderHist()">초기화</button>
@@ -772,8 +790,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
         </div>
         <div class="fgrp"><label class="flb">카테고리</label>
           <select class="fsel" id="aCat">
-            <option>IT/업무장비</option><option>판매/POS장비</option><option>네트워크/통신</option>
-            <option>보안/안전</option><option>가전/생활</option><option>소모품/비품</option><option>기타</option>
+            <option>소모품</option><option>비품</option><option>인쇄물</option>
           </select>
         </div>
         <div class="fgrp"><label class="flb" id="aQtyLabel">추가 수량 <span>*</span></label><input type="number" class="fi" id="aQty" placeholder="0" min="0" oninput="updateAddPreview()"></div>
@@ -849,8 +866,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
         <div class="fgrp">
           <label class="flb">카테고리</label>
           <select class="fsel" id="eiCat">
-            <option>IT/업무장비</option><option>판매/POS장비</option><option>네트워크/통신</option>
-            <option>보안/안전</option><option>가전/생활</option><option>소모품/비품</option><option>기타</option>
+            <option>소모품</option><option>비품</option><option>인쇄물</option>
           </select>
         </div>
         <div class="fgrp">
@@ -1227,13 +1243,9 @@ const ADDR = [{"code":"21028","name":"제주노형로직영점","route":"선박"
 const ALL_RT = [...new Set(ADDR.map(s=>s.route))].sort();
 
 function guessCategory(name){
-  const n=name;
-  if(/모니터|본체|노트북|마우스|키보드|스피커|바코드|전화기|공유기|모뎀|USB|허브/.test(n)) return 'IT/업무장비';
-  if(/카드단말|POS|영수증|라벨/.test(n)) return '판매/POS장비';
-  if(/멀티탭|어댑터|충전/.test(n)) return '네트워크/통신';
-  if(/소화기|구급|방독|장화|보호의|흡착포|장갑|안전/.test(n)) return '보안/안전';
-  if(/냉장고|전자레인지|에어컨|온풍기|난로|선풍기|정수기/.test(n)) return '가전/생활';
-  return '소모품/비품';
+  if(/소화기점검표|도어사인|정부화일|안전보호구 스티커|무지봉투/.test(name)) return '인쇄물';
+  if(/건전지|테이프|면봉|알코올|알콜|솜|볼펜|커피|종이컵|비닐|세정제|세제|수세미|빨래비누|물티슈|사탕|걸레|청소포|핸드타월|휴지|락스|비누|리필|바퀴약/.test(name)) return '소모품';
+  return '비품';
 }
 
 // ═══ INV: 자산현황 (마스터) ═══
@@ -1440,6 +1452,7 @@ function renderLogi(){
     if(logiFilter==='fix')  return ms&&FIXED_CODES.has(l.code);
     if(logiFilter==='ok')   return ms&&l.qty>10&&!FIXED_CODES.has(l.code);
     if(logiFilter==='broken') return ms&&(l.broken||0)>0;
+    if(logiFilter.startsWith('cat-')) return ms&&guessCategory(l.name)===logiFilter.slice(4);
     return ms;
   });
   data=[...data].sort((a,b)=>{const n=s=>{const m=s.code.match(/(\d+)$/);return m?parseInt(m[1]):9999;};return n(a)-n(b);});
@@ -1918,6 +1931,14 @@ function applyStoreAssetDelta(storeName, assetName, delta, memo){
 
 
 
+
+// ─── 테마 토글 ───
+function toggleTheme(){
+  const isLight=document.body.classList.toggle('light');
+  localStorage.setItem('ams-theme',isLight?'light':'dark');
+  document.getElementById('themeIcon').textContent=isLight?'🌙':'☀️';
+  document.getElementById('themeLabel').textContent=isLight?'다크 모드':'라이트 모드';
+}
 
 function histPush(entry) {
   SA_HIST.push(entry);
@@ -3067,7 +3088,7 @@ async function submitPurchaseRequest() {
 
 // ─── 구매요청 이력 렌더 ───
 function renderPurchaseHist() {
-  const statusLabel = {pending:'<span class="badge b-pend">검토중</span>', approved:'<span class="badge b-ship">승인</span>', rejected:'<span class="badge b-rejt">반려</span>', partial:'<span class="badge b-warn">부분승인</span>'};
+  const statusLabel = {pending:'<span class="badge b-pend">검토중</span>', approved:'<span class="badge b-ship">승인</span>', ordered:'<span class="badge b-fix">주문완료</span>', rejected:'<span class="badge b-rejt">반려</span>', partial:'<span class="badge b-warn">부분승인</span>'};
   document.getElementById('purchaseHistBody').innerHTML = PURCHASE_REQS.length
     ? PURCHASE_REQS.map(r=>`<tr>
         <td class="tm">${r.id}</td>
@@ -3111,11 +3132,12 @@ function renderOrderMgmt() {
 
   container.innerHTML = reqs.map(req => {
     const items = PURCHASE_ITEMS.filter(i=>i.request_id===req.id);
-    const statusColor = {pending:'var(--yw)',approved:'var(--gn)',rejected:'var(--rd)'};
-    const statusLabel = {pending:'검토중',approved:'승인완료',rejected:'반려'};
+    const statusColor = {pending:'var(--yw)',approved:'var(--gn)',ordered:'var(--pu)',rejected:'var(--rd)'};
+    const statusLabel = {pending:'검토중',approved:'승인완료',ordered:'주문완료',rejected:'반려'};
     const isApproved = req.status==='approved';
+    const isOrdered = req.status==='ordered';
     const isRejected = req.status==='rejected';
-    const pendingItems = isApproved ? items.filter(i=>(i.received_qty||0)<(i.order_qty||i.req_qty)) : [];
+    const pendingItems = (isApproved||isOrdered) ? items.filter(i=>(i.received_qty||0)<(i.order_qty||i.req_qty)) : [];
     const dateStr = req.request_date||(req.created_at?req.created_at.split('T')[0]:'');
     return `<div class="tw" style="margin-bottom:18px">
       <div class="th">
@@ -3125,27 +3147,29 @@ function renderOrderMgmt() {
           <span class="badge" style="background:rgba(0,0,0,.1);border-color:${statusColor[req.status]||'var(--bd)'};color:${statusColor[req.status]||'var(--tx2)'}">${statusLabel[req.status]||req.status}</span>
         </div>
         <div style="display:flex;gap:8px">
-          ${isApproved&&pendingItems.length?`<button class="btn btn-pri btn-sm" onclick="bulkConfirmReceiving('${req.id}')">📦 일괄입고확인 (${pendingItems.length}건)</button>`:''}
-          ${!isApproved&&!isRejected?`
+          ${(isApproved||isOrdered)&&pendingItems.length?`<button class="btn btn-pri btn-sm" onclick="bulkConfirmReceiving('${req.id}')">📦 일괄입고확인 (${pendingItems.length}건)</button>`:''}
+          ${isApproved?`<button class="btn btn-sm" style="background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.4);color:#a78bfa" onclick="markOrdered('${req.id}')">🛒 주문완료</button>`:''}
+          ${!isApproved&&!isOrdered&&!isRejected?`
           <button class="btn btn-dan btn-sm" onclick="rejectPurchaseReq('${req.id}')">✕ 반려</button>
           <button class="btn btn-suc btn-sm" onclick="approvePurchaseReq('${req.id}')">✓ 승인</button>`:''}
         </div>
       </div>
       <table><thead><tr>
-        <th>자산코드</th><th>품목명</th><th>요청수량</th><th>구매수량</th><th>비고</th>
-        ${isApproved?'<th>입고상태</th><th>입고확인</th>':''}
+        <th>자산코드</th><th>품목명</th><th>현재재고</th><th>요청수량</th><th>구매수량</th><th>비고</th>
+        ${(isApproved||isOrdered)?'<th>입고상태</th><th>입고확인</th>':''}
       </tr></thead><tbody>
       ${items.map(item=>{
         const allReceived = (item.received_qty||0)>=(item.order_qty||item.req_qty);
         return `<tr ondblclick="showProductDetail('${item.asset_code}')" style="cursor:pointer" title="더블클릭 시 구매처 정보">
           <td class="tm">${item.asset_code||'-'}</td>
           <td class="tb2">${item.asset_name}</td>
+          <td class="tm" style="color:${(()=>{const li=LOGI.find(l=>l.code===item.asset_code);return li?(li.qty<=0?'var(--rd)':li.qty<=10?'var(--yw)':'var(--gn)'):'var(--tx3)';})()}">${(()=>{const li=LOGI.find(l=>l.code===item.asset_code);return li!==undefined?li.qty+'개':'-';})()}</td>
           <td class="tm">${item.req_qty}</td>
           <td>${!isApproved&&!isRejected
             ?`<input type="number" class="fi" value="${item.order_qty}" min="0" style="width:80px;padding:4px 8px;font-size:12px" onchange="updateOrderQty(${item.id},'${req.id}',this.value)">`
             :`<span class="tm">${item.order_qty}</span>`}</td>
           <td style="font-size:12px;color:var(--tx3)">${item.note||'-'}</td>
-          ${isApproved?`
+          ${(isApproved||isOrdered)?`
           <td>${allReceived
             ?'<span class="badge b-ship">입고완료</span>'
             :(item.received_qty||0)>0
@@ -3175,6 +3199,16 @@ async function approvePurchaseReq(reqId) {
   const req = PURCHASE_REQS.find(r=>r.id===reqId);
   if(req) req.status='approved';
   notify(`${reqId} 승인 완료 — 물류팀 입고확인 대기`,'success');
+  renderOrderMgmt(); renderPurchaseHist(); updateOrderBadge();
+}
+
+// ─── 주문완료 ───
+async function markOrdered(reqId) {
+  const {error} = await db.from('purchase_requests').update({status:'ordered'}).eq('id',reqId);
+  if(error){notify('주문완료 저장 실패: '+error.message,'error');return;}
+  const req = PURCHASE_REQS.find(r=>r.id===reqId);
+  if(req) req.status='ordered';
+  notify(`${reqId} 주문완료 처리됨 — 입고확인 대기`,'success');
   renderOrderMgmt(); renderPurchaseHist(); updateOrderBadge();
 }
 
@@ -3266,6 +3300,7 @@ function renderOrderHist() {
   const statusLabel = {
     pending:'<span class="badge b-pend">검토중</span>',
     approved:'<span class="badge b-ship">승인완료</span>',
+    ordered:'<span class="badge b-fix">주문완료</span>',
     rejected:'<span class="badge b-rejt">반려</span>'
   };
   const rows = PURCHASE_REQS.filter(r => {
@@ -3298,6 +3333,13 @@ function renderOrderHist() {
         </tr>`;
       }).join('')
     : '<tr><td colspan="8" style="text-align:center;color:var(--tx3);padding:24px">주문이력이 없습니다</td></tr>';
+}
+
+// 테마 초기화
+if(localStorage.getItem('ams-theme')==='light'){
+  document.body.classList.add('light');
+  document.getElementById('themeIcon').textContent='🌙';
+  document.getElementById('themeLabel').textContent='다크 모드';
 }
 
 // ═══ INIT ═══
