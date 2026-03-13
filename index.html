@@ -3261,7 +3261,7 @@ async function markOrdered(reqId) {
 
 // ─── 일괄 주문완료 ───
 async function bulkMarkItemOrdered(reqId) {
-  const reqItems = PURCHASE_ITEMS.filter(i=>i.request_id===reqId&&i.status!=='ordered'&&i.status!=='partial'&&i.status!=='received');
+  const reqItems = PURCHASE_ITEMS.filter(i=>i.request_id===reqId&&i.status!=='ordered'&&i.status!=='modified'&&i.status!=='partial'&&i.status!=='received');
   if(!reqItems.length){notify('주문할 품목이 없습니다','error');return;}
   for(const item of reqItems){
     await db.from('purchase_items').update({status:'ordered'}).eq('id',item.id);
