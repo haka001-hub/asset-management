@@ -3082,7 +3082,7 @@ async function submitPurchaseRequest() {
 
 // ─── 구매요청 이력 렌더 ───
 function renderPurchaseHist() {
-  const statusLabel = {pending:'<span class="badge b-pend">검토중</span>', approved:'<span class="badge b-ship">승인</span>', ordered:'<span class="badge b-fix">주문완료</span>', rejected:'<span class="badge b-rejt">반려</span>', partial:'<span class="badge b-warn">부분승인</span>'};
+  const statusLabel = {pending:'<span class="badge b-pend">검토중</span>', approved:'<span class="badge b-ship">승인</span>', ordered:'<span class="badge b-fix">주문완료</span>', completed:'<span class="badge b-ship">주문완료</span>', rejected:'<span class="badge b-rejt">반려</span>', partial:'<span class="badge b-warn">부분승인</span>'};
   document.getElementById('purchaseHistBody').innerHTML = PURCHASE_REQS.length
     ? PURCHASE_REQS.map(r=>`<tr>
         <td class="tm">${r.id}</td>
@@ -3395,7 +3395,7 @@ function renderOrderHist() {
   const dateTo   = document.getElementById('ohDateTo')?.value||'';
   const filter   = document.getElementById('orderHistFilter')?.value||'';
   const statusLabel = {
-    completed:'<span class="badge b-ship">완료</span>'
+    completed:'<span class="badge b-ship">주문완료</span>'
   };
   const rows = PURCHASE_REQS.filter(r => {
     if(r.status !== 'completed') return false;
