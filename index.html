@@ -645,11 +645,8 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
           <input type="date" class="fi" id="omDateFrom" oninput="renderOrderMgmt()" title="시작일">
           <input type="date" class="fi" id="omDateTo" oninput="renderOrderMgmt()" title="종료일">
           <select class="fsel" id="omStatus" onchange="renderOrderMgmt()" style="font-size:13px">
-            <option value="">전체 상태</option>
-            <option value="pending">검토중</option>
-            <option value="approved">승인완료</option>
+            <option value="">전체</option>
             <option value="ordered">주문완료</option>
-            <option value="rejected">반려</option>
           </select>
           <button class="btn btn-gst btn-sm" onclick="document.getElementById('omSearch').value='';document.getElementById('omDateFrom').value='';document.getElementById('omDateTo').value='';document.getElementById('omStatus').value='';renderOrderMgmt()">초기화</button>
         </div>
@@ -668,11 +665,8 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
           <input type="date" class="fi" id="ohDateFrom" oninput="renderOrderHist()" title="시작일">
           <input type="date" class="fi" id="ohDateTo" oninput="renderOrderHist()" title="종료일">
           <select class="fsel" id="orderHistFilter" onchange="renderOrderHist()" style="font-size:13px">
-            <option value="">전체 상태</option>
-            <option value="pending">검토중</option>
-            <option value="approved">승인완료</option>
-            <option value="ordered">주문완료</option>
-            <option value="rejected">반려</option>
+            <option value="">전체</option>
+            <option value="completed">완료</option>
           </select>
           <button class="btn btn-gst btn-sm" onclick="document.getElementById('ohSearch').value='';document.getElementById('ohDateFrom').value='';document.getElementById('ohDateTo').value='';document.getElementById('orderHistFilter').value='';renderOrderHist()">초기화</button>
         </div>
@@ -3130,37 +3124,37 @@ function renderOrderMgmt() {
     return;
   }
 
+  // 비품주문표: 완료(completed)·반려(rejected) 제외하고 표시
+  reqs = reqs.filter(req => req.status !== 'completed' && req.status !== 'rejected');
+  if(!reqs.length){
+    container.innerHTML='<div style="text-align:center;color:var(--tx3);padding:48px;font-size:14px">조건에 맞는 구매요청이 없습니다</div>';
+    return;
+  }
+
   container.innerHTML = reqs.map(req => {
     const items = PURCHASE_ITEMS.filter(i=>i.request_id===req.id);
-    const statusColor = {pending:'var(--yw)',approved:'var(--gn)',ordered:'var(--pu)',rejected:'var(--rd)'};
-    const statusLabel = {pending:'검토중',approved:'승인완료',ordered:'주문완료',rejected:'반려'};
-    const isApproved = req.status==='approved';
-    const isOrdered = req.status==='ordered';
-    const isRejected = req.status==='rejected';
-    const pendingItems = (isApproved||isOrdered) ? items.filter(i=>(i.received_qty||0)<(i.order_qty||i.req_qty)) : [];
+    const statusColor = {pending:'var(--ac2)',ordered:'var(--pu)'};
+    const statusLabel = {pending:'처리중',approved:'처리중',ordered:'주문완료'};
+    const pendingItems = items.filter(i=>(i.received_qty||0)<(i.order_qty||i.req_qty));
     const dateStr = req.request_date||(req.created_at?req.created_at.split('T')[0]:'');
     return `<div class="tw" style="margin-bottom:18px">
       <div class="th">
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
           <span class="tt">${req.id}</span>
           <span style="font-size:12px;color:var(--tx3)">요청일: ${dateStr} · 담당자: ${req.manager||'-'}</span>
-          <span class="badge" style="background:rgba(0,0,0,.1);border-color:${statusColor[req.status]||'var(--bd)'};color:${statusColor[req.status]||'var(--tx2)'}">${statusLabel[req.status]||req.status}</span>
+          <span class="badge" style="background:rgba(0,0,0,.1);border-color:${statusColor[req.status]||'var(--ac2)'};color:${statusColor[req.status]||'var(--ac2)'}">${statusLabel[req.status]||'처리중'}</span>
         </div>
         <div style="display:flex;gap:8px">
-          ${isApproved&&items.some(i=>i.status!=='ordered'&&i.status!=='partial'&&i.status!=='received')?`<button class="btn btn-sm" style="background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.4);color:#a78bfa" onclick="bulkMarkItemOrdered('${req.id}')">🛒 일괄주문완료</button>`:''}
-          ${(isApproved||isOrdered)&&pendingItems.length?`<button class="btn btn-pri btn-sm" onclick="bulkConfirmReceiving('${req.id}')">📦 일괄입고확인 (${pendingItems.length}건)</button>`:''}
-          ${!isApproved&&!isOrdered&&!isRejected?`
-          <button class="btn btn-dan btn-sm" onclick="rejectPurchaseReq('${req.id}')">✕ 반려</button>
-          <button class="btn btn-suc btn-sm" onclick="approvePurchaseReq('${req.id}')">✓ 승인</button>`:''}
+          ${items.some(i=>i.status!=='ordered'&&i.status!=='modified'&&i.status!=='partial'&&i.status!=='received')?`<button class="btn btn-sm" style="background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.4);color:#a78bfa" onclick="bulkMarkItemOrdered('${req.id}')">🛒 일괄주문완료</button>`:''}
+          ${pendingItems.length?`<button class="btn btn-pri btn-sm" onclick="bulkConfirmReceiving('${req.id}')">📦 일괄입고확인 (${pendingItems.length}건)</button>`:''}
         </div>
       </div>
       <table><thead><tr>
         <th>자산코드</th><th>품목명</th><th>현재재고</th><th>요청수량</th><th>구매수량</th><th>비고</th>
-        ${(isApproved||isOrdered)?'<th>주문</th><th>입고상태</th><th>입고확인</th>':''}
+        <th>주문</th><th>입고상태</th><th>입고확인</th>
       </tr></thead><tbody>
       ${items.map(item=>{
         const allReceived = (item.received_qty||0)>=(item.order_qty||item.req_qty);
-        const itemOrdered = item.status==='ordered'||item.status==='modified'||item.status==='partial'||item.status==='received';
         const itemStatusBadge = item.status==='modified'
           ?'<span class="badge" style="font-size:10px;background:rgba(249,115,22,.15);border-color:rgba(249,115,22,.4);color:var(--or)">주문변동</span>'
           :(item.status==='ordered'||item.status==='partial'||item.status==='received')
@@ -3171,19 +3165,18 @@ function renderOrderMgmt() {
           <td class="tb2">${item.asset_name}</td>
           <td class="tm" style="color:${(()=>{const li=LOGI.find(l=>l.code===item.asset_code);return li?(li.qty<=0?'var(--rd)':li.qty<=10?'var(--yw)':'var(--gn)'):'var(--tx3)';})()}">${(()=>{const li=LOGI.find(l=>l.code===item.asset_code);return li!==undefined?li.qty+'개':'-';})()}</td>
           <td class="tm">${item.req_qty}</td>
-          <td id="oqty-${item.id}" data-qty="${item.order_qty||0}">${!isApproved&&!isOrdered&&!isRejected
-            ?`<input type="number" class="fi" value="${item.order_qty}" min="0" style="width:80px;padding:4px 8px;font-size:12px" onchange="updateOrderQty(${item.id},'${req.id}',this.value)">`
-            :`<span class="tm">${item.order_qty}</span>`}</td>
+          <td id="oqty-${item.id}" data-qty="${item.order_qty||0}">
+            ${!item.status?`<input type="number" class="fi" value="${item.order_qty||0}" min="0" style="width:80px;padding:4px 8px;font-size:12px" onchange="updateOrderQty(${item.id},'${req.id}',this.value)">`
+            :`<span class="tm">${item.order_qty}</span>`}
+          </td>
           <td style="font-size:12px;color:var(--tx3)">${item.note||'-'}</td>
-          ${(isApproved||isOrdered)?`
-          <td id="oitemstatus-${item.id}" style="white-space:nowrap">${itemStatusBadge} <button id="oeditbtn-${item.id}" class="btn btn-sm" style="font-size:11px;padding:4px 10px;margin-left:2px;background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.4);color:#a78bfa" onclick="openItemEdit(${item.id})">주문변동</button></td>
+          <td id="oitemstatus-${item.id}" style="white-space:nowrap">${itemStatusBadge} <button id="oeditbtn-${item.id}" class="btn btn-sm" style="font-size:11px;padding:4px 10px;margin-left:2px;background:rgba(249,115,22,.15);border-color:rgba(249,115,22,.4);color:var(--or)" onclick="openItemEdit(${item.id})">주문변동</button></td>
           <td>${allReceived
             ?'<span class="badge b-ship">입고완료</span>'
             :(item.received_qty||0)>0
               ?`<span class="badge b-warn">부분입고 (${item.received_qty}/${item.order_qty})</span>`
               :'<span class="badge b-pend">대기중</span>'}</td>
-          <td>${!allReceived?`<button class="btn btn-suc btn-sm" style="font-size:11px" onclick="confirmReceiving(${item.id},'${item.asset_code}','${item.asset_name}',${(item.order_qty||item.req_qty)-(item.received_qty||0)})">입고확인</button>`:'—'}</td>
-          `:''}
+          <td>${!allReceived?`<button class="btn btn-suc btn-sm" style="font-size:11px" onclick="confirmReceiving(${item.id},'${item.asset_code}','${item.asset_name}',${(item.order_qty||item.req_qty)-(item.received_qty||0)},'${req.id}')">입고확인</button>`:'—'}</td>
         </tr>`;
       }).join('')}
       </tbody></table>
@@ -3331,10 +3324,11 @@ async function bulkConfirmReceiving(reqId) {
   }
   notify(`✅ ${reqId} 전체 ${pendingItems.length}건 일괄입고 완료`,'success');
   renderOrderMgmt(); renderLogi(); renderInv(); renderDash();
+  await checkAndCompleteRequest(reqId);
 }
 
 // ─── 입고확인 ───
-async function confirmReceiving(itemId, assetCode, assetName, maxQty) {
+async function confirmReceiving(itemId, assetCode, assetName, maxQty, reqId) {
   const qty = parseInt(prompt(`"${assetName}" 입고수량 입력 (최대 ${maxQty}개):`, maxQty));
   if(!qty||qty<=0){return;}
   const actual = Math.min(qty, maxQty);
@@ -3360,6 +3354,22 @@ async function confirmReceiving(itemId, assetCode, assetName, maxQty) {
 
   notify(`✅ "${assetName}" ${actual}개 입고확인 완료 — 물류재고 반영`,'success');
   renderOrderMgmt(); renderLogi(); renderInv(); renderDash();
+  if(reqId) await checkAndCompleteRequest(reqId);
+}
+
+// ─── 전체 입고 완료 → 주문이력서 이동 확인 ───
+async function checkAndCompleteRequest(reqId) {
+  const reqItems = PURCHASE_ITEMS.filter(i=>i.request_id===reqId);
+  if(!reqItems.length) return;
+  const allDone = reqItems.every(i=>(i.received_qty||0)>=(i.order_qty||i.req_qty));
+  if(!allDone) return;
+  if(!confirm(`[${reqId}] 모든 품목 입고가 완료되었습니다.\n주문내역을 주문이력서로 이동하시겠습니까?`)) return;
+  const {error} = await db.from('purchase_requests').update({status:'completed'}).eq('id',reqId);
+  if(error){notify('이동 실패: '+error.message,'error');return;}
+  const req = PURCHASE_REQS.find(r=>r.id===reqId);
+  if(req) req.status='completed';
+  notify(`✅ ${reqId} 주문이력서로 이동 완료`,'success');
+  renderOrderMgmt(); renderPurchaseHist(); renderOrderHist(); updateOrderBadge();
 }
 
 // ─── 제품 상세 팝업 ───
@@ -3385,12 +3395,10 @@ function renderOrderHist() {
   const dateTo   = document.getElementById('ohDateTo')?.value||'';
   const filter   = document.getElementById('orderHistFilter')?.value||'';
   const statusLabel = {
-    pending:'<span class="badge b-pend">검토중</span>',
-    approved:'<span class="badge b-ship">승인완료</span>',
-    ordered:'<span class="badge b-fix">주문완료</span>',
-    rejected:'<span class="badge b-rejt">반려</span>'
+    completed:'<span class="badge b-ship">완료</span>'
   };
   const rows = PURCHASE_REQS.filter(r => {
+    if(r.status !== 'completed') return false;
     if(filter && r.status !== filter) return false;
     const d = r.request_date||(r.created_at?r.created_at.split('T')[0]:'');
     if(dateFrom && d < dateFrom) return false;
