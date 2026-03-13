@@ -259,7 +259,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
         <button class="tab" onclick="setReqFilter('shipped',this)">출고완료</button>
         <button class="tab" onclick="setReqFilter('rejected',this)">반려</button>
       </div>
-      <table><thead><tr><th>신청번호</th><th>신청일자</th><th>담당자</th><th>자산명</th><th>수량</th><th>매장명</th><th>배송코스</th><th>상태</th><th>액션</th></tr></thead>
+      <table><thead><tr><th>신청번호</th><th>신청일자</th><th>담당자</th><th>자산명</th><th>수량</th><th>매장명</th><th>배송코스</th><th>비고</th><th>상태</th><th>액션</th></tr></thead>
       <tbody id="reqTable"></tbody></table>
     </div>
   </div>
@@ -276,7 +276,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
     </div>
     <div class="tw mt14">
       <div class="th"><div class="tt">출고 완료 기록</div></div>
-      <table><thead><tr><th>출고번호</th><th>출고일자</th><th>담당자</th><th>자산명</th><th>수량</th><th>배송코스</th><th>매장명</th><th>주소</th></tr></thead>
+      <table><thead><tr><th>출고번호</th><th>출고일자</th><th>도착일자</th><th>담당자</th><th>자산명</th><th>수량</th><th>배송코스</th><th>매장명</th><th>주소</th><th>배송메모</th></tr></thead>
       <tbody id="shipTable"></tbody></table>
     </div>
   </div>
@@ -288,7 +288,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
         <div class="th"><div class="tt">전체 이력</div>
         <div class="ta"><div class="sw"><span class="sic">⌕</span><input class="si" id="histSrch" placeholder="검색..." oninput="renderHist()"></div></div></div>
       </div>
-      <table><thead><tr><th>번호</th><th>신청일자</th><th>출고일자</th><th>담당자</th><th>자산명</th><th>수량</th><th>배송코스</th><th>매장명</th><th>주소</th><th>상태</th></tr></thead>
+      <table><thead><tr><th>번호</th><th>신청일자</th><th>출고일자</th><th>도착일자</th><th>담당자</th><th>자산명</th><th>수량</th><th>배송코스</th><th>매장명</th><th>주소</th><th>비고</th><th>상태</th></tr></thead>
       <tbody id="histTable"></tbody></table>
     </div>
   </div>
@@ -671,7 +671,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
         <div class="fgrp"><label class="flb">신청일자 <span>*</span></label><input type="date" class="fi" id="rDate"></div>
         <div class="fgrp"><label class="flb">담당자 <span>*</span></label><input type="text" class="fi" id="rMgr" placeholder="이름"></div>
         <div class="fgrp"><label class="flb">소속팀 <span>*</span></label>
-          <select class="fsel" id="rTeam"><option value="">선택</option><option>물류팀</option><option>경영지원(본사)</option><option>재무팀</option></select>
+          <select class="fsel" id="rTeam"><option value="">선택</option><option>물류팀</option><option>경영지원(본사)</option><option>재무팀</option><option>인사팀</option></select>
         </div>
         <div class="fgrp"><label class="flb">자산명 <span>*</span></label>
           <div class="acw">
@@ -723,6 +723,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
       <div class="sdiv">출고 정보 입력</div>
       <div class="fg">
         <div class="fgrp"><label class="flb">출고일자 <span>*</span></label><input type="date" class="fi" id="oDate"></div>
+        <div class="fgrp"><label class="flb">도착일자</label><input type="date" class="fi" id="oArrDate"></div>
         <div class="fgrp"><label class="flb">담당자 (물류팀) <span>*</span></label><input type="text" class="fi" id="oMgr" placeholder="담당자명"></div>
         <div class="fgrp"><label class="flb">배송코스 <span>*</span></label>
           <div class="acw"><input type="text" class="fi" id="oRoute" placeholder="코스 입력..." autocomplete="off" oninput="acRoute(this.value,'acRtOutList','oRoute')" onfocus="acRoute(this.value,'acRtOutList','oRoute')"><div class="acl" id="acRtOutList"></div></div>
@@ -1168,7 +1169,7 @@ async function loadFromDB() {
     }
     if (reqRes.data) {
       REQS.length = 0;
-      reqRes.data.forEach(r => REQS.push({id:r.id,date:r.date,manager:r.manager,team:r.team,asset:r.asset,code:r.code,qty:r.qty,store:r.store,route:r.route||'',address:r.address||'',note:r.note||'',status:r.status,shipType:r.ship_type||'직납',outDate:r.out_date||'',outMgr:r.out_mgr||'',outMemo:r.out_memo||''}));
+      reqRes.data.forEach(r => REQS.push({id:r.id,date:r.date,manager:r.manager,team:r.team,asset:r.asset,code:r.code,qty:r.qty,store:r.store,route:r.route||'',address:r.address||'',note:r.note||'',status:r.status,shipType:r.ship_type||'직납',outDate:r.out_date||'',outMgr:r.out_mgr||'',outMemo:r.out_memo||'',arrDate:r.arr_date||''}));
     }
     if (pkRes.data) {
       PICKUPS.length = 0;
@@ -1275,6 +1276,7 @@ const iqC=q=>q===0?'iq-z':q<=5?'iq-l':'iq-o';
 const lcC=q=>q===0?'z':q<=10?'l':'o';
 const lcCard=q=>q===0?'lc-z':q<=10?'lc-l':'lc-o';
 const rtag=r=>r&&r!=='-'?`<span class="rt${r==='선박'?' rt-sb':''}">${r}</span>`:'-';
+const stag=r=>r.shipType==='택배'?'<span class="badge" style="background:rgba(59,130,246,.12);color:var(--ac2);border-color:rgba(59,130,246,.3);font-size:11px">📦 택배</span>':rtag(r.route);
 function sbadge(s){
   const m={pending:'b-pend 대기중',approved:'b-appr 승인',shipped:'b-ship 출고완료',rejected:'b-rejt 반려'};
   const[c,t]=(m[s]||'b-pend 대기중').split(' ');
@@ -1375,10 +1377,11 @@ function renderReqs(){
       <td class="tm">${r.id}</td><td class="tm">${fd(r.date)}</td>
       <td>${r.manager}<span style="font-size:11px;color:var(--tx3)"> (${r.team})</span></td>
       <td class="tb2">${r.asset}${FIXED_CODES.has(r.code)?'<span class="fix-dot"></span>':''}</td>
-      <td class="tm">${r.qty}개</td><td>${r.store}</td><td>${rtag(r.route)}</td>
+      <td class="tm">${r.qty}개</td><td>${r.store}</td><td>${stag(r)}</td>
+      <td style="font-size:12px;color:var(--tx3)">${r.note||'-'}</td>
       <td>${sbadge(r.status)}</td><td>${act}</td>
     </tr>`;
-  }).join('')||`<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--tx3)">해당 내역 없음</td></tr>`;
+  }).join('')||`<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--tx3)">해당 내역 없음</td></tr>`;
 }
 function setReqFilter(t,el){reqFilter=t;document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));el.classList.add('active');renderReqs();}
 
@@ -1388,17 +1391,19 @@ function renderOut(){
   const pend=REQS.filter(r=>(r.status==='pending'||r.status==='approved')&&(r.store.toLowerCase().includes(q)||r.asset.toLowerCase().includes(q)));
   document.getElementById('outTable').innerHTML=pend.length?pend.map(r=>
     `<tr><td class="tm">${r.id}</td><td class="tm">${fd(r.date)}</td><td>${r.manager}</td>
-    <td class="tb2">${r.asset}</td><td class="tm">${r.qty}개</td><td>${rtag(r.route)}</td>
+    <td class="tb2">${r.asset}</td><td class="tm">${r.qty}개</td><td>${stag(r)}</td>
     <td>${r.store}</td><td style="font-size:12px;color:var(--tx3)">${r.address}</td>
     <td><button class="btn btn-suc btn-sm" onclick="openOutModal('${r.id}')">출고하기 →</button></td></tr>`
   ).join(''):'<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--tx3)">출고 대기 없음 ✓</td></tr>';
   const ship=REQS.filter(r=>r.status==='shipped'&&(r.store.toLowerCase().includes(q)||r.asset.toLowerCase().includes(q)));
   document.getElementById('shipTable').innerHTML=[...ship].reverse().map((r,i)=>
     `<tr><td class="tm">OUT-${String(i+1).padStart(3,'0')}</td><td class="tm">${fd(r.outDate)}</td>
+    <td class="tm">${r.arrDate?fd(r.arrDate):'-'}</td>
     <td>${r.outMgr}</td><td class="tb2">${r.asset}</td><td class="tm">${r.qty}개</td>
-    <td>${rtag(r.route)}</td><td>${r.store}</td>
-    <td style="font-size:12px;color:var(--tx3)">${r.address}</td></tr>`
-  ).join('')||'<tr><td colspan="8" style="text-align:center;padding:18px;color:var(--tx3)">출고 기록 없음</td></tr>';
+    <td>${stag(r)}</td><td>${r.store}</td>
+    <td style="font-size:12px;color:var(--tx3)">${r.address}</td>
+    <td style="font-size:12px;color:var(--tx3)">${r.outMemo||'-'}</td></tr>`
+  ).join('')||'<tr><td colspan="10" style="text-align:center;padding:18px;color:var(--tx3)">출고 기록 없음</td></tr>';
 }
 
 // ═══ HISTORY ═══
@@ -1408,9 +1413,12 @@ function renderHist(){
     r.store.toLowerCase().includes(q)||r.asset.toLowerCase().includes(q)||r.manager.toLowerCase().includes(q)
   ).reverse().map(r=>
     `<tr><td class="tm">${r.id}</td><td class="tm">${fd(r.date)}</td><td class="tm">${fd(r.outDate)}</td>
+    <td class="tm">${r.arrDate?fd(r.arrDate):'-'}</td>
     <td>${r.manager}</td><td class="tb2">${r.asset}</td><td class="tm">${r.qty}개</td>
-    <td>${rtag(r.route)}</td><td>${r.store}</td>
-    <td style="font-size:12px;color:var(--tx3)">${r.address||'-'}</td><td>${sbadge(r.status)}</td></tr>`
+    <td>${stag(r)}</td><td>${r.store}</td>
+    <td style="font-size:12px;color:var(--tx3)">${r.address||'-'}</td>
+    <td style="font-size:12px;color:var(--tx3)">${r.note||'-'}</td>
+    <td>${sbadge(r.status)}</td></tr>`
   ).join('');
 }
 
@@ -2042,8 +2050,8 @@ function submitReq(){
   const logi=LOGI.find(l=>l.code===code);
   if(logi&&qty>logi.qty){notify(`재고 부족 — 물류재고 ${logi.qty}개`,'error');return}
   const id='REQ-'+new Date().getFullYear()+'-'+String(REQS.length+1).padStart(3,'0');
-  REQS.push({id,date,manager,team,asset,code,qty,store,route,shipType,address,note,status:'pending',outDate:'',outMgr:'',outMemo:''});
-  db.from('requests').insert({id,date,manager,team,asset,code,qty,store,route,ship_type:shipType,address,note,status:'pending',out_date:'',out_mgr:'',out_memo:''}).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
+  REQS.push({id,date,manager,team,asset,code,qty,store,route,shipType,address,note,status:'pending',outDate:'',outMgr:'',outMemo:'',arrDate:''});
+  db.from('requests').insert({id,date,manager,team,asset,code,qty,store,route,ship_type:shipType,address,note,status:'pending',out_date:'',out_mgr:'',out_memo:'',arr_date:''}).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   closeMo('moReq');notify(`신청 완료! (${id})`);updateBadge();renderReqs();
 }
 
@@ -2052,8 +2060,9 @@ function openOutModal(reqId){
   const r=REQS.find(x=>x.id===reqId);if(!r)return;
   curOutId=reqId;
   document.getElementById('oDate').value=today();
+  document.getElementById('oArrDate').value='';
   document.getElementById('oMgr').value='';
-  document.getElementById('oRoute').value=r.route||'';
+  document.getElementById('oRoute').value=r.shipType==='택배'?'택배':(r.route||'');
   document.getElementById('oMemo').value='';
   const invItem=INV.find(i=>i.code===r.code);
   const ls=invItem?(invItem.total-invItem.out):null;
@@ -2069,13 +2078,15 @@ function openOutModal(reqId){
     <div class="cfr"><span class="cfk">출고 수량</span><span class="cfv cfhi">${r.qty}개</span></div>
     <div class="cfr"><span class="cfk">물류재고 현재</span><span class="cfv" style="${warn?'color:var(--rd)':''}">${ls!==null?ls+'개':'미등록'}</span></div>
     <div class="cfr"><span class="cfk">배송 매장</span><span class="cfv">${r.store}</span></div>
-    <div class="cfr"><span class="cfk">배송코스</span><span class="cfv">${rtag(r.route)}</span></div>
+    <div class="cfr"><span class="cfk">배송방법</span><span class="cfv">${r.shipType==='택배'?'📦 택배':'🚚 직납'}</span></div>
+    <div class="cfr"><span class="cfk">배송코스</span><span class="cfv">${r.shipType==='택배'?'<span class="badge" style="background:rgba(59,130,246,.12);color:var(--ac2);border-color:rgba(59,130,246,.3)">📦 택배</span>':rtag(r.route)}</span></div>
     <div class="cfr"><span class="cfk">매장 주소</span><span class="cfv" style="font-size:12px">${r.address}</span></div>`;
   openMo('moOut');
 }
 function doShip(){
   const r=REQS.find(x=>x.id===curOutId);if(!r)return;
   const oDate=document.getElementById('oDate').value;
+  const oArrDate=document.getElementById('oArrDate').value;
   const oMgr=document.getElementById('oMgr').value.trim();
   const route=document.getElementById('oRoute').value.trim();
   const oMemo=document.getElementById('oMemo').value.trim();
@@ -2091,8 +2102,8 @@ function doShip(){
   // ④ 직영점 자산 현황 반영 (+수량)
   applyStoreAssetDelta(r.store, r.asset, r.qty, `자산신청 출고 / ${oMgr}`);
   // ⑤ 상태 변경
-  r.status='shipped';r.outDate=oDate;r.outMgr=oMgr;r.route=route;r.outMemo=oMemo;
-  db.from('requests').update({status:'shipped',out_date:oDate,out_mgr:oMgr,out_memo:oMemo}).eq('id',curOutId).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
+  r.status='shipped';r.outDate=oDate;r.arrDate=oArrDate;r.outMgr=oMgr;r.route=route;r.outMemo=oMemo;
+  db.from('requests').update({status:'shipped',out_date:oDate,arr_date:oArrDate,out_mgr:oMgr,out_memo:oMemo}).eq('id',curOutId).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   const _liShip=LOGI.find(l=>l.code===r.code); if(_liShip) db.from('inventory').update({qty:_liShip.qty}).eq('code',r.code).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   closeMo('moOut');
   notify(`출고 완료 ✓  물류재고 -${r.qty} · 직영점[${r.store}] 출고 기록 저장`,'success');
