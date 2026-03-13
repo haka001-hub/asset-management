@@ -3162,7 +3162,7 @@ function renderOrderMgmt() {
         const allReceived = (item.received_qty||0)>=(item.order_qty||item.req_qty);
         const itemOrdered = item.status==='ordered'||item.status==='modified'||item.status==='partial'||item.status==='received';
         const itemStatusBadge = item.status==='modified'
-          ?'<span class="badge" style="font-size:10px;background:rgba(139,92,246,.2);border-color:rgba(139,92,246,.5);color:#a78bfa">주문변동</span>'
+          ?'<span class="badge" style="font-size:10px;background:rgba(249,115,22,.15);border-color:rgba(249,115,22,.4);color:var(--or)">주문변동</span>'
           :(item.status==='ordered'||item.status==='partial'||item.status==='received')
             ?'<span class="badge b-fix" style="font-size:10px">주문완료</span>'
             :`<button class="btn btn-sm" style="background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.4);color:#a78bfa;font-size:11px;padding:4px 10px" onclick="markItemOrdered(${item.id},'${req.id}')">🛒 주문</button>`;
@@ -3233,7 +3233,7 @@ async function saveItemOrderQty(itemId) {
   const statusCell = document.getElementById('oitemstatus-'+itemId);
   if(statusCell){
     const badge = statusCell.querySelector('.badge,button.btn-sm:first-child');
-    if(badge) badge.outerHTML='<span class="badge" style="font-size:10px;background:rgba(139,92,246,.2);border-color:rgba(139,92,246,.5);color:#a78bfa">주문변동</span>';
+    if(badge) badge.outerHTML='<span class="badge" style="font-size:10px;background:rgba(249,115,22,.15);border-color:rgba(249,115,22,.4);color:var(--or)">주문변동</span>';
   }
   notify('구매수량 수정됨 (주문변동 처리)','success');
 }
