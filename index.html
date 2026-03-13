@@ -3166,15 +3166,15 @@ function renderOrderMgmt() {
           <td class="tb2">${item.asset_name}</td>
           <td class="tm" style="color:${(()=>{const li=LOGI.find(l=>l.code===item.asset_code);return li?(li.qty<=0?'var(--rd)':li.qty<=10?'var(--yw)':'var(--gn)'):'var(--tx3)';})()}">${(()=>{const li=LOGI.find(l=>l.code===item.asset_code);return li!==undefined?li.qty+'개':'-';})()}</td>
           <td class="tm">${item.req_qty}</td>
-          <td>${!isApproved&&!isRejected
+          <td id="oqty-${item.id}" data-qty="${item.order_qty||0}">${!isApproved&&!isOrdered&&!isRejected
             ?`<input type="number" class="fi" value="${item.order_qty}" min="0" style="width:80px;padding:4px 8px;font-size:12px" onchange="updateOrderQty(${item.id},'${req.id}',this.value)">`
             :`<span class="tm">${item.order_qty}</span>`}</td>
           <td style="font-size:12px;color:var(--tx3)">${item.note||'-'}</td>
           ${(isApproved||isOrdered)?`
-          <td>${itemOrdered
+          <td style="white-space:nowrap">${itemOrdered
             ?'<span class="badge b-fix" style="font-size:10px">주문완료</span>'
             :`<button class="btn btn-sm" style="background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.4);color:#a78bfa;font-size:11px;padding:4px 10px" onclick="markItemOrdered(${item.id},'${req.id}')">🛒 주문</button>`
-          }</td>
+          } <button id="oeditbtn-${item.id}" class="btn btn-gst btn-sm" style="font-size:11px;padding:4px 10px;margin-left:2px" onclick="openItemEdit(${item.id})">주문변동</button></td>
           <td>${allReceived
             ?'<span class="badge b-ship">입고완료</span>'
             :(item.received_qty||0)>0
@@ -3187,6 +3187,31 @@ function renderOrderMgmt() {
       </tbody></table>
     </div>`;
   }).join('');
+}
+
+// ─── 주문변동 (인라인 수량 편집) ───
+function openItemEdit(itemId) {
+  const qtyCell = document.getElementById('oqty-'+itemId);
+  const editBtn = document.getElementById('oeditbtn-'+itemId);
+  if(!qtyCell||!editBtn) return;
+  const curQty = qtyCell.getAttribute('data-qty')||'0';
+  qtyCell.innerHTML = `<input type="number" id="oqtyinput-${itemId}" class="fi" value="${curQty}" min="0" style="width:80px;padding:4px 8px;font-size:12px">`;
+  editBtn.textContent = '저장';
+  editBtn.onclick = ()=>saveItemOrderQty(itemId);
+}
+async function saveItemOrderQty(itemId) {
+  const input = document.getElementById('oqtyinput-'+itemId);
+  if(!input) return;
+  const qty = parseInt(input.value)||0;
+  const item = PURCHASE_ITEMS.find(i=>i.id===itemId);
+  if(item) item.order_qty = qty;
+  const {error} = await db.from('purchase_items').update({order_qty:qty}).eq('id',itemId);
+  if(error){notify('수정 실패: '+error.message,'error');return;}
+  const qtyCell = document.getElementById('oqty-'+itemId);
+  if(qtyCell){qtyCell.innerHTML=`<span class="tm">${qty}</span>`;qtyCell.setAttribute('data-qty',String(qty));}
+  const editBtn = document.getElementById('oeditbtn-'+itemId);
+  if(editBtn){editBtn.textContent='주문변동';editBtn.onclick=()=>openItemEdit(itemId);}
+  notify('구매수량 수정됨','success');
 }
 
 // ─── 구매수량 수정 ───
