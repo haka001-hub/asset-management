@@ -3126,7 +3126,7 @@ function renderOrderMgmt() {
           <span class="badge" style="background:rgba(0,0,0,.1);border-color:${statusColor[req.status]||'var(--ac2)'};color:${statusColor[req.status]||'var(--ac2)'}">${statusLabel[req.status]||'진행중'}</span>
         </div>
         <div style="display:flex;gap:8px">
-          ${!isCompleted&&items.some(i=>i.status!=='ordered'&&i.status!=='modified'&&i.status!=='partial'&&i.status!=='received')?`<button class="btn btn-sm" style="background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.4);color:#a78bfa" onclick="bulkMarkItemOrdered('${req.id}')">🛒 일괄주문완료</button>`:''}
+          ${!isCompleted&&items.some(i=>!i.status||i.status==='pending')?`<button class="btn btn-sm" style="background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.4);color:#a78bfa" onclick="bulkMarkItemOrdered('${req.id}')">🛒 일괄주문완료</button>`:''}
           ${!isCompleted&&pendingItems.length?`<button class="btn btn-pri btn-sm" onclick="bulkConfirmReceiving('${req.id}')">📦 일괄입고확인 (${pendingItems.length}건)</button>`:''}
         </div>
       </div>
@@ -3244,7 +3244,7 @@ async function markOrdered(reqId) {
 
 // ─── 일괄 주문완료 ───
 async function bulkMarkItemOrdered(reqId) {
-  const reqItems = PURCHASE_ITEMS.filter(i=>i.request_id===reqId&&!i.status&&!((i.received_qty||0)>=(i.order_qty||i.req_qty)));
+  const reqItems = PURCHASE_ITEMS.filter(i=>i.request_id===reqId&&(!i.status||i.status==='pending')&&!((i.received_qty||0)>=(i.order_qty||i.req_qty)));
   if(!reqItems.length){notify('주문할 품목이 없습니다','error');return;}
   for(const item of reqItems){
     const oq=parseInt(item.order_qty||0), rq=parseInt(item.req_qty||0);
