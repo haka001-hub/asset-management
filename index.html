@@ -309,7 +309,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
         <button class="tab" onclick="setPkFilter('confirmed',this)">수거확인</button>
         <button class="tab" onclick="setPkFilter('rejected',this)">반려</button>
       </div>
-      <table><thead><tr><th>수거번호</th><th>요청일자</th><th>담당자</th><th>수거 사유</th><th>품목명</th><th>수량</th><th>수거 매장</th><th>배송코스</th><th>상태</th><th>액션</th></tr></thead>
+      <table><thead><tr><th>수거번호</th><th>요청일자</th><th>담당자</th><th>수거 사유</th><th>비고</th><th>품목명</th><th>수량</th><th>수거 매장</th><th>배송코스</th><th>상태</th><th>액션</th></tr></thead>
       <tbody id="pickupTable"></tbody></table>
     </div>
   </div>
@@ -948,14 +948,20 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
         <div class="fgrp"><label class="flb">소속팀 <span>*</span></label>
           <select class="fsel" id="pkTeam"><option value="">선택</option><option>물류팀</option><option>경영지원(본사)</option><option>재무팀</option></select>
         </div>
-        <!-- 수거 사유 -->
-        <div class="fgrp"><label class="flb">수거 사유 <span>*</span></label>
-          <select class="fsel" id="pkReason" onchange="onPkReasonChange()">
-            <option value="">선택</option>
-            <option value="고장">🔧 고장</option>
-            <option value="운영진 지시사항">📋 운영진 지시사항</option>
-            <option value="기타">📝 기타</option>
-          </select>
+        <!-- 수거 사유 + 비고 -->
+        <div style="display:flex;gap:12px">
+          <div class="fgrp" style="flex:1"><label class="flb">수거 사유 <span>*</span></label>
+            <select class="fsel" id="pkReason" onchange="onPkReasonChange()">
+              <option value="">선택</option>
+              <option value="일반수거">📦 일반수거</option>
+              <option value="고장">🔧 고장</option>
+              <option value="운영진 지시사항">📋 운영진 지시사항</option>
+              <option value="기타">📝 기타</option>
+            </select>
+          </div>
+          <div class="fgrp" style="flex:1"><label class="flb">비고</label>
+            <input type="text" class="fi" id="pkNote" placeholder="비고 내용 입력 (선택)">
+          </div>
         </div>
         <!-- 기타 직접 입력 -->
         <div class="fgrp" id="pkReasonEtcWrap" style="display:none">
@@ -2372,8 +2378,10 @@ function renderPickup(){
     const act=p.status==='pending'
       ?`<button class="btn btn-suc btn-sm" onclick="openPkConfirmModal('${p.id}')">수거확인</button>`
       :'<span style="color:var(--tx3);font-size:12px">-</span>';
+    const rBg = p.reason==='고장'?'rgba(248,113,113,.12)':p.reason==='일반수거'?'rgba(34,197,94,.1)':'rgba(59,130,246,.08)';
+    const rClr = p.reason==='고장'?'#f87171':p.reason==='일반수거'?'var(--gn)':'var(--ac2)';
     const reasonTag = p.reason
-      ? `<span style="font-size:11px;padding:1px 6px;border-radius:4px;background:${p.reason==='고장'?'rgba(248,113,113,.12)':'rgba(59,130,246,.08)'};color:${p.reason==='고장'?'#f87171':'var(--ac2)'}">${p.reason}</span>`
+      ? `<span style="font-size:11px;padding:1px 6px;border-radius:4px;background:${rBg};color:${rClr}">${p.reason}</span>`
       : '-';
     const brokenInfo = p.reason==='고장' && (p.brokenQty||0)>0
       ? `<span style="font-size:10px;color:#f87171;margin-left:4px">(정상${p.normalQty||0}/고장${p.brokenQty||0})</span>`
@@ -2382,11 +2390,12 @@ function renderPickup(){
       <td class="tm">${p.id}</td><td class="tm">${fd(p.date)}</td>
       <td>${p.manager}<span style="font-size:11px;color:var(--tx3)"> (${p.team})</span></td>
       <td>${reasonTag}</td>
+      <td style="font-size:12px;color:var(--tx3)">${p.note||'-'}</td>
       <td class="tb2">${p.asset}</td><td class="tm">${p.qty}개${brokenInfo}</td>
       <td>${p.store}</td><td>${rtag(p.route)}</td>
       <td>${sbadgePk(p.status)}</td><td>${act}</td>
     </tr>`;
-  }).join('')||`<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--tx3)">수거 신청 내역 없음</td></tr>`;
+  }).join('')||`<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--tx3)">수거 신청 내역 없음</td></tr>`;
 }
 function setPkFilter(t,el){pkFilter=t;document.querySelectorAll('#page-pickup .tab').forEach(b=>b.classList.remove('active'));el.classList.add('active');renderPickup();}
 
