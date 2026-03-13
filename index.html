@@ -3371,18 +3371,17 @@ async function confirmReceiving(itemId, assetCode, assetName, maxQty, reqId) {
   if(reqId) await checkAndCompleteRequest(reqId);
 }
 
-// ─── 전체 입고 완료 → 주문이력서 이동 확인 ───
+// ─── 전체 입고 완료 → 자동 completed 처리 ───
 async function checkAndCompleteRequest(reqId) {
   const reqItems = PURCHASE_ITEMS.filter(i=>i.request_id===reqId);
   if(!reqItems.length) return;
   const allDone = reqItems.every(i=>(i.received_qty||0)>=(i.order_qty||i.req_qty));
   if(!allDone) return;
-  if(!confirm(`[${reqId}] 모든 품목 입고가 완료되었습니다.\n주문을 완료 처리하시겠습니까?`)) return;
   const {error} = await db.from('purchase_requests').update({status:'completed'}).eq('id',reqId);
   if(error){notify('완료 처리 실패: '+error.message,'error');return;}
   const req = PURCHASE_REQS.find(r=>r.id===reqId);
   if(req) req.status='completed';
-  notify(`✅ ${reqId} 주문 완료 처리됨`,'success');
+  notify(`✅ ${reqId} 전품목 입고완료`,'success');
   renderOrderMgmt(); renderPurchaseHist(); updateOrderBadge();
 }
 
