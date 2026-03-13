@@ -3148,7 +3148,6 @@ function renderOrderMgmt() {
         </div>
         <div style="display:flex;gap:8px">
           ${(isApproved||isOrdered)&&pendingItems.length?`<button class="btn btn-pri btn-sm" onclick="bulkConfirmReceiving('${req.id}')">📦 일괄입고확인 (${pendingItems.length}건)</button>`:''}
-          ${isApproved?`<button class="btn btn-sm" style="background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.4);color:#a78bfa" onclick="markOrdered('${req.id}')">🛒 주문완료</button>`:''}
           ${!isApproved&&!isOrdered&&!isRejected?`
           <button class="btn btn-dan btn-sm" onclick="rejectPurchaseReq('${req.id}')">✕ 반려</button>
           <button class="btn btn-suc btn-sm" onclick="approvePurchaseReq('${req.id}')">✓ 승인</button>`:''}
@@ -3156,10 +3155,11 @@ function renderOrderMgmt() {
       </div>
       <table><thead><tr>
         <th>자산코드</th><th>품목명</th><th>현재재고</th><th>요청수량</th><th>구매수량</th><th>비고</th>
-        ${(isApproved||isOrdered)?'<th>입고상태</th><th>입고확인</th>':''}
+        ${(isApproved||isOrdered)?'<th>주문</th><th>입고상태</th><th>입고확인</th>':''}
       </tr></thead><tbody>
       ${items.map(item=>{
         const allReceived = (item.received_qty||0)>=(item.order_qty||item.req_qty);
+        const itemOrdered = item.status==='ordered'||item.status==='partial'||item.status==='received';
         return `<tr ondblclick="showProductDetail('${item.asset_code}')" style="cursor:pointer" title="더블클릭 시 구매처 정보">
           <td class="tm">${item.asset_code||'-'}</td>
           <td class="tb2">${item.asset_name}</td>
@@ -3170,6 +3170,10 @@ function renderOrderMgmt() {
             :`<span class="tm">${item.order_qty}</span>`}</td>
           <td style="font-size:12px;color:var(--tx3)">${item.note||'-'}</td>
           ${(isApproved||isOrdered)?`
+          <td>${itemOrdered
+            ?'<span class="badge b-fix" style="font-size:10px">주문완료</span>'
+            :`<button class="btn btn-sm" style="background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.4);color:#a78bfa;font-size:11px;padding:4px 10px" onclick="markItemOrdered(${item.id},'${req.id}')">🛒 주문</button>`
+          }</td>
           <td>${allReceived
             ?'<span class="badge b-ship">입고완료</span>'
             :(item.received_qty||0)>0
@@ -3209,6 +3213,24 @@ async function markOrdered(reqId) {
   const req = PURCHASE_REQS.find(r=>r.id===reqId);
   if(req) req.status='ordered';
   notify(`${reqId} 주문완료 처리됨 — 입고확인 대기`,'success');
+  renderOrderMgmt(); renderPurchaseHist(); updateOrderBadge();
+}
+
+// ─── 품목별 주문완료 ───
+async function markItemOrdered(itemId, reqId) {
+  const {error} = await db.from('purchase_items').update({status:'ordered'}).eq('id',itemId);
+  if(error){notify('주문완료 저장 실패: '+error.message,'error');return;}
+  const item = PURCHASE_ITEMS.find(i=>i.id===itemId);
+  if(item) item.status='ordered';
+  // 해당 요청의 모든 품목이 주문완료이면 요청도 ordered로 전환
+  const reqItems = PURCHASE_ITEMS.filter(i=>i.request_id===reqId);
+  const allOrdered = reqItems.every(i=>i.status==='ordered'||i.status==='partial'||i.status==='received');
+  if(allOrdered){
+    await db.from('purchase_requests').update({status:'ordered'}).eq('id',reqId);
+    const req = PURCHASE_REQS.find(r=>r.id===reqId);
+    if(req) req.status='ordered';
+  }
+  notify('주문완료 처리됨','success');
   renderOrderMgmt(); renderPurchaseHist(); updateOrderBadge();
 }
 
