@@ -3175,7 +3175,9 @@ function renderOrderMgmt() {
             ?'<span class="badge b-ship">입고완료</span>'
             :(item.received_qty||0)>0
               ?`<span class="badge b-warn">부분입고 (${item.received_qty}/${item.order_qty})</span>`
-              :'<span class="badge b-pend">대기중</span>'}</td>
+              :(item.status==='ordered'||item.status==='modified')
+                ?'<span class="badge b-fix" style="font-size:11px">주문완료</span>'
+                :'<span class="badge b-pend">대기중</span>'}</td>
           <td>${!allReceived?`<button class="btn btn-suc btn-sm" style="font-size:11px" onclick="confirmReceiving(${item.id},'${item.asset_code}','${item.asset_name}',${(item.order_qty||item.req_qty)-(item.received_qty||0)},'${req.id}')">입고확인</button>`:'—'}</td>
         </tr>`;
       }).join('')}
