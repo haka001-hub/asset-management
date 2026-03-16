@@ -1,0 +1,1815 @@
+<!DOCTYPE html>
+<!-- saved from url=(0056)file:///C:/Users/user/Downloads/as-management-v3_16.html -->
+<html lang="ko"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>AS 수거 관리 시스템</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0d1117;--sf:#161b27;--sf2:#1c2233;--sf3:#222840;--sf4:#2a3250;
+  --bd:#2d3655;--bd2:#3a4470;
+  --tx:#dde3f5;--tx2:#8892b0;--tx3:#4a5580;
+  --ac:#4f8ef7;--ac2:#7aacff;
+  --gn:#0fb981;--gn2:#3dd6a3;
+  --ye:#f5a623;--ye2:#ffc55a;
+  --rd:#f25757;--rd2:#ff8080;
+  --pu:#9b72f0;--pu2:#bda0ff;
+  --r:7px;--r2:11px;--r3:16px;
+  --sh:0 8px 32px rgba(0,0,0,.5);
+}
+body{background:var(--bg);color:var(--tx);font-family:'Pretendard','Apple SD Gothic Neo',sans-serif;font-size:14px;min-height:100vh}
+
+/* ── LAYOUT ── */
+/* ── SIDEBAR LAYOUT ── */
+.shell{display:flex;min-height:100vh}
+.sidebar{width:220px;min-width:220px;background:var(--sf);border-right:1px solid var(--bd);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;overflow-y:auto}
+.sidebar-logo{padding:18px 16px 14px;border-bottom:1px solid var(--bd)}
+.logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:15px;letter-spacing:-.3px}
+.logo-box{width:28px;height:28px;background:linear-gradient(135deg,var(--ac),var(--pu));border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.logo-sub{font-size:10px;font-weight:400;color:var(--tx3);margin-top:1px}
+.nav-sec{padding:14px 16px 4px;font-size:9px;font-weight:700;color:var(--tx3);letter-spacing:.15em;text-transform:uppercase}
+.ni{display:flex;align-items:center;gap:8px;width:100%;padding:8px 16px;border:none;background:transparent;color:var(--tx2);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;text-align:left;border-radius:0}
+.ni:hover{background:var(--sf3);color:var(--tx)}
+.ni.active{background:rgba(79,142,247,.15);color:var(--ac2);font-weight:600;border-left:2px solid var(--ac)}
+.ni .ic{font-size:13px;width:16px;text-align:center;flex-shrink:0}
+.sidebar-bottom{margin-top:auto;padding:12px;border-top:1px solid var(--bd);display:flex;flex-direction:column;gap:6px}
+
+.main{margin-left:220px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+.topbar{background:var(--sf);border-bottom:1px solid var(--bd);height:54px;display:flex;align-items:center;padding:0 20px;gap:12px;position:sticky;top:0;z-index:50}
+.topbar-title{font-weight:700;font-size:16px}
+.topbar-sub{font-size:12px;color:var(--tx3);margin-left:4px}
+.topbar-right{display:flex;gap:8px;align-items:center;margin-left:auto}
+
+.page{display:none;padding:22px;flex:1}
+.page.active{display:block}
+
+/* ── CARDS ── */
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r2);padding:18px}
+.card+.card{margin-top:14px}
+.card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.card-title{font-size:14px;font-weight:700;display:flex;align-items:center;gap:7px}
+
+/* ── FORM ── */
+.fg{display:grid;gap:12px}
+.fg2{grid-template-columns:1fr 1fr}
+.fg3{grid-template-columns:1fr 1fr 1fr}
+.fg4{grid-template-columns:1fr 1fr 1fr 1fr}
+.span2{grid-column:span 2}
+.span3{grid-column:span 3}
+.span4{grid-column:span 4}
+.fgrp{display:flex;flex-direction:column;gap:5px}
+.flb{font-size:11px;font-weight:700;color:var(--tx2);letter-spacing:.5px;text-transform:uppercase}
+.flb em{color:var(--rd2);font-style:normal;margin-left:2px}
+.fi{background:var(--sf2);border:1px solid var(--bd);border-radius:var(--r);padding:8px 11px;color:var(--tx);font-size:13px;outline:none;transition:border-color .18s;width:100%}
+.fi:focus{border-color:var(--ac)}
+.fi.auto{background:var(--sf3);color:var(--tx2);font-family:monospace;font-size:12px}
+.fi.auto:disabled{opacity:.7}
+.fsel{background:var(--sf2);border:1px solid var(--bd);border-radius:var(--r);padding:8px 11px;color:var(--tx);font-size:13px;outline:none;width:100%;cursor:pointer}
+.fsel:focus{border-color:var(--ac)}
+
+/* ── AUTOCOMPLETE ── */
+.acw{position:relative}
+.acl{position:fixed;background:var(--sf2);border:1px solid var(--bd2);border-radius:var(--r);max-height:220px;overflow-y:auto;z-index:9999;display:none;box-shadow:var(--sh);min-width:200px}
+.aci{padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--bd);transition:background .1s}
+.aci:last-child{border-bottom:none}
+.aci:hover,.aci.on{background:rgba(79,142,247,.12)}
+.aci b{color:var(--ac2)}
+.aci small{color:var(--tx3);font-size:11px;margin-left:6px}
+
+/* ── BUTTONS ── */
+.btn{padding:7px 15px;border:none;border-radius:var(--r);cursor:pointer;font-size:13px;font-weight:600;transition:all .18s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.btn-pri{background:var(--ac);color:#fff}.btn-pri:hover{filter:brightness(1.15)}
+.btn-gst{background:var(--sf3);color:var(--tx2);border:1px solid var(--bd)}.btn-gst:hover{color:var(--tx);border-color:var(--bd2)}
+.btn-gn{background:var(--gn);color:#fff}.btn-gn:hover{filter:brightness(1.15)}
+.btn-ye{background:var(--ye);color:#fff}.btn-ye:hover{filter:brightness(1.15)}
+.btn-rd{background:var(--rd);color:#fff}.btn-rd:hover{filter:brightness(1.15)}
+.btn-pu{background:var(--pu);color:#fff}.btn-pu:hover{filter:brightness(1.15)}
+.btn-sm{padding:4px 11px;font-size:12px}
+.btn-lg{padding:11px 24px;font-size:14px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* ── BADGES ── */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
+.b-pend{background:rgba(245,166,35,.15);color:var(--ye2);border:1px solid rgba(245,166,35,.3)}
+.b-conf{background:rgba(79,142,247,.15);color:var(--ac2);border:1px solid rgba(79,142,247,.3)}
+.b-pick{background:rgba(155,114,240,.15);color:var(--pu2);border:1px solid rgba(155,114,240,.3)}
+.b-done{background:rgba(15,185,129,.15);color:var(--gn2);border:1px solid rgba(15,185,129,.3)}
+.b-free{background:rgba(15,185,129,.1);color:var(--gn2)}
+.b-paid{background:rgba(242,87,87,.1);color:var(--rd2)}
+.b-etc{background:rgba(138,148,176,.1);color:var(--tx2)}
+
+/* ── TABLE ── */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+thead tr{background:var(--sf3)}
+th{padding:9px 11px;text-align:left;font-size:11px;font-weight:700;color:var(--tx2);letter-spacing:.4px;white-space:nowrap;border-bottom:1px solid var(--bd)}
+td{padding:9px 11px;font-size:13px;border-bottom:1px solid rgba(45,54,85,.5);vertical-align:middle}
+tbody tr:hover td{background:rgba(255,255,255,.02)}
+.tm{font-family:monospace;font-size:12px}
+.tb{font-weight:600}
+
+/* ── STATS ── */
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px}
+.sc{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r2);padding:15px 18px;position:relative;overflow:hidden}
+.sc::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;border-radius:2px 2px 0 0}
+.sc.c1::after{background:var(--ac)}.sc.c2::after{background:var(--ye)}.sc.c3::after{background:var(--ac)}.sc.c4::after{background:var(--pu)}.sc.c5::after{background:var(--gn)}
+.sc-num{font-size:26px;font-weight:800;line-height:1.1;margin-bottom:3px}
+.sc-lbl{font-size:11px;color:var(--tx2)}
+
+/* ── FILTER ── */
+.fbar{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.sw{display:flex;align-items:center;gap:7px;background:var(--sf2);border:1px solid var(--bd);border-radius:var(--r);padding:6px 11px}
+.sw input{background:transparent;border:none;outline:none;color:var(--tx);font-size:13px;min-width:160px}
+.chip{padding:4px 12px;border-radius:20px;border:1px solid var(--bd);background:transparent;color:var(--tx2);font-size:12px;cursor:pointer;transition:all .15s}
+.chip.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.rtabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px}
+.rtab{padding:3px 12px;border-radius:20px;border:1px solid var(--bd);background:transparent;color:var(--tx2);font-size:12px;cursor:pointer;transition:all .15s}
+.rtab.on{background:var(--sf3);color:var(--tx);border-color:var(--bd2)}
+
+/* ── MODAL ── */
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;display:none;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px)}
+.mo.open{display:flex}
+.md{background:var(--sf);border:1px solid var(--bd2);border-radius:var(--r3);width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 32px 80px rgba(0,0,0,.7)}
+.md-hd{padding:18px 22px 14px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:flex-start;position:sticky;top:0;background:var(--sf);z-index:10;border-radius:var(--r3) var(--r3) 0 0}
+.md-ti{font-size:15px;font-weight:700}
+.md-su{font-size:12px;color:var(--tx2);margin-top:2px}
+.md-cl{background:transparent;border:none;color:var(--tx2);font-size:18px;cursor:pointer;padding:3px 7px;border-radius:5px;line-height:1}
+.md-cl:hover{background:var(--sf3);color:var(--tx)}
+.md-bd{padding:18px 22px}
+.md-ft{padding:14px 22px;border-top:1px solid var(--bd);display:flex;justify-content:flex-end;gap:8px;position:sticky;bottom:0;background:var(--sf);border-radius:0 0 var(--r3) var(--r3)}
+
+/* ── ID TAG ── */
+.id-tag{display:inline-flex;align-items:center;background:rgba(79,142,247,.12);border:1px solid rgba(79,142,247,.28);border-radius:5px;padding:2px 9px;font-family:monospace;font-size:12px;font-weight:700;color:var(--ac2)}
+
+/* ── NOTIFY ── */
+.notif{position:fixed;bottom:22px;right:22px;background:var(--sf2);border:1px solid var(--bd2);border-radius:10px;padding:11px 17px;display:flex;align-items:center;gap:9px;font-size:13px;font-weight:600;z-index:999;transform:translateY(60px);opacity:0;transition:all .25s;box-shadow:var(--sh);max-width:380px}
+.notif.show{transform:translateY(0);opacity:1}
+.notif.ok{border-color:rgba(15,185,129,.4)}.notif.err{border-color:rgba(242,87,87,.4)}.notif.warn{border-color:rgba(245,166,35,.4)}
+
+/* ── DIVIDER ── */
+.sec{font-size:11px;font-weight:700;color:var(--tx3);letter-spacing:.6px;text-transform:uppercase;border-bottom:1px solid var(--bd);padding-bottom:7px;margin-bottom:12px}
+
+/* ── INFO GRID ── */
+.ig{display:grid;grid-template-columns:auto 1fr;gap:5px 16px;font-size:13px}
+.ig .lbl{color:var(--tx3);font-size:11px;display:flex;align-items:center;white-space:nowrap}
+.ig .val{font-weight:600}
+
+/* ── EMPTY ── */
+.empty{text-align:center;padding:36px;color:var(--tx3)}
+
+/* ── DASH REGION CARD ── */
+.rcard{background:var(--sf2);border:1px solid var(--bd);border-radius:var(--r2);padding:14px 16px}
+.rcard-title{font-weight:700;font-size:13px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
+.rbar{height:6px;background:var(--sf3);border-radius:3px;overflow:hidden;margin-top:6px}
+.rbar-fill{height:100%;border-radius:3px;background:var(--ac);transition:width .4s}
+
+.nbadge{background:var(--rd);color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:1px 6px;margin-left:auto}
+
+/* ── NAV GROUP (아코디언) ── */
+.nav-group{display:flex;flex-direction:column}
+.ng-header{display:flex;align-items:center;gap:8px;width:100%;padding:9px 16px;border:none;background:transparent;color:var(--tx);font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;text-align:left;letter-spacing:-.1px}
+.ng-header:hover{background:var(--sf3)}
+.ng-header.open{background:rgba(79,142,247,.08);color:var(--ac2)}
+.ng-label{flex:1}
+.ng-arrow{font-size:10px;color:var(--tx3);transition:transform .2s;margin-left:auto}
+.ng-header.open .ng-arrow{transform:rotate(0deg)}
+.ng-header:not(.open) .ng-arrow{transform:rotate(-90deg)}
+.ng-body{display:flex;flex-direction:column;border-left:2px solid rgba(79,142,247,.25);margin-left:22px;overflow:hidden;transition:max-height .25s ease}
+.nav-sub-sec{padding:8px 14px 2px;font-size:9px;font-weight:700;color:var(--tx3);letter-spacing:.15em;text-transform:uppercase}
+.ni-sub{padding:6px 14px;font-size:12px}
+.ni-sub.active{background:rgba(79,142,247,.15);color:var(--ac2);font-weight:600;border-left:2px solid var(--ac);margin-left:-2px}
+/* ── ITEM TABLE ── */
+#itemTable td{padding:4px 6px}
+#itemTable .fi{padding:5px 8px}
+.item-cell:focus{outline:2px solid var(--ac);outline-offset:-1px;border-radius:var(--r)}
+/* ── TEAM LAYOUT ── */
+.team-layout{display:grid;grid-template-columns:400px 1fr;gap:18px;align-items:start}
+@media(max-width:900px){.team-layout{grid-template-columns:1fr}.fg2,.fg3,.fg4{grid-template-columns:1fr}.span2,.span3,.span4{grid-column:span 1}.stats{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo">
+      <div class="logo-box">📦</div>
+      <div>
+        <div>업무 관리 시스템</div>
+        <div class="logo-sub">WORK MANAGEMENT</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 대시보드 -->
+  <div class="nav-sec">메인</div>
+  <button class="ni active" onclick="showPage(&#39;dash&#39;,this)"><span class="ic">⊞</span>대시보드</button>
+
+  <!-- ── AS 수거 신청 (아코디언) ── -->
+  <div class="nav-group" id="grp-as">
+    <button class="ni ng-header open" onclick="toggleGroup(&#39;grp-as&#39;)">
+      <span class="ic">📦</span>
+      <span class="ng-label">AS 수거 신청</span>
+      <span class="ng-arrow">▾</span>
+    </button>
+    <div class="ng-body">
+      <div class="nav-sub-sec">직영팀장</div>
+      <button class="ni ni-sub" onclick="showPage(&#39;team&#39;,this)"><span class="ic">✏️</span>수거 신청</button>
+      <button class="ni ni-sub" onclick="showPage(&#39;team-hist&#39;,this)"><span class="ic">◎</span>신청 이력</button>
+      <div class="nav-sub-sec">본사 확인</div>
+      <button class="ni ni-sub" onclick="showPage(&#39;hq&#39;,this)">
+        <span class="ic">☑</span>수거 관리
+        <span class="nbadge" id="hqPendBadge" style="display:none">0</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 추후 업무 추가 공간 -->
+  <!-- <div class="nav-group" id="grp-xxx">
+    <button class="ni ng-header" onclick="toggleGroup('grp-xxx')">
+      <span class="ic">🔧</span>
+      <span class="ng-label">다른 업무</span>
+      <span class="ng-arrow">▾</span>
+    </button>
+    <div class="ng-body" style="display:none"></div>
+  </div> -->
+
+  <div class="sidebar-bottom">
+    <button class="btn btn-gst btn-sm" onclick="openMo(&#39;moRegStore&#39;)" style="justify-content:center">+ 매장 등록</button>
+    <button class="btn btn-gst btn-sm" onclick="openMo(&#39;moRegProduct&#39;)" style="justify-content:center">+ 상품 등록</button>
+  </div>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div>
+    <span class="topbar-title" id="topbarTitle">대시보드</span>
+    <span class="topbar-sub" id="topbarSub"></span>
+  </div>
+  <div class="topbar-right"></div>
+</div>
+
+<!-- ══════════ 대시보드 ══════════ -->
+<div class="page active" id="page-dash">
+  <div class="stats" id="dashStats">
+    <div class="sc c1"><div class="sc-num">8</div><div class="sc-lbl">전체 신청</div></div>
+    <div class="sc c2"><div class="sc-num">0</div><div class="sc-lbl">확인 대기</div></div>
+    <div class="sc c3"><div class="sc-num">2</div><div class="sc-lbl">최종 확인</div></div>
+    <div class="sc c4"><div class="sc-num">3</div><div class="sc-lbl">수거 진행중</div></div>
+    <div class="sc c5"><div class="sc-num">3</div><div class="sc-lbl">입고 완료</div></div></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+    <div class="card">
+      <div class="card-hd"><div class="card-title">📍 지역별 현황</div></div>
+      <div id="dashRegion"><div class="rcard" style="margin-bottom:8px">
+          <div class="rcard-title">
+            <span>부산 <span style="font-size:12px;font-weight:400;color:var(--tx2)">8건</span></span>
+            <span style="font-size:12px;color:var(--tx2)"> 완료 3/8</span>
+          </div>
+          <div class="rbar"><div class="rbar-fill" style="width:38%"></div></div>
+        </div></div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><div class="card-title">🕐 최근 신청 (10건)</div></div>
+      <div class="tbl-wrap">
+        <table><thead><tr><th>식별번호</th><th>매장명</th><th>제품명</th><th>상태</th></tr></thead>
+        <tbody id="dashRecent"><tr>
+    <td><span class="id-tag">부산-00742</span></td>
+    <td class="tb" style="font-size:12px">센텀역직영점</td>
+    <td style="font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">시그니처 C타입 테두리 (스카이블루)</td>
+    <td><span class="badge b-pick">🚚 수거완료</span></td>
+  </tr><tr>
+    <td><span class="id-tag">부산-00741</span></td>
+    <td class="tb" style="font-size:12px">센텀역직영점</td>
+    <td style="font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">1.9% MAX - 거스트블루</td>
+    <td><span class="badge b-done">🚚 수거완료</span></td>
+  </tr><tr>
+    <td><span class="id-tag">부산-00740</span></td>
+    <td class="tb" style="font-size:12px">센텀역직영점</td>
+    <td style="font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">시그니처 테두리(화이트)</td>
+    <td><span class="badge b-done">🚚 수거완료</span></td>
+  </tr><tr>
+    <td><span class="id-tag">부산-00739</span></td>
+    <td class="tb" style="font-size:12px">센텀역직영점</td>
+    <td style="font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">시그니처 테두리(화이트)</td>
+    <td><span class="badge b-pick">🚚 수거완료</span></td>
+  </tr><tr>
+    <td><span class="id-tag">부산-00738</span></td>
+    <td class="tb" style="font-size:12px">동래역직영점</td>
+    <td style="font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">[C타입]하카시그니처 배터리 (시트러스옐로우)</td>
+    <td><span class="badge b-pick">🚚 수거완료</span></td>
+  </tr><tr>
+    <td><span class="id-tag">부산-00737</span></td>
+    <td class="tb" style="font-size:12px">동래역직영점</td>
+    <td style="font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">시그니처 C타입 테두리 (시트러스옐로우)</td>
+    <td><span class="badge b-conf">✅ 최종확인</span></td>
+  </tr><tr>
+    <td><span class="id-tag">부산-00736</span></td>
+    <td class="tb" style="font-size:12px">동래역직영점</td>
+    <td style="font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">시그니처 테두리(화이트)</td>
+    <td><span class="badge b-conf">✅ 최종확인</span></td>
+  </tr><tr>
+    <td><span class="id-tag">부산-00735</span></td>
+    <td class="tb" style="font-size:12px">동래역직영점</td>
+    <td style="font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">시그니처 C타입 테두리 (검정)</td>
+    <td><span class="badge b-done">🚚 수거완료</span></td>
+  </tr></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ 직영팀장: 신청 ══════════ -->
+<div class="page" id="page-team">
+
+  <!-- 상단: 매장 선택 + 공통 정보 -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-title" style="margin-bottom:14px">✏️ AS 수거 신청</div>
+    <div class="fg fg4" style="gap:11px;align-items:end">
+      <div class="fgrp span2">
+        <label class="flb">수거 매장명<em>*</em></label>
+        <div class="acw">
+          <input class="fi" id="fStore" placeholder="매장명 입력 (예: 동래)..." autocomplete="off" oninput="acStore(this.value)" onfocus="acStore(this.value)" onkeydown="acKey(event,&#39;acStoreList&#39;)">
+          <div class="acl" id="acStoreList" style="display: none;"></div>
+        </div>
+      </div>
+      <div class="fgrp">
+        <label class="flb">지역 <span style="font-weight:400;color:var(--tx3)">(자동)</span></label>
+        <input class="fi auto" id="fRegion" disabled="">
+      </div>
+      <div class="fgrp">
+        <label class="flb">배송코스 <span style="font-weight:400;color:var(--tx3)">(자동)</span></label>
+        <input class="fi auto" id="fRoute" disabled="">
+      </div>
+      <div class="fgrp">
+        <label class="flb">매장코드 <span style="font-weight:400;color:var(--tx3)">(자동)</span></label>
+        <input class="fi auto" id="fCode" disabled="">
+      </div>
+      <div class="fgrp">
+        <label class="flb">확인일자<em>*</em></label>
+        <input class="fi" type="date" id="fDate">
+      </div>
+    </div>
+  </div>
+
+  <!-- 하단: 품목 행 테이블 -->
+  <div class="card">
+    <div class="card-hd">
+      <div class="card-title">📦 품목 목록</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-gst btn-sm" onclick="addItemRow()">+ 행 추가</button>
+        <button class="btn btn-gst btn-sm" onclick="showPage(&#39;team-hist&#39;,document.querySelector(&#39;.ni[onclick*=team-hist]&#39;))">신청 이력 →</button>
+      </div>
+    </div>
+
+    <!-- 품목 테이블 -->
+    <div style="font-size:11px;color:var(--tx3);margin-bottom:6px">
+      💡 <b>Tab</b> → 다음 셀 &nbsp;|&nbsp; <b>Enter</b> → 다음 행 &nbsp;|&nbsp; <b>Ctrl+V</b> → 엑셀에서 복사한 내용 붙여넣기
+      <span style="margin-left:8px;color:var(--tx3)">(엑셀 컬럼 순서: 제품명 | 구분 | 유/무상 | 수량 | 메모)</span>
+    </div>
+    <div class="tbl-wrap" style="margin-bottom:12px">
+      <table id="itemTable">
+        <thead><tr>
+          <th style="width:36px">#</th>
+          <th style="min-width:220px">제품명<em style="color:var(--rd2)">*</em></th>
+          <th style="width:90px">구분<em style="color:var(--rd2)">*</em></th>
+          <th style="width:80px">유/무상<em style="color:var(--rd2)">*</em></th>
+          <th style="width:70px">수량<em style="color:var(--rd2)">*</em></th>
+          <th style="min-width:160px">메모</th>
+          <th style="width:36px"></th>
+        </tr></thead>
+        <tbody id="itemRows"><tr id="irow-1" data-rowid="1">
+    <td style="text-align:center;color:var(--tx3);font-size:12px;user-select:none">1</td>
+    <td>
+      <div class="acw">
+        <input class="fi item-cell" id="ip-1" placeholder="제품명..." autocomplete="off" style="font-size:12px;padding:6px 9px" value="" oninput="acProductRow(this.value,1)" onfocus="acProductRow(this.value,1)" onkeydown="cellKey(event,&#39;ip-1&#39;)">
+        <div class="acl" id="apl-1" style="display: none;"></div>
+      </div>
+    </td>
+    <td>
+      <select class="fsel item-cell" id="id-1" style="font-size:12px;padding:6px 9px" onkeydown="cellKey(event,&#39;id-1&#39;)">
+        <option value="">선택...</option><option>즉시처리</option><option>예외조치</option><option>보상판매에어릭스</option><option>보상판매R</option><option>보상판매H</option><option>본사별도수거 박시영</option><option>본사별도수거 이지영</option>
+      </select>
+    </td>
+    <td>
+      <select class="fsel item-cell" id="ic-1" style="font-size:12px;padding:6px 9px" onkeydown="cellKey(event,&#39;ic-1&#39;)">
+        <option value="">선택...</option><option>무상</option><option>유상</option><option>수거</option>
+      </select>
+    </td>
+    <td>
+      <input class="fi item-cell" type="number" id="iq-1" placeholder="0" min="1" style="font-size:12px;padding:6px 9px;text-align:center" value="" onkeydown="cellKey(event,&#39;iq-1&#39;)">
+    </td>
+    <td>
+      <input class="fi item-cell" id="im-1" placeholder="메모" style="font-size:12px;padding:6px 9px" value="" onkeydown="cellKey(event,&#39;im-1&#39;)">
+    </td>
+    <td style="text-align:center">
+      <button onclick="removeItemRow(1)" style="background:transparent;border:none;color:var(--tx3);cursor:pointer;font-size:16px;padding:2px 6px" title="행 삭제">✕</button>
+    </td></tr></tbody>
+      </table>
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-gst" onclick="resetForm()">전체 초기화</button>
+      <button class="btn btn-pri btn-lg" onclick="submitAS()">📤 전체 신청 등록</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ 직영팀장: 신청 이력 ══════════ -->
+<div class="page" id="page-team-hist">
+  <div class="card">
+    <div class="card-hd">
+      <div class="card-title">📋 AS 수거 신청 이력</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div class="sw"><span style="color:var(--tx3)">⌕</span><input placeholder="매장/제품/식별번호 검색..." oninput="renderTeamList(this.value)" style="width:220px"></div>
+      </div>
+    </div>
+    <div class="rtabs" id="teamRegionTabs"><button class="rtab on" onclick="setTeamRegion(&#39;all&#39;,this)">전체</button><button class="rtab " onclick="setTeamRegion(&#39;부산&#39;,this)">부산</button></div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>식별번호</th><th>매장명</th><th>지역</th><th>구분</th><th>유/무상</th><th>제품명</th><th>수량</th><th>확인일자</th><th>상태</th></tr></thead>
+        <tbody id="teamBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ 본사 ══════════ -->
+<div class="page" id="page-hq">
+
+  <!-- 일괄 수거예상일 적용 바 -->
+  <div id="bulkDateBar" style="display:none;background:rgba(79,142,247,.1);border:1px solid rgba(79,142,247,.3);border-radius:var(--r2);padding:12px 16px;margin-bottom:14px;align-items:center;gap:12px;flex-wrap:wrap">
+    <span style="font-size:13px;font-weight:600;color:var(--ac2)">✅ <span id="bulkSelCnt">0</span>건 선택됨</span>
+    <div style="display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap">
+      <!-- 확인대기 → 최종확인 -->
+      <div id="bulkConfirmSection" style="display:flex;align-items:center;gap:8px">
+        <label style="font-size:12px;color:var(--tx2)">수거 예상일자</label>
+        <input type="date" class="fi" id="bulkDateInput" style="width:160px;padding:6px 10px">
+        <button class="btn btn-pri btn-sm" onclick="applyBulkDate()">📋 일괄 확인</button>
+      </div>
+      <!-- 구분선 -->
+      <div id="bulkDivider" style="width:1px;height:24px;background:var(--bd)"></div>
+      <!-- 최종확인 → 수거완료 -->
+      <div id="bulkPickupSection" style="display:flex;align-items:center;gap:8px">
+        <label style="font-size:12px;color:var(--tx2)">수거일자</label>
+        <input type="date" class="fi" id="bulkPickupDateInput" style="width:160px;padding:6px 10px">
+        <button class="btn btn-pu btn-sm" onclick="applyBulkPickup()">🚚 일괄 수거처리</button>
+      </div>
+      <button class="btn btn-gst btn-sm" onclick="clearBulkSel()">선택 해제</button>
+    </div>
+  </div>
+
+  <!-- 지역별 섹션 -->
+  <div id="hqRegionSections"></div>
+
+</div>
+
+</div><!-- /main -->
+</div><!-- /shell -->
+
+<!-- ══ MODAL: 확인처리 (본사) ══ -->
+<div class="mo" id="moConfirm">
+  <div class="md" style="max-width:520px">
+    <div class="md-hd">
+      <div><div class="md-ti">✅ 확인 처리</div><div class="md-su" id="moConfirmSub"></div></div>
+      <button class="md-cl" onclick="closeMo(&#39;moConfirm&#39;)">✕</button>
+    </div>
+    <div class="md-bd">
+      <div id="moConfirmInfo" style="background:var(--sf3);border-radius:var(--r);padding:12px;margin-bottom:14px;font-size:13px"></div>
+      <div class="fg fg2" style="gap:11px">
+        <div class="fgrp">
+          <label class="flb">매장명 <span style="font-weight:400;color:var(--tx3)">(자동)</span></label>
+          <input class="fi auto" id="cfStore" disabled="">
+        </div>
+        <div class="fgrp">
+          <label class="flb">배송코스 <span style="font-weight:400;color:var(--tx3)">(자동)</span></label>
+          <input class="fi auto" id="cfRoute" disabled="">
+        </div>
+        <div class="fgrp span2">
+          <label class="flb">수거 예상일자<em>*</em></label>
+          <input class="fi" type="date" id="cfPickDate">
+        </div>
+        <div class="fgrp span2">
+          <label class="flb">담당자</label>
+          <input class="fi" id="cfMgr" placeholder="담당자명">
+        </div>
+        <div class="fgrp span2">
+          <label class="flb">메모</label>
+          <input class="fi" id="cfMemo" placeholder="메모">
+        </div>
+      </div>
+    </div>
+    <div class="md-ft">
+      <button class="btn btn-gst" onclick="closeMo(&#39;moConfirm&#39;)">취소</button>
+      <button class="btn btn-pri" onclick="doConfirm()">✅ 최종확인 완료</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: 지역 일괄 확인 ══ -->
+<div class="mo" id="moBulkConfirm">
+  <div class="md" style="max-width:620px">
+    <div class="md-hd">
+      <div><div class="md-ti">📦 지역 일괄 확인</div><div class="md-su" id="moBulkSub"></div></div>
+      <button class="md-cl" onclick="closeMo(&#39;moBulkConfirm&#39;)">✕</button>
+    </div>
+    <div class="md-bd">
+      <div class="fgrp" style="margin-bottom:14px">
+        <label class="flb">수거 예상일자 (일괄 적용)<em>*</em></label>
+        <input class="fi" type="date" id="bulkPickDate" style="max-width:220px">
+      </div>
+      <div class="fgrp" style="margin-bottom:14px">
+        <label class="flb">담당자</label>
+        <input class="fi" id="bulkMgr" placeholder="담당자명" style="max-width:280px">
+      </div>
+      <div class="sec">확인 대기 건 목록</div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th><input type="checkbox" id="bulkCheckAll" onchange="bulkCheckAllToggle(this)"></th>
+            <th>식별번호</th><th>매장명</th><th>배송코스</th><th>제품명</th><th>수량</th><th>확인일자</th>
+          </tr></thead>
+          <tbody id="bulkBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="md-ft" style="justify-content:space-between">
+      <span id="bulkSelCount" style="font-size:12px;color:var(--tx2);align-self:center"></span>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-gst" onclick="closeMo(&#39;moBulkConfirm&#39;)">취소</button>
+        <button class="btn btn-pri" onclick="doBulkConfirm()">✅ 선택 건 최종확인</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: 수거처리 ══ -->
+<div class="mo" id="moPickup">
+  <div class="md" style="max-width:460px">
+    <div class="md-hd">
+      <div><div class="md-ti">🚚 수거 처리</div><div class="md-su" id="moPickupSub"></div></div>
+      <button class="md-cl" onclick="closeMo(&#39;moPickup&#39;)">✕</button>
+    </div>
+    <div class="md-bd">
+      <div class="fg fg2" style="gap:11px">
+        <div class="fgrp span2">
+          <label class="flb">수거일자<em>*</em></label>
+          <input class="fi" type="date" id="pkDate">
+        </div>
+        <div class="fgrp span2">
+          <label class="flb">수거 담당자</label>
+          <input class="fi" id="pkMgr" placeholder="담당자명">
+        </div>
+        <div class="fgrp span2">
+          <label class="flb">메모</label>
+          <input class="fi" id="pkMemo" placeholder="메모">
+        </div>
+      </div>
+    </div>
+    <div class="md-ft">
+      <button class="btn btn-gst" onclick="closeMo(&#39;moPickup&#39;)">취소</button>
+      <button class="btn btn-pu" onclick="doPickup()">🚚 수거 처리</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: 입고확인 ══ -->
+<div class="mo" id="moInbound">
+  <div class="md" style="max-width:460px">
+    <div class="md-hd">
+      <div><div class="md-ti">✔ 입고 확인</div><div class="md-su" id="moInboundSub"></div></div>
+      <button class="md-cl" onclick="closeMo(&#39;moInbound&#39;)">✕</button>
+    </div>
+    <div class="md-bd">
+      <div id="moInboundInfo" style="background:var(--sf3);border-radius:var(--r);padding:12px;margin-bottom:14px"></div>
+      <div class="fg fg2" style="gap:11px">
+        <div class="fgrp span2">
+          <label class="flb">입고 확인 수량<em>*</em></label>
+          <input class="fi" type="number" id="ibQty" min="1">
+        </div>
+        <div class="fgrp span2">
+          <label class="flb">수거확인일자<em>*</em></label>
+          <input class="fi" type="date" id="ibDate">
+        </div>
+        <div class="fgrp span2">
+          <label class="flb">담당자</label>
+          <input class="fi" id="ibMgr" placeholder="담당자명">
+        </div>
+      </div>
+    </div>
+    <div class="md-ft">
+      <button class="btn btn-gst" onclick="closeMo(&#39;moInbound&#39;)">취소</button>
+      <button class="btn btn-gn" onclick="doInbound()">✔ 입고 완료</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: 매장 등록 ══ -->
+<div class="mo" id="moRegStore">
+  <div class="md" style="max-width:480px">
+    <div class="md-hd">
+      <div><div class="md-ti">🏪 매장 등록</div><div class="md-su">신규 매장을 등록합니다</div></div>
+      <button class="md-cl" onclick="closeMo(&#39;moRegStore&#39;)">✕</button>
+    </div>
+    <div class="md-bd">
+      <div class="fg fg2" style="gap:11px">
+        <div class="fgrp span2">
+          <label class="flb">매장명<em>*</em></label>
+          <input class="fi" id="rsName" placeholder="○○직영점">
+        </div>
+        <div class="fgrp">
+          <label class="flb">매장코드<em>*</em></label>
+          <input class="fi" id="rsCode" placeholder="예) 21200">
+        </div>
+        <div class="fgrp">
+          <label class="flb">배송코스<em>*</em></label>
+          <input class="fi" id="rsRoute" placeholder="예) A2">
+        </div>
+        <div class="fgrp span2">
+          <label class="flb">지역<em>*</em></label>
+          <select class="fsel" id="rsRegion">
+            <option value="">선택...</option>
+            <option>부산</option><option>서울</option><option>경기</option>
+            <option>인천</option><option>경남</option><option>대구</option>
+            <option>울산</option><option>제주</option><option>기타</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="md-ft">
+      <button class="btn btn-gst" onclick="closeMo(&#39;moRegStore&#39;)">취소</button>
+      <button class="btn btn-pri" onclick="saveStore()">등록</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: 상품 등록 ══ -->
+<div class="mo" id="moRegProduct">
+  <div class="md" style="max-width:480px">
+    <div class="md-hd">
+      <div><div class="md-ti">📦 상품 등록</div><div class="md-su">신규 상품을 등록합니다</div></div>
+      <button class="md-cl" onclick="closeMo(&#39;moRegProduct&#39;)">✕</button>
+    </div>
+    <div class="md-bd">
+      <div class="fg fg2" style="gap:11px">
+        <div class="fgrp">
+          <label class="flb">상품코드<em>*</em></label>
+          <input class="fi" id="rpCode" placeholder="예) ETC-0200-1">
+        </div>
+        <div class="fgrp">
+          <label class="flb">상품명<em>*</em></label>
+          <input class="fi" id="rpName" placeholder="상품명 입력">
+        </div>
+      </div>
+    </div>
+    <div class="md-ft">
+      <button class="btn btn-gst" onclick="closeMo(&#39;moRegProduct&#39;)">취소</button>
+      <button class="btn btn-pri" onclick="saveProduct()">등록</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: 상세 ══ -->
+<div class="mo" id="moDetail">
+  <div class="md" style="max-width:540px">
+    <div class="md-hd">
+      <div><div class="md-ti">📄 상세 정보</div><div class="md-su" id="moDetailSub"></div></div>
+      <button class="md-cl" onclick="closeMo(&#39;moDetail&#39;)">✕</button>
+    </div>
+    <div class="md-bd" id="moDetailBody"></div>
+    <div class="md-ft"><button class="btn btn-gst" onclick="closeMo(&#39;moDetail&#39;)">닫기</button></div>
+  </div>
+</div>
+
+<div class="notif" id="notif"><span id="nIcon"></span><span id="nMsg"></span></div>
+
+<script>
+// ══════════════════════════════════════════
+// DATA
+// ══════════════════════════════════════════
+</script>
+<script>
+const _STORES_RAW = [{"code": "21028", "name": "제주노형로직영점", "route": "선박", "region": "제주"}, {"code": "21029", "name": "제주서귀포직영점", "route": "선박", "region": "제주"}, {"code": "21030", "name": "제주연북로직영점", "route": "선박", "region": "제주"}, {"code": "21031", "name": "제주인제직영점", "route": "선박", "region": "제주"}, {"code": "21054", "name": "동래역직영점", "route": "A2", "region": "부산"}, {"code": "21071", "name": "양산덕계직영점", "route": "A2", "region": "부산"}, {"code": "21057", "name": "연산토곡직영점", "route": "A2", "region": "부산"}, {"code": "21002", "name": "연산직영점", "route": "A2", "region": "부산"}, {"code": "21004", "name": "일광직영점", "route": "A2", "region": "부산"}, {"code": "21011", "name": "사직직영점", "route": "A2", "region": "부산"}, {"code": "21048", "name": "온천장역직영점", "route": "A2", "region": "부산"}, {"code": "21018", "name": "기장직영점", "route": "A2", "region": "부산"}, {"code": "21019", "name": "양정직영점", "route": "A2", "region": "부산"}, {"code": "21025", "name": "반여동직영점", "route": "A2", "region": "부산"}, {"code": "10867", "name": "부산대직영점", "route": "A2", "region": "부산"}, {"code": "10924", "name": "구서직영점", "route": "A2", "region": "부산"}, {"code": "21096", "name": "인천석남역직영점", "route": "A3", "region": "인천"}, {"code": "21098", "name": "인천경인교대입구역직영점", "route": "A3", "region": "인천"}, {"code": "21099", "name": "인천계산역직영점", "route": "A3", "region": "인천"}, {"code": "21022", "name": "인천작전직영점", "route": "A3", "region": "인천"}, {"code": "21023", "name": "인천계양구청직영점", "route": "A3", "region": "인천"}, {"code": "20082", "name": "인천부평직영점", "route": "A3", "region": "인천"}, {"code": "21084", "name": "인천부평산곡역직영점", "route": "A3", "region": "인천"}, {"code": "21106", "name": "인천부평시장역직영점", "route": "A3", "region": "인천"}, {"code": "21086", "name": "인천부평굴포천역직영점", "route": "A3", "region": "인천"}, {"code": "21040", "name": "부천시청직영점", "route": "A3", "region": "인천"}, {"code": "21041", "name": "부천상동직영점", "route": "A3", "region": "인천"}, {"code": "21085", "name": "부천송내역직영점", "route": "A3", "region": "인천"}, {"code": "21062", "name": "인천검단신도시직영점", "route": "A3", "region": "인천"}, {"code": "21021", "name": "인천청라직영점", "route": "A4", "region": "인천"}, {"code": "21101", "name": "인천동암역직영점", "route": "A4", "region": "인천"}, {"code": "21068", "name": "인천송도국제도시직영점", "route": "A4", "region": "인천"}, {"code": "21083", "name": "인천주안동직영점", "route": "A4", "region": "인천"}, {"code": "21012", "name": "인천서창직영점", "route": "A4", "region": "인천"}, {"code": "21013", "name": "인천송도직영점", "route": "A4", "region": "인천"}, {"code": "21081", "name": "인천간석석바위시장역직영점", "route": "A4", "region": "인천"}, {"code": "21027", "name": "인천주안역직영점", "route": "A4", "region": "인천"}, {"code": "21087", "name": "인천송림오거리직영점", "route": "A4", "region": "인천"}, {"code": "21088", "name": "인천남동구청역직영점", "route": "A4", "region": "인천"}, {"code": "21089", "name": "인천동춘직영점", "route": "A4", "region": "인천"}, {"code": "20074", "name": "인천논현직영점", "route": "A4", "region": "인천"}, {"code": "20083", "name": "인천연수직영점", "route": "A4", "region": "인천"}, {"code": "20086", "name": "인천구월직영점", "route": "A4", "region": "인천"}, {"code": "21113", "name": "인천만수동직영점", "route": "A4", "region": "인천"}, {"code": "21118", "name": "인천학익직영점", "route": "A4", "region": "인천"}, {"code": "21120", "name": "인천서구청직영점", "route": "A4", "region": "인천"}, {"code": "21074", "name": "잠실삼전역직영점", "route": "A5", "region": "서울"}, {"code": "21076", "name": "송파경찰병원역직영점", "route": "A5", "region": "서울"}, {"code": "21110", "name": "현대시티몰가든파이브직영점", "route": "A5", "region": "서울"}, {"code": "21100", "name": "강동역직영점", "route": "A5", "region": "서울"}, {"code": "21108", "name": "하남미사직영점", "route": "A5", "region": "서울"}, {"code": "21124", "name": "위례신도시직영점", "route": "A5", "region": "서울"}, {"code": "10866", "name": "목동직영점", "route": "A6", "region": "서울"}, {"code": "21123", "name": "발산역직영점", "route": "A6", "region": "서울"}, {"code": "21092", "name": "영등포신풍역직영점", "route": "A7", "region": "서울"}, {"code": "21093", "name": "구로신도림역직영점", "route": "A7", "region": "서울"}, {"code": "21053", "name": "신대방삼거리역직영점", "route": "A7", "region": "서울"}, {"code": "21055", "name": "신대방역직영점", "route": "A7", "region": "서울"}, {"code": "21003", "name": "관악직영점", "route": "A7", "region": "서울"}, {"code": "21115", "name": "여의도직영점", "route": "A7", "region": "서울"}, {"code": "21122", "name": "영등포문래역직영점", "route": "A7", "region": "서울"}, {"code": "21095", "name": "대구침산직영점", "route": "B1", "region": "대구"}, {"code": "21094", "name": "대구명덕역직영점", "route": "B1", "region": "대구"}, {"code": "21077", "name": "대구수성범어직영점", "route": "B1", "region": "대구"}, {"code": "21067", "name": "대구경대병원역직영점", "route": "B1", "region": "대구"}, {"code": "21078", "name": "성남분당정자역직영점", "route": "B4", "region": "경기"}, {"code": "21079", "name": "수원광교신도시직영점", "route": "B4", "region": "경기"}, {"code": "21105", "name": "용인성복역직영점", "route": "B4", "region": "경기"}, {"code": "21063", "name": "노원공릉태릉직영점", "route": "B7", "region": "서울"}, {"code": "21060", "name": "성신여대직영점", "route": "B7", "region": "서울"}, {"code": "21107", "name": "강북수유역직영점", "route": "B7", "region": "서울"}, {"code": "21103", "name": "강북미아직영점", "route": "B7", "region": "서울"}, {"code": "21119", "name": "길음역직영점", "route": "B7", "region": "서울"}, {"code": "21000", "name": "화명직영점", "route": "C1", "region": "부산"}, {"code": "21005", "name": "해운대역직영점", "route": "C1", "region": "부산"}, {"code": "21007", "name": "중동직영점", "route": "C1", "region": "부산"}, {"code": "21072", "name": "양산역직영점", "route": "C1", "region": "부산"}, {"code": "21009", "name": "양산증산직영점", "route": "C1", "region": "부산"}, {"code": "21010", "name": "센텀역직영점", "route": "C1", "region": "부산"}, {"code": "21017", "name": "수정역직영점", "route": "C1", "region": "부산"}, {"code": "10868", "name": "센텀직영점", "route": "C1", "region": "부산"}, {"code": "10895", "name": "덕천직영점", "route": "C1", "region": "부산"}, {"code": "11158", "name": "양산범어직영점", "route": "C1", "region": "부산"}, {"code": "20058", "name": "해운대직영점", "route": "C1", "region": "부산"}, {"code": "21073", "name": "김해어방동직영점", "route": "C2", "region": "경남"}, {"code": "20053", "name": "김해직영점", "route": "C2", "region": "경남"}, {"code": "21075", "name": "김해시청직영점", "route": "C2", "region": "경남"}, {"code": "20050", "name": "강남선릉직영점", "route": "C3", "region": "서울"}, {"code": "21032", "name": "압구정역직영점", "route": "C3", "region": "서울"}, {"code": "21034", "name": "논현직영점", "route": "C3", "region": "서울"}, {"code": "21033", "name": "삼성역직영점", "route": "C3", "region": "서울"}, {"code": "21036", "name": "양재역직영점", "route": "C3", "region": "서울"}, {"code": "21046", "name": "강남역직영점", "route": "C3", "region": "서울"}, {"code": "21038", "name": "로데오직영점", "route": "C3", "region": "서울"}, {"code": "21043", "name": "학동역직영점", "route": "C3", "region": "서울"}, {"code": "21042", "name": "삼성중앙직영점", "route": "C3", "region": "서울"}, {"code": "21037", "name": "언주역직영점", "route": "C3", "region": "서울"}, {"code": "21047", "name": "도곡동직영점", "route": "C3", "region": "서울"}, {"code": "21035", "name": "교대역직영점", "route": "C3", "region": "서울"}, {"code": "21049", "name": "군포역직영점", "route": "C4", "region": "경기"}, {"code": "21114", "name": "안양평촌역직영점", "route": "C4", "region": "경기"}, {"code": "21116", "name": "안양역직영점", "route": "C4", "region": "경기"}, {"code": "21091", "name": "시흥은계직영점", "route": "C5", "region": "경기"}, {"code": "21111", "name": "안산한대앞역직영점", "route": "C5", "region": "경기"}, {"code": "21112", "name": "안산고잔동직영점", "route": "C5", "region": "경기"}, {"code": "21117", "name": "시흥정왕동직영점", "route": "C5", "region": "경기"}, {"code": "21069", "name": "울산삼산직영점", "route": "D1", "region": "울산"}, {"code": "21070", "name": "울산송정화봉직영점", "route": "D1", "region": "울산"}, {"code": "21121", "name": "고양행신직영점", "route": "D3", "region": "서울"}, {"code": "21104", "name": "서대문가좌역직영점", "route": "D3", "region": "서울"}, {"code": "21102", "name": "상암DMC직영점", "route": "D6", "region": "서울"}, {"code": "21065", "name": "이대역직영점", "route": "D6", "region": "서울"}, {"code": "21058", "name": "공덕역직영점", "route": "D6", "region": "서울"}, {"code": "21097", "name": "마포합정역직영점", "route": "D6", "region": "서울"}, {"code": "21061", "name": "용산역직영점", "route": "D6", "region": "서울"}, {"code": "21064", "name": "홍제역직영점", "route": "D7", "region": "서울"}, {"code": "21051", "name": "회현역직영점", "route": "D7", "region": "서울"}, {"code": "21050", "name": "서울시청직영점", "route": "D7", "region": "서울"}, {"code": "21044", "name": "을지로4가역직영점", "route": "D7", "region": "서울"}, {"code": "21045", "name": "동대문직영점", "route": "D7", "region": "서울"}, {"code": "21109", "name": "충무로역직영점", "route": "D7", "region": "서울"}, {"code": "21001", "name": "하단역직영점", "route": "E1", "region": "부산"}, {"code": "21082", "name": "부산엄궁직영점", "route": "E1", "region": "부산"}, {"code": "21008", "name": "다대포직영점", "route": "E1", "region": "부산"}, {"code": "21080", "name": "부산장림직영점", "route": "E1", "region": "부산"}, {"code": "21016", "name": "명지국제신도시직영점", "route": "E1", "region": "부산"}, {"code": "21026", "name": "부산역직영점", "route": "E1", "region": "부산"}, {"code": "10862", "name": "명지직영점", "route": "E1", "region": "부산"}, {"code": "10863", "name": "괴정직영점", "route": "E1", "region": "부산"}, {"code": "10870", "name": "서구직영점", "route": "E1", "region": "부산"}, {"code": "10887", "name": "남포1호직영점", "route": "E1", "region": "부산"}, {"code": "20080", "name": "남포2호직영점", "route": "E1", "region": "부산"}, {"code": "21006", "name": "경성대부경대직영점", "route": "E2", "region": "부산"}, {"code": "21014", "name": "사상역직영점", "route": "E2", "region": "부산"}, {"code": "21015", "name": "개금직영점", "route": "E2", "region": "부산"}, {"code": "21020", "name": "남천직영점", "route": "E2", "region": "부산"}, {"code": "21024", "name": "서면중앙직영점", "route": "E2", "region": "부산"}, {"code": "10864", "name": "사상직영점", "route": "E2", "region": "부산"}, {"code": "10869", "name": "수영직영점", "route": "E2", "region": "부산"}, {"code": "21039", "name": "범일역직영점", "route": "E2", "region": "부산"}, {"code": "21090", "name": "중랑구상봉역직영점", "route": "E3", "region": "서울"}, {"code": "21059", "name": "장한평역직영점", "route": "E3", "region": "서울"}, {"code": "21056", "name": "상왕십리역직영점", "route": "E3", "region": "서울"}, {"code": "21066", "name": "건대입구역직영점", "route": "E3", "region": "서울"}, {"code": "21052", "name": "군자역직영점", "route": "E3", "region": "서울"}];
+</script>
+<script>
+const _PRODUCTS_RAW = [{"code": "ETC-0145-1", "name": "시그니처 C타입 테두리 (검정)"}, {"code": "ETC-0145-10", "name": "시그니처 테두리(밀키 블루)"}, {"code": "ETC-0145-11", "name": "시그니처 테두리(화이트)"}, {"code": "ETC-0145-12", "name": "시그니처 C타입 테두리 (그레이)"}, {"code": "ETC-0145-13", "name": "시그니처 C타입 테두리 (그린)"}, {"code": "ETC-0145-14", "name": "시그니처 C타입 테두리 (베이지)"}, {"code": "ETC-0145-15", "name": "시그니처 C타입 테두리 (브릭)"}, {"code": "ETC-0145-16", "name": "시그니처 C타입 테두리 (블루)"}, {"code": "ETC-0145-17", "name": "시그니처 C타입 테두리 (퍼플)"}, {"code": "ETC-0145-18", "name": "시그니처 C타입 테두리 (시트러스옐로우)"}, {"code": "ETC-0145-19", "name": "시그니처 C타입 테두리 (블러시핑크)"}, {"code": "ETC-0145-2", "name": "시그니처 테두리(포레스트 그린)"}, {"code": "ETC-0145-20", "name": "시그니처 C타입 테두리 (선셋망고)"}, {"code": "ETC-0145-21", "name": "시그니처 C타입 테두리 (아쿠아블루)"}, {"code": "ETC-0145-22", "name": "시그니처 C타입 테두리 (네이비블루)"}, {"code": "ETC-0145-23", "name": "시그니처 C타입 테두리 (스카이블루)"}, {"code": "ETC-0145-24", "name": "시그니처 C타입 테두리 (엠버브라운)"}, {"code": "ETC-0145-25", "name": "시그니처 C타입 테두리 (프레시그린)"}, {"code": "ETC-0145-26", "name": "시그니처 C타입 테두리 (로지화이트)"}, {"code": "ETC-0145-27", "name": "시그니처 C타입 테두리 (피스타치오화이트)"}, {"code": "ETC-0145-28", "name": "시그니처 C타입 테두리 (라일락화이트)"}, {"code": "ETC-0145-29", "name": "시그니처 C타입 테두리 (미스트화이트)"}, {"code": "ETC-0145-3", "name": "시그니처 테두리(로열 블루)"}, {"code": "ETC-0145-30", "name": "시그니처 C타입 테두리 (포레스트블랙)"}, {"code": "ETC-0145-31", "name": "시그니처 C타입 테두리 (시나몬블랙)"}, {"code": "ETC-0145-32", "name": "시그니처 C타입 테두리 (갤럭시블랙)"}, {"code": "ETC-0145-33", "name": "시그니처 C타입 테두리 (포그블랙)"}, {"code": "ETC-0145-4", "name": "시그니처 테두리(스칼렛 레드)"}, {"code": "ETC-0145-5", "name": "시그니처 테두리(다크슬레이트 그레이)"}, {"code": "ETC-0145-6", "name": "시그니처 테두리(로지핑크)"}, {"code": "ETC-0145-7", "name": "시그니처 테두리(라벤더 퍼플)"}, {"code": "ETC-0145-8", "name": "시그니처 테두리(골든 옐로우)"}, {"code": "ETC-0145-9", "name": "시그니처 테두리(그레이 민트)"}, {"code": "ETC-0147-0", "name": "시그니처 C타입 파우치"}, {"code": "ETC-0147-10", "name": "시그니처 C타입 회전형 파우치_블랙데님(1개입)"}, {"code": "ETC-0147-11", "name": "시그니처 C타입 회전형 파우치_블루데님(1개입)"}, {"code": "ETC-0147-12", "name": "시그니처 C타입 회전형 파우치_블루(1개입)"}, {"code": "ETC-0147-13", "name": "시그니처 C타입 회전형 파우치_그린(1개입)"}, {"code": "ETC-0147-14", "name": "시그니처 C타입 회전형 파우치_핑크(1개입)"}, {"code": "ETC-0147-15", "name": "시그니처 C타입 회전형 파우치_화이트(1개입)"}, {"code": "ETC-0147-16", "name": "시그니처 C타입 파우치 신형_크림(1개입)"}, {"code": "ETC-0147-17", "name": "시그니처 C타입 파우치 신형_올리브(1개입)"}, {"code": "ETC-0147-18", "name": "시그니처 C타입 파우치 신형_더스크(1개입)"}, {"code": "ETC-0147-19", "name": "시그니처 C타입 파우치 신형_슬레이트(1개입)"}, {"code": "ETC-0147-2", "name": "시그니처 C타입 파우치 신형_에보니(1개입)"}, {"code": "ETC-0147-20", "name": "시그니처 C타입 파우치 신형_탄(1개입)"}, {"code": "ETC-0147-3", "name": "시그니처 C타입 파우치 신형_카멜(1개입)"}, {"code": "ETC-0147-4", "name": "시그니처 C타입 링 파우치_블랙(1개입)"}, {"code": "ETC-0147-5", "name": "시그니처 C타입 링 파우치_화이트(1개입)"}, {"code": "ETC-0147-6", "name": "시그니처 C타입 링 파우치_그레이(1개입)"}, {"code": "ETC-0147-7", "name": "시그니처 C타입 링 파우치_브라운(1개입)"}, {"code": "ETC-0147-8", "name": "시그니처 C타입 링 파우치_옐로우(1개입)"}, {"code": "ETC-0147-9", "name": "시그니처 C타입 링 파우치_블루(1개입)"}, {"code": "ETC-9010", "name": "하카 USB 케이블 (C-타입) *"}, {"code": "ETC-9011", "name": "USB C-TYPE CABLE × 1 (1m) (C to A) (C타입-USB)"}, {"code": "ETC-9012", "name": "USB C-TYPE CABLE × 1 (1m) (C to C) (C타입-C타입)"}, {"code": "ETC-9013", "name": "하카 어댑터"}, {"code": "EVENT-0001", "name": "시그니처 분리형 파우치"}, {"code": "HAKAB-0-001", "name": "HAKA B - 파인팝"}, {"code": "HAKAB-0-002", "name": "HAKA B - 샤워"}, {"code": "HAKAB-0-003", "name": "HAKA B - 키링"}, {"code": "HAKAB-0-004", "name": "HAKA B - 오렌즈"}, {"code": "HAKAB-0-005", "name": "HAKA B - 그랩프"}, {"code": "HAKAB-0-006", "name": "HAKA B - 복빔"}, {"code": "HAKAB-0-007", "name": "HAKA B - 젭틱"}, {"code": "HAKAB-0-008", "name": "HAKA B - 몽티"}, {"code": "HAKAB-0-009", "name": "HAKA B - 엠버트레일"}, {"code": "HNB-2-001", "name": "HAKA Q (플래시 베이지)"}, {"code": "HNB-2-002", "name": "HAKA Q (슬레이트 블루)"}, {"code": "HNB-2-003", "name": "HAKA Q (세이지 그린)"}, {"code": "HNB-2-004", "name": "HAKA Q (버건디)"}, {"code": "HNB-2-005", "name": "HAKA Q (그레이쉬 블랙)"}, {"code": "HNB-3-001", "name": "HAKA H (매트블랙)"}, {"code": "HNB-3-002", "name": "HAKA H (젠틀실버)"}, {"code": "HNB-3-003", "name": "HAKA H (샌드아이보리)"}, {"code": "HNB-3-100", "name": "HAKA H 캡슐(5개입)"}, {"code": "HNB-3-201", "name": "HAKA H 디스플레이 캡(블랙)"}, {"code": "HNB-3-202", "name": "HAKA H 디스플레이 캡(실버)"}, {"code": "HNB-3-203", "name": "HAKA H 디스플레이 캡(아이보리)"}, {"code": "HNB-4-001", "name": "HAKA R (옵티머스 화이트)"}, {"code": "HNB-4-002", "name": "HAKA R (그리핑 블랙)"}, {"code": "HNB-4-100", "name": "HAKA R 로부스틱 (브라운)"}, {"code": "HNB-4-101", "name": "HAKA R 로부스틱 (옐로우)"}, {"code": "HNB-4-102", "name": "HAKA R 로부스틱 (블루)"}, {"code": "HNB-4-103", "name": "HAKA R 로부스틱 (퍼플)"}, {"code": "SIG-0-201", "name": "[C타입]하카시그니처 배터리 (블랙)"}, {"code": "SIG-0-202", "name": "[C타입]하카시그니처 배터리 (레드)"}, {"code": "SIG-0-203", "name": "[C타입]하카시그니처 배터리 (퍼플)"}, {"code": "SIG-0-204", "name": "[C타입]하카시그니처 배터리 (블루)"}, {"code": "SIG-0-205", "name": "[C타입]하카시그니처 배터리 (핑크)"}, {"code": "SIG-0-206", "name": "[C타입]하카시그니처 배터리 (브라운)"}, {"code": "SIG-0-207", "name": "[C타입]하카시그니처 배터리 (로열 블루)"}, {"code": "SIG-0-208", "name": "[C타입]하카시그니처 배터리 (포레스트 그린)"}, {"code": "SIG-0-209", "name": "[C타입]하카시그니처 배터리 (스칼렛 레드)"}, {"code": "SIG-0-210", "name": "[C타입]하카시그니처 배터리 (다크슬레이트 그레이)"}, {"code": "SIG-0-211", "name": "[C타입]하카시그니처 배터리 (로지핑크)"}, {"code": "SIG-0-212", "name": "[C타입]하카시그니처 배터리 (라벤더 퍼플)"}, {"code": "SIG-0-213", "name": "[C타입]하카시그니처 배터리 (골든 옐로우)"}, {"code": "SIG-0-214", "name": "[C타입]하카시그니처 배터리 (그레이 민트)"}, {"code": "SIG-0-215", "name": "[C타입]하카시그니처 배터리 (밀키 블루)"}, {"code": "SIG-0-216", "name": "[C타입]하카시그니처 배터리 (화이트)"}, {"code": "SIG-0-217", "name": "[C타입]하카시그니처 배터리 (그레이쉬블루)"}, {"code": "SIG-0-218", "name": "[C타입]하카시그니처 배터리 (내추럴그린)"}, {"code": "SIG-0-219", "name": "[C타입]하카시그니처 배터리 (스틸블루)"}, {"code": "SIG-0-220", "name": "[C타입]하카시그니처 배터리 (브라이트 골드)"}, {"code": "SIG-0-221", "name": "[C타입]하카시그니처 배터리 (민트 그린)"}, {"code": "SIG-0-222", "name": "[C타입]하카시그니처 배터리 (캐러멜 브라운)"}, {"code": "SIG-0-223", "name": "[C타입]하카시그니처 배터리 (골든 오렌지)"}, {"code": "SIG-0-224", "name": "[C타입]하카시그니처 배터리 (하이퍼블랙)"}, {"code": "SIG-0-225", "name": "[C타입]하카시그니처 배터리 (플럼핑크)"}, {"code": "SIG-0-226", "name": "[C타입]하카시그니처 배터리 (마린블루)"}, {"code": "SIG-0-227", "name": "[C타입]하카시그니처 배터리 (라벤더화이트)"}, {"code": "SIG-0-228", "name": "[C타입]하카시그니처 배터리 (애쉬화이트)"}, {"code": "SIG-0-229", "name": "[C타입]하카시그니처 배터리 (스카치화이트)"}, {"code": "SIG-0-230", "name": "[C타입]하카시그니처 배터리 (이클립스 블랙)"}, {"code": "SIG-0-231", "name": "[C타입]하카시그니처 배터리 (라즈베리 핑크)"}, {"code": "SIG-0-232", "name": "[C타입]하카시그니처 배터리 (아이스 민트)"}, {"code": "SIG-0-233", "name": "[C타입]하카시그니처 배터리 (로얄퍼플)"}, {"code": "SIG-0-234", "name": "[C타입]하카시그니처 배터리 (라임그린)"}, {"code": "SIG-0-235", "name": "[C타입]하카시그니처 배터리 (코튼 화이트)"}, {"code": "SIG-0-236", "name": "[C타입]하카시그니처 배터리 (인디고 블루)"}, {"code": "SIG-0-237", "name": "[C타입]하카시그니처 배터리 (모카 브라운)"}, {"code": "SIG-0-238", "name": "[C타입]하카시그니처 배터리 (시트러스옐로우)"}, {"code": "SIG-0-239", "name": "[C타입]하카시그니처 배터리 (블러시핑크)"}, {"code": "SIG-0-240", "name": "[C타입]하카시그니처 배터리 (선셋망고)"}, {"code": "SIG-0-241", "name": "[C타입]하카시그니처 배터리 (아쿠아블루)"}, {"code": "SIG-0-242", "name": "[C타입]하카시그니처 배터리 (네이비블루)"}, {"code": "SIG-0-243", "name": "[C타입]하카시그니처 배터리 (스카이블루)"}, {"code": "SIG-0-244", "name": "[C타입]하카시그니처 배터리 (엠버브라운)"}, {"code": "SIG-0-245", "name": "[C타입]하카시그니처 배터리 (프레시그린)"}, {"code": "SIG-0-246", "name": "[C타입]하카시그니처 배터리 (메탈퍼플 01)"}, {"code": "SIG-0-247", "name": "[C타입]하카시그니처 배터리 (프로즌핑크 02)"}, {"code": "SIG-0-248", "name": "[C타입]하카시그니처 배터리 (솔라핑크 03)"}, {"code": "SIG-0-249", "name": "[C타입]하카시그니처 배터리 (코스믹코랄 04)"}, {"code": "SIG-0-250", "name": "[C타입]하카시그니처 배터리 (파스텔오렌지 05)"}, {"code": "SIG-0-251", "name": "[C타입]하카시그니처 배터리 (크림옐로우 06)"}, {"code": "SIG-0-252", "name": "[C타입]하카시그니처 배터리 (파스텔그린 07)"}, {"code": "SIG-0-253", "name": "[C타입]하카시그니처 배터리 (아쿠아그린 08)"}, {"code": "SIG-0-254", "name": "[C타입]하카시그니처 배터리 (에어블루 09)"}, {"code": "SIG-0-255", "name": "[C타입]하카시그니처 배터리 (코발트 10)"}, {"code": "SIG-0-256", "name": "[C타입]하카시그니처 배터리 (제트블랙 11)"}, {"code": "SIG-0-257", "name": "[C타입]하카시그니처 배터리 (세라믹화이트 12)"}, {"code": "SIG-0-258", "name": "[C타입]하카시그니처 배터리 (쿨그레이 13)"}, {"code": "SIG-0-259", "name": "[C타입]하카시그니처 배터리 (브론즈 15)"}, {"code": "SIG-0-260", "name": "[C타입]하카시그니처 배터리 (딥브라운 16)"}, {"code": "SIG-0-261", "name": "[C타입]하카시그니처 배터리 (카키 18)"}, {"code": "SIG-0-262", "name": "[C타입]하카시그니처 배터리 (딥그린 19)"}, {"code": "SIG-0-263", "name": "[C타입]하카시그니처 배터리 (딥블루 20)"}, {"code": "SIG-0-264", "name": "[C타입]하카시그니처 배터리 (애쉬퍼플 21)"}, {"code": "SIG-0-265", "name": "[C타입]하카시그니처 배터리 (다크그레이 22)"}, {"code": "SIG-0-266", "name": "[C타입]하카시그니처 배터리 (딥핑크 23)"}, {"code": "SIG-0-267", "name": "[C타입]하카시그니처 배터리 (비비드핑크 24)"}, {"code": "SIG-0-268", "name": "[C타입]하카시그니처 배터리 (솔라오렌지 25)"}, {"code": "SIG-0-269", "name": "[C타입]하카시그니처 배터리 (비비드오렌지 26)"}, {"code": "SIG-0-270", "name": "[C타입]하카시그니처 배터리 (네온옐로우 27)"}, {"code": "SIG-0-271", "name": "[C타입]하카시그니처 배터리 (네온그린 28)"}, {"code": "SIG-0-272", "name": "[C타입]하카시그니처 배터리 (하이퍼그린 29)"}, {"code": "SIG-0-273", "name": "[C타입]하카시그니처 배터리 (아쿠아틸 30)"}, {"code": "SIG-0-274", "name": "[C타입]하카시그니처 배터리 (네온퍼플 31)"}, {"code": "SIG-0-275", "name": "[C타입]하카시그니처 배터리 (가넷 32)"}, {"code": "SIG-0-276", "name": "[C타입]하카시그니처 배터리 (핑크골드 33)"}, {"code": "SIG-0-277", "name": "[C타입]하카시그니처 배터리 (그린골드 34)"}, {"code": "SIG-0-278", "name": "[C타입]하카시그니처 배터리 (오로라 35)"}, {"code": "SIG-0-279", "name": "[C타입]하카시그니처 배터리 (프리즘 36)"}, {"code": "SIG-0-500", "name": "[C타입]하카시그니처 배터리 듀오팩 (이클립스 블랙 + 그레이 블랙)"}, {"code": "SIG-0-501", "name": "[C타입]하카시그니처 배터리 듀오팩 (블루 블랙 + 퍼플 블랙)"}, {"code": "SIG-0-502", "name": "[C타입]하카시그니처 배터리 듀오팩 (코튼 화이트 + 베이지 화이트)"}, {"code": "SIG-0-503", "name": "[C타입]하카시그니처 배터리 듀오팩 (브릭 화이트 + 그린 화이트)"}, {"code": "SIG-0-504", "name": "[C타입]배터리 듀오팩 (로지화이트 + 미스트화이트)"}, {"code": "SIG-0-505", "name": "[C타입]배터리 듀오팩 (라일락화이트 + 피스타치오화이트)"}, {"code": "SIG-0-506", "name": "[C타입]배터리 듀오팩 (포레스트블랙 + 시나몬블랙)"}, {"code": "SIG-0-507", "name": "[C타입]배터리 듀오팩 (갤럭시블랙 + 포그블랙)"}, {"code": "SIG-4-030", "name": "# 1.9% HAKA POD - 브라운치노"}, {"code": "SIG-4-031", "name": "# 1.9% HAKA POD - 팝 레인보우"}, {"code": "SIG-5-001", "name": "1.9% MAX - 알로"}, {"code": "SIG-5-002", "name": "1.9% MAX - 거스트블루"}, {"code": "SIG-5-003", "name": "1.9% MAX - 블로우믹스"}, {"code": "SIG-5-004", "name": "1.9% MAX - 브라운프레소"}, {"code": "SIG-5-005", "name": "1.9% MAX - 레비타"}, {"code": "SIG-5-007", "name": "1.9% MAX - 썬라이즈"}, {"code": "SIG-5-008", "name": "1.9% MAX - 스윗썸머"}, {"code": "SIG-5-010", "name": "1.9% MAX - 샤인퍼플"}, {"code": "SIG-5-011", "name": "1.9% MAX - 글레시어프레쉬"}, {"code": "SIG-5-012", "name": "1.9% MAX - 서든리프"}, {"code": "SIG-5-013", "name": "1.9% MAX - 이스턴리프"}, {"code": "SIG-5-016", "name": "1.9% MAX - 글레시어G.프레쉬"}, {"code": "SIG-5-017", "name": "1.9% MAX - 거스트다크"}, {"code": "SIG-5-021", "name": "1.9% MAX - 비비드 그린"}, {"code": "SIG-5-022", "name": "1.9% MAX - C 프레쉬"}, {"code": "SIG-5-023", "name": "1.9% MAX - 팝 멜로"}, {"code": "SIG-5-024", "name": "1.9% MAX - 비비드 레드"}, {"code": "SIG-5-025", "name": "1.9% MAX - 오리지널 리프"}, {"code": "SIG-5-026", "name": "1.9% MAX - 블랙 리프"}, {"code": "SIG-5-029", "name": "1.9% MAX - U 프레쉬"}, {"code": "SIG-5-030", "name": "1.9% MAX- 로스트브라운"}, {"code": "SIG-5-032", "name": "1.9% MAX - 에어"}, {"code": "SIG-5-033", "name": "1.9% MAX - 글레시어클래식"}, {"code": "SIG-5-034", "name": "1.9% MAX - 거스트화이트"}, {"code": "SIG-5-035", "name": "1.9% MAX - 비비드 틱톡"}, {"code": "SIG-5-036", "name": "1.9% MAX - 비비드 골드"}, {"code": "SIG-5-037", "name": "1.9% MAX - 그라운드"}, {"code": "SIG-5-038", "name": "1.9% MAX - 아메리칸 레드"}, {"code": "SIG-5-039", "name": "1.9% MAX - 거스트그린"}, {"code": "SIG-5-040", "name": "1.9% MAX - 썸머소디"}, {"code": "SIG-6-010", "name": "싱글 HAKA POD MAX 샤인퍼플"}, {"code": "SIG-6-012", "name": "싱글 HAKA POD MAX - 서든리프"}, {"code": "SIG-6-017", "name": "싱글 HAKA POD MAX 거스트다크"}];
+const REGION_COUNTERS_INIT = {"부산":734,"인천":228,"서울":303,"경남":73,"제주":82,"경기":38,"울산":18,"대구":13};
+
+// ══════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════
+let STORES = [..._STORES_RAW];
+let PRODUCTS = [..._PRODUCTS_RAW];
+let AS_LIST = [];
+let regionCounters = {...REGION_COUNTERS_INIT};
+let actionId = null;
+let teamRegion = 'all';
+let bulkRegion = null;
+let bulkPendingIds = [];
+
+// ══════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════
+function notify(msg, type='ok'){
+  const el=document.getElementById('notif');
+  document.getElementById('nIcon').textContent={ok:'✓',err:'✕',warn:'⚠'}[type]||'✓';
+  document.getElementById('nMsg').textContent=msg;
+  el.className=`notif show ${type}`;
+  clearTimeout(el._t);
+  el._t=setTimeout(()=>el.classList.remove('show'),3200);
+}
+function openMo(id){document.getElementById(id).classList.add('open')}
+function closeMo(id){document.getElementById(id).classList.remove('open')}
+function today(){return new Date().toISOString().slice(0,10)}
+function fmt(d){if(!d)return'-';return typeof d==='string'?d:String(d)}
+
+// ══════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════
+const PAGE_META = {
+  'dash':      ['대시보드','전체 현황 요약'],
+  'team':      ['수거 신청','직영팀장 AS 수거 신청'],
+  'team-hist': ['신청 이력','직영팀장 신청 전체 이력'],
+  'hq':        ['수거 관리','본사 확인 및 수거 처리'],
+};
+
+// 페이지가 속한 그룹 매핑
+const PAGE_GROUP = {
+  'team':'grp-as', 'team-hist':'grp-as', 'hq':'grp-as',
+};
+
+function toggleGroup(grpId){
+  const grp = document.getElementById(grpId);
+  const hdr = grp.querySelector('.ng-header');
+  const body = grp.querySelector('.ng-body');
+  const isOpen = hdr.classList.contains('open');
+  hdr.classList.toggle('open', !isOpen);
+  body.style.display = isOpen ? 'none' : 'flex';
+}
+
+function showPage(id, btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.ni').forEach(b=>b.classList.remove('active'));
+  const pg = document.getElementById('page-'+id);
+  if(pg) pg.classList.add('active');
+  if(btn) btn.classList.add('active');
+
+  // 해당 페이지의 그룹 자동 열기
+  const grpId = PAGE_GROUP[id];
+  if(grpId){
+    const grp = document.getElementById(grpId);
+    const hdr = grp.querySelector('.ng-header');
+    const body = grp.querySelector('.ng-body');
+    hdr.classList.add('open');
+    body.style.display = 'flex';
+  }
+
+  const meta = PAGE_META[id]||[id,''];
+  document.getElementById('topbarTitle').textContent = meta[0];
+  document.getElementById('topbarSub').textContent = meta[1];
+  if(id==='dash') renderDash();
+  if(id==='hq'){renderHQ();updateHQBadge();}
+  if(id==='team') renderTeamMini();
+  if(id==='team-hist'){buildRegionTabs();renderTeamList();}
+}
+
+function updateHQBadge(){
+  const cnt=AS_LIST.filter(a=>a.status==='pending').length;
+  const el=document.getElementById('hqPendBadge');
+  if(cnt>0){el.textContent=cnt;el.style.display='';}else{el.style.display='none';}
+}
+
+// ══════════════════════════════════════════
+// AUTOCOMPLETE
+// ══════════════════════════════════════════
+// ── 초성 검색 지원 자동완성 ──
+const CHO=['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+function getCho(ch){const code=ch.charCodeAt(0);if(code<0xAC00||code>0xD7A3)return ch;return CHO[Math.floor((code-0xAC00)/588)];}
+function toChoStr(str){return[...str].map(getCho).join('')}
+function matchQ(name,q){
+  // 1) 일반 포함 검색 (동래 → 동래역직영점)
+  if(name.toLowerCase().includes(q.toLowerCase()))return true;
+  // 2) 초성 검색 — 쿼리가 전부 자음(초성)일 때만 (ㄷㄹ → 동래역...)
+  const isAllCho=[...q].every(c=>CHO.includes(c));
+  if(isAllCho)return toChoStr(name).includes(q);
+  // 일반 한글 쿼리는 includes만 사용 (초성변환 오매칭 방지)
+  return false;
+}
+function hlText(name,q){
+  if(!q)return name;
+  const idx=name.toLowerCase().indexOf(q.toLowerCase());
+  if(idx>=0)return name.slice(0,idx)+`<b style="color:var(--ac2)">${name.slice(idx,idx+q.length)}</b>`+name.slice(idx+q.length);
+  return name;
+}
+function acStore(q){
+  const list=document.getElementById('acStoreList');
+  q=(q||'').trim();
+  if(!q){list.style.display='none';return}
+  const matches=STORES.filter(s=>matchQ(s.name,q)).slice(0,12);
+  if(!matches.length){
+    list.innerHTML=`<div class="aci" style="color:var(--tx3);cursor:default;font-size:12px">일치하는 매장 없음</div>`;
+    positionAcl('fStore','acStoreList');
+    list.style.display='block';return;
+  }
+  list.innerHTML=matches.map(s=>`<div class="aci" onclick="selectStore('${s.name.replace(/'/g,"\'")}')">
+    <span>${hlText(s.name,q)}</span><small>${s.region} · ${s.route} · ${s.code}</small>
+  </div>`).join('');
+  positionAcl('fStore','acStoreList');
+  list.style.display='block';
+}
+function selectStore(name){
+  const s=STORES.find(x=>x.name===name);
+  if(!s) return;
+  document.getElementById('fStore').value=name;
+  document.getElementById('fRegion').value=s.region;
+  document.getElementById('fRoute').value=s.route;
+  document.getElementById('fCode').value=s.code;
+  const nxt=(regionCounters[s.region]||0)+1;
+  document.getElementById('fId').value=`${s.region}-${String(nxt).padStart(5,'0')} (제출 시 확정)`;
+  document.getElementById('acStoreList').style.display='none';
+}
+
+function acProduct(q){
+  const list=document.getElementById('acProductList');
+  if(!q){list.style.display='none';return}
+  const ql=q.toLowerCase();
+  const matches=PRODUCTS.filter(p=>p.name.toLowerCase().includes(ql)||p.code.toLowerCase().includes(ql)).slice(0,10);
+  if(!matches.length){list.style.display='none';return}
+  const re=new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi');
+  list.innerHTML=matches.map(p=>{
+    const hi=p.name.replace(re,m=>`<b>${m}</b>`);
+    return `<div class="aci" onclick="selectProduct('${p.name.replace(/'/g,"\\'")}','${p.code}')">${hi}<small>${p.code}</small></div>`;
+  }).join('');
+  list.style.display='block';
+}
+function selectProduct(name, code){
+  document.getElementById('fProduct').value=name;
+  document.getElementById('acProductList').style.display='none';
+}
+
+// input 위치 기준으로 드롭다운 위치 계산 (fixed 방식)
+function positionAcl(inputId, listId){
+  const inp = document.getElementById(inputId);
+  const list = document.getElementById(listId);
+  if(!inp||!list) return;
+  const rect = inp.getBoundingClientRect();
+  list.style.left = rect.left + 'px';
+  list.style.top = (rect.bottom + 2) + 'px';
+  list.style.width = rect.width + 'px';
+}
+
+function acKey(e, listId){
+  const list=document.getElementById(listId);
+  if(list.style.display==='none') return;
+  const items=[...list.querySelectorAll('.aci')];
+  const cur=list.querySelector('.aci.on');
+  let idx=cur?items.indexOf(cur):-1;
+  if(e.key==='ArrowDown'){e.preventDefault();idx=Math.min(idx+1,items.length-1)}
+  else if(e.key==='ArrowUp'){e.preventDefault();idx=Math.max(idx-1,0)}
+  else if(e.key==='Enter'&&cur){e.preventDefault();cur.click();return}
+  else return;
+  items.forEach(i=>i.classList.remove('on'));
+  if(items[idx]) items[idx].classList.add('on');
+}
+
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.acw')) document.querySelectorAll('.acl').forEach(l=>l.style.display='none');
+});
+
+// ══════════════════════════════════════════
+// TEAM FORM — 다건 입력
+// ══════════════════════════════════════════
+let itemRowCount = 0;
+
+// 행 추가
+function addItemRow(prefill={}){
+  const id = ++itemRowCount;
+  const tbody = document.getElementById('itemRows');
+  const tr = document.createElement('tr');
+  tr.id = `irow-${id}`;
+  tr.dataset.rowid = id;
+
+  const DIVS = ['즉시처리','예외조치','보상판매에어릭스','보상판매R','보상판매H','본사별도수거 박시영','본사별도수거 이지영'];
+  const CHARGES = ['무상','유상','수거'];
+  const divOpts = DIVS.map(d=>`<option${prefill.div===d?' selected':''}>${d}</option>`).join('');
+  const chOpts  = CHARGES.map(c=>`<option${prefill.charge===c?' selected':''}>${c}</option>`).join('');
+
+  tr.innerHTML = `
+    <td style="text-align:center;color:var(--tx3);font-size:12px;user-select:none">${id}</td>
+    <td>
+      <div class="acw">
+        <input class="fi item-cell" id="ip-${id}" placeholder="제품명..." autocomplete="off"
+          style="font-size:12px;padding:6px 9px" value="${prefill.product||''}"
+          oninput="acProductRow(this.value,${id})" onfocus="acProductRow(this.value,${id})"
+          onkeydown="cellKey(event,'ip-${id}')">
+        <div class="acl" id="apl-${id}"></div>
+      </div>
+    </td>
+    <td>
+      <select class="fsel item-cell" id="id-${id}" style="font-size:12px;padding:6px 9px"
+        onkeydown="cellKey(event,'id-${id}')">
+        <option value="">선택...</option>${divOpts}
+      </select>
+    </td>
+    <td>
+      <select class="fsel item-cell" id="ic-${id}" style="font-size:12px;padding:6px 9px"
+        onkeydown="cellKey(event,'ic-${id}')">
+        <option value="">선택...</option>${chOpts}
+      </select>
+    </td>
+    <td>
+      <input class="fi item-cell" type="number" id="iq-${id}" placeholder="0" min="1"
+        style="font-size:12px;padding:6px 9px;text-align:center" value="${prefill.qty||''}"
+        onkeydown="cellKey(event,'iq-${id}')">
+    </td>
+    <td>
+      <input class="fi item-cell" id="im-${id}" placeholder="메모"
+        style="font-size:12px;padding:6px 9px" value="${prefill.memo||''}"
+        onkeydown="cellKey(event,'im-${id}')">
+    </td>
+    <td style="text-align:center">
+      <button onclick="removeItemRow(${id})" style="background:transparent;border:none;color:var(--tx3);cursor:pointer;font-size:16px;padding:2px 6px" title="행 삭제">✕</button>
+    </td>`;
+  tbody.appendChild(tr);
+  return id;
+}
+
+function removeItemRow(id){
+  const tr = document.getElementById(`irow-${id}`);
+  if(tr) tr.remove();
+}
+
+// 행별 제품 자동완성
+// ── 셀 키보드 탐색 (Tab/Enter) ──
+const CELL_ORDER = ['ip','id','ic','iq','im']; // 열 순서
+
+function cellKey(e, cellId){
+  if(e.key==='Tab'||e.key==='Enter'){
+    e.preventDefault();
+    const [prefix, rowId] = cellId.split('-');
+    const curIdx = CELL_ORDER.indexOf(prefix);
+    if(e.key==='Tab' && !e.shiftKey){
+      // 다음 열로
+      if(curIdx < CELL_ORDER.length-1){
+        const next = document.getElementById(`${CELL_ORDER[curIdx+1]}-${rowId}`);
+        if(next){next.focus();return;}
+      }
+      // 마지막 열이면 다음 행 첫 셀
+      addItemRow();
+      const newRow = document.getElementById(`ip-${itemRowCount}`);
+      if(newRow) setTimeout(()=>newRow.focus(),30);
+    } else if(e.key==='Tab' && e.shiftKey){
+      // 이전 열로
+      if(curIdx > 0){
+        const prev = document.getElementById(`${CELL_ORDER[curIdx-1]}-${rowId}`);
+        if(prev){prev.focus();return;}
+      }
+    } else if(e.key==='Enter'){
+      // 같은 열, 다음 행으로 (없으면 행 추가)
+      const rows = [...document.getElementById('itemRows').querySelectorAll('tr')];
+      const curTr = document.getElementById(`irow-${rowId}`);
+      const curTrIdx = rows.indexOf(curTr);
+      if(curTrIdx < rows.length-1){
+        const nextRowId = rows[curTrIdx+1].dataset.rowid;
+        const next = document.getElementById(`${prefix}-${nextRowId}`);
+        if(next){next.focus();return;}
+      }
+      addItemRow();
+      const newRow = document.getElementById(`${prefix}-${itemRowCount}`);
+      if(newRow) setTimeout(()=>newRow.focus(),30);
+    }
+  }
+}
+
+// ── Ctrl+V 엑셀 붙여넣기 ──
+// 엑셀 컬럼 순서: 제품명 | 구분 | 유무상 | 수량 | 메모
+document.addEventListener('paste', e=>{
+  const active = document.activeElement;
+  if(!active || !active.closest('#itemTable')) return;
+  e.preventDefault();
+
+  const text = (e.clipboardData||window.clipboardData).getData('text');
+  if(!text) return;
+
+  const DIVS = ['즉시처리','예외조치','보상판매에어릭스','보상판매R','보상판매H','본사별도수거 박시영','본사별도수거 이지영'];
+  const CHARGES = ['무상','유상','수거'];
+
+  const lines = text.split(/\r?\n/).filter(l=>l.trim());
+  // 현재 커서 행의 rowid 파악
+  const curCell = active.id; // e.g. "ip-3"
+  const [, startRowId] = curCell.split('-');
+  const rows = [...document.getElementById('itemRows').querySelectorAll('tr')];
+  let startTrIdx = rows.findIndex(r=>r.dataset.rowid===startRowId);
+  if(startTrIdx<0) startTrIdx = rows.length;
+
+  lines.forEach((line, li)=>{
+    const cols = line.split('\t');
+    const product = (cols[0]||'').trim();
+    const div     = DIVS.find(d=>d===(cols[1]||'').trim()) || '';
+    const charge  = CHARGES.find(c=>c===(cols[2]||'').trim()) || '';
+    const qty     = parseInt(cols[3])||0;
+    const memo    = (cols[4]||'').trim();
+
+    // 해당 행이 이미 있으면 덮어쓰기, 없으면 추가
+    const targetTr = rows[startTrIdx+li];
+    let rowId;
+    if(targetTr){
+      rowId = targetTr.dataset.rowid;
+    } else {
+      rowId = addItemRow({product,div,charge,qty,memo});
+      return;
+    }
+    // 덮어쓰기
+    const ipEl = document.getElementById(`ip-${rowId}`);
+    const idEl = document.getElementById(`id-${rowId}`);
+    const icEl = document.getElementById(`ic-${rowId}`);
+    const iqEl = document.getElementById(`iq-${rowId}`);
+    const imEl = document.getElementById(`im-${rowId}`);
+    if(ipEl) ipEl.value = product;
+    if(idEl && div) idEl.value = div;
+    if(icEl && charge) icEl.value = charge;
+    if(iqEl && qty) iqEl.value = qty;
+    if(imEl) imEl.value = memo;
+  });
+
+  notify(`${lines.length}행 붙여넣기 완료`, 'ok');
+});
+
+function acProductRow(q, id){
+  const list = document.getElementById(`apl-${id}`);
+  q = (q||'').trim();
+  if(!q){list.style.display='none';return}
+  const ql = q.toLowerCase();
+  const matches = PRODUCTS.filter(p=>matchQ(p.name,q)||p.code.toLowerCase().includes(ql)).slice(0,10);
+  if(!matches.length){list.style.display='none';return}
+  const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi');
+  list.innerHTML = matches.map(p=>`<div class="aci" onclick="selectProductRow('${p.name.replace(/'/g,"\'")}',${id})">${p.name.replace(re,m=>`<b>${m}</b>`)}<small>${p.code}</small></div>`).join('');
+  positionAcl(`ip-${id}`, `apl-${id}`);
+  list.style.display='block';
+}
+function selectProductRow(name, id){
+  document.getElementById(`ip-${id}`).value = name;
+  document.getElementById(`apl-${id}`).style.display = 'none';
+}
+
+function resetForm(){
+  document.getElementById('fStore').value='';
+  ['fRegion','fRoute','fCode'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fDate').value=today();
+  document.getElementById('itemRows').innerHTML='';
+  itemRowCount=0;
+  addItemRow(); // 기본 1행
+}
+
+function submitAS(){
+  const store = document.getElementById('fStore').value.trim();
+  const storeInfo = STORES.find(s=>s.name===store);
+  const date = document.getElementById('fDate').value;
+  if(!store||!storeInfo){notify('유효한 수거 매장명을 선택해주세요','err');return}
+  if(!date){notify('확인일자를 입력해주세요','err');return}
+
+  // 행 수집
+  const rows = [...document.getElementById('itemRows').querySelectorAll('tr')];
+  if(!rows.length){notify('품목을 한 건 이상 입력해주세요','err');return}
+
+  const items = [];
+  for(const tr of rows){
+    const id = tr.id.replace('irow-','');
+    const product = document.getElementById(`ip-${id}`)?.value.trim();
+    const div = document.getElementById(`id-${id}`)?.value;
+    const charge = document.getElementById(`ic-${id}`)?.value;
+    const qty = parseInt(document.getElementById(`iq-${id}`)?.value)||0;
+    const memo = document.getElementById(`im-${id}`)?.value.trim()||'';
+    if(!product&&!div&&!charge&&qty===0) continue; // 빈 행 스킵
+    if(!product){notify(`${id}번 행: 제품명을 입력해주세요`,'err');return}
+    if(!div){notify(`${id}번 행: 구분을 선택해주세요`,'err');return}
+    if(!charge){notify(`${id}번 행: 유/무상을 선택해주세요`,'err');return}
+    if(qty<1){notify(`${id}번 행: 수거 개수를 입력해주세요`,'err');return}
+    items.push({product,div,charge,qty,memo});
+  }
+  if(!items.length){notify('유효한 품목이 없습니다','err');return}
+
+  const region = storeInfo.region;
+  const now = new Date().toLocaleString('ko-KR');
+  const added = [];
+  items.forEach(item=>{
+    regionCounters[region]=(regionCounters[region]||0)+1;
+    const seqId=`${region}-${String(regionCounters[region]).padStart(5,'0')}`;
+    AS_LIST.unshift({
+      id:seqId, store, region, route:storeInfo.route, code:storeInfo.code,
+      div:item.div, charge:item.charge, product:item.product, qty:item.qty,
+      date, memo:item.memo, status:'pending', submittedAt:now,
+      confirmedAt:null, pickExpDate:null, pickupDate:null, pickupMgr:null,
+      inboundQty:null, inboundDate:null, inboundMgr:null, qtyMismatch:false
+    });
+    added.push(seqId);
+  });
+
+  notify(`${items.length}건 신청 완료! (${added[0]}${items.length>1?` 외 ${items.length-1}건`:''})`, 'ok');
+  resetForm();
+  renderTeamMini();
+  buildRegionTabs();
+  updateHQBadge();
+}
+
+// ══════════════════════════════════════════
+// TEAM LIST
+// ══════════════════════════════════════════
+function renderTeamMini(){
+  const body=document.getElementById('teamBodyMini');
+  if(!body) return;
+  const data=AS_LIST.slice(0,8);
+  if(!data.length){body.innerHTML=`<tr><td colspan="5"><div class="empty" style="padding:16px">신청 내역이 없습니다</div></td></tr>`;return;}
+  body.innerHTML=data.map(a=>`<tr>
+    <td><span class="id-tag">${a.id}</span></td>
+    <td class="tb" style="font-size:12px">${a.store}</td>
+    <td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.product}</td>
+    <td class="tm">${a.qty}개</td>
+    <td>${statusBadge(a.status)}</td>
+  </tr>`).join('');
+}
+function setTeamRegion(r,btn){
+  teamRegion=r;
+  document.querySelectorAll('#teamRegionTabs .rtab').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  renderTeamList();
+}
+function renderTeamList(q=''){
+  const body=document.getElementById('teamBody');
+  let data=AS_LIST.filter(a=>{
+    const mr=teamRegion==='all'||a.region===teamRegion;
+    const mq=!q||a.store.includes(q)||a.product.includes(q)||a.id.includes(q);
+    return mr&&mq;
+  });
+  if(!data.length){body.innerHTML=`<tr><td colspan="9"><div class="empty">📭 신청 내역이 없습니다</div></td></tr>`;return}
+  body.innerHTML=data.map(a=>`<tr>
+    <td><span class="id-tag">${a.id}</span></td>
+    <td class="tb">${a.store}</td>
+    <td style="font-size:12px;color:var(--tx2)">${a.region}</td>
+    <td style="font-size:12px">${a.div}</td>
+    <td>${chargeBadge(a.charge)}</td>
+    <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${a.product}">${a.product}</td>
+    <td class="tm">${a.qty}개</td>
+    <td style="font-size:12px;color:var(--tx2)">${a.date}</td>
+    <td>${statusBadge(a.status)}</td>
+  </tr>`).join('');
+}
+
+function buildRegionTabs(){
+  const regions=[...new Set(AS_LIST.map(a=>a.region))].sort();
+  const el=document.getElementById('teamRegionTabs');
+  el.innerHTML=`<button class="rtab ${teamRegion==='all'?'on':''}" onclick="setTeamRegion('all',this)">전체</button>`
+    +regions.map(r=>`<button class="rtab ${teamRegion===r?'on':''}" onclick="setTeamRegion('${r}',this)">${r}</button>`).join('');
+}
+
+// ══════════════════════════════════════════
+// HQ — 지역별 섹션
+// ══════════════════════════════════════════
+const REGIONS_ORDER=['부산','서울','인천','경기','경남','대구','울산','제주'];
+
+function renderHQ(){
+  const container=document.getElementById('hqRegionSections');
+  const allRegions=[...new Set(AS_LIST.map(a=>a.region))];
+  const ordered=REGIONS_ORDER.filter(r=>allRegions.includes(r)).concat(allRegions.filter(r=>!REGIONS_ORDER.includes(r)));
+
+  if(!ordered.length){
+    container.innerHTML=`<div class="card"><div class="empty">📭 신청 내역이 없습니다</div></div>`;
+    return;
+  }
+
+  container.innerHTML=ordered.map(region=>{
+    const items=AS_LIST.filter(a=>a.region===region);
+    const pend=items.filter(a=>a.status==='pending');
+    const conf=items.filter(a=>a.status==='confirmed');
+    const pick=items.filter(a=>a.status==='pickup');
+    const done=items.filter(a=>a.status==='done');
+    return `
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-hd">
+        <div class="card-title">
+          📍 ${region}
+          <span style="font-size:12px;font-weight:400;color:var(--tx2)">전체 ${items.length}건</span>
+          ${pend.length?`<span class="badge b-pend">확인대기 ${pend.length}</span>`:''}
+          ${conf.length?`<span class="badge b-conf">최종확인 ${conf.length}</span>`:''}
+          ${done.length?`<span class="badge b-done">수거완료 ${done.length}</span>`:''}
+        </div>
+        <div style="display:flex;gap:7px">
+          ${pend.length?`<button class="btn btn-sm" style="background:rgba(79,142,247,.15);color:var(--ac2);border:1px solid rgba(79,142,247,.3)" onclick="openBulkConfirm('${region}')">📋 일괄 확인 (${pend.length}건)</button>`:''}
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th style="width:36px"><input type="checkbox" id="hqChkAll" onchange="hqCheckAll(this)"></th><th>식별번호</th><th>매장명</th><th>지역</th><th>배송코스</th><th>구분</th><th>유/무상</th><th>제품명</th><th>수량</th><th>확인일자</th><th>수거예상일</th><th>수거완료일</th><th>상태</th><th>액션</th></tr></thead>
+          <tbody>${renderHQRows(items)}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderHQRows(items){
+  if(!items.length) return `<tr><td colspan="14"><div class="empty" style="padding:16px">건이 없습니다</div></td></tr>`;
+  return items.map(a=>{
+    const acts=[];
+    acts.push(`<button class="btn btn-gst btn-sm" onclick="openDetail('${a.id}')">상세</button>`);
+    if(a.status==='pending')
+      acts.push(`<button class="btn btn-sm" style="background:rgba(79,142,247,.15);color:var(--ac2);border:1px solid rgba(79,142,247,.3)" onclick="openConfirmModal('${a.id}')">확인필요</button>`);
+    if(a.status==='confirmed')
+      acts.push(`<button class="btn btn-pu btn-sm" onclick="openPickupModal('${a.id}')">🚚 수거처리</button>`);
+    return `<tr>
+      <td style="text-align:center">
+        <input type="checkbox" class="hq-chk" value="${a.id}" data-status="${a.status}" onchange="onHQCheck()" ${(a.status==='pending'||a.status==='confirmed')?'':'disabled style="opacity:.3"'}>
+      </td>
+      <td><span class="id-tag">${a.id}</span></td>
+      <td class="tb">${a.store}</td>
+      <td style="font-size:12px;color:var(--tx2)">${a.region}</td>
+      <td><span class="tm" style="font-size:11px">${a.route}</span></td>
+      <td style="font-size:12px">${a.div}</td>
+      <td>${chargeBadge(a.charge)}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${a.product}">${a.product}</td>
+      <td class="tm">${a.qty}개</td>
+      <td style="font-size:12px;color:var(--tx2)">${a.date}</td>
+      <td style="font-size:12px;color:var(--ye2)">${a.pickExpDate||'-'}</td>
+      <td style="font-size:12px;color:var(--gn)">${a.pickupDate||'-'}</td>
+      <td>${statusBadge(a.status)}</td>
+      <td style="white-space:nowrap">${acts.join(' ')}</td>
+    </tr>`;
+  }).join('');
+}
+
+
+// ══════════════════════════════════════════
+// CONFIRM MODAL (단건)
+// ══════════════════════════════════════════
+function openConfirmModal(id){
+  const a=AS_LIST.find(x=>x.id===id);
+  if(!a) return;
+  actionId=id;
+  document.getElementById('moConfirmSub').textContent=`${a.id} · ${a.store}`;
+  document.getElementById('moConfirmInfo').innerHTML=`
+    <div class="ig">
+      <span class="lbl">제품명</span><span class="val">${a.product}</span>
+      <span class="lbl">수량</span><span class="val" style="color:var(--ac2)">${a.qty}개</span>
+      <span class="lbl">구분</span><span>${a.div}</span>
+      <span class="lbl">유/무상</span><span>${chargeBadge(a.charge)}</span>
+    </div>`;
+  document.getElementById('cfStore').value=a.store;
+  document.getElementById('cfRoute').value=a.route;
+  document.getElementById('cfPickDate').value='';
+  document.getElementById('cfMgr').value='';
+  document.getElementById('cfMemo').value='';
+  openMo('moConfirm');
+}
+
+function doConfirm(){
+  const a=AS_LIST.find(x=>x.id===actionId);
+  if(!a) return;
+  const d=document.getElementById('cfPickDate').value;
+  if(!d){notify('수거 예상일자를 입력해주세요','err');return}
+  a.status='confirmed';
+  a.confirmedAt=new Date().toLocaleString('ko-KR');
+  a.pickExpDate=d;
+  a.confirmMgr=document.getElementById('cfMgr').value.trim();
+  a.confirmMemo=document.getElementById('cfMemo').value.trim();
+  closeMo('moConfirm');
+  notify(`[${actionId}] 최종확인 완료`,'ok');
+  renderHQ();
+  updateHQBadge();
+}
+
+// ══════════════════════════════════════════
+// BULK CONFIRM (지역 일괄)
+// ══════════════════════════════════════════
+function openBulkConfirm(region){
+  bulkRegion=region;
+  const pending=AS_LIST.filter(a=>a.region===region&&a.status==='pending');
+  bulkPendingIds=pending.map(a=>a.id);
+  document.getElementById('moBulkSub').textContent=`${region} 지역 · 확인대기 ${pending.length}건`;
+  document.getElementById('bulkPickDate').value='';
+  document.getElementById('bulkMgr').value='';
+  const body=document.getElementById('bulkBody');
+  body.innerHTML=pending.map(a=>`<tr>
+    <td><input type="checkbox" class="bulk-chk" value="${a.id}" onchange="updateBulkCount()" checked></td>
+    <td><span class="id-tag">${a.id}</span></td>
+    <td class="tb">${a.store}</td>
+    <td class="tm">${a.route}</td>
+    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.product}</td>
+    <td class="tm">${a.qty}개</td>
+    <td style="font-size:12px">${a.date}</td>
+  </tr>`).join('');
+  document.getElementById('bulkCheckAll').checked=true;
+  updateBulkCount();
+  openMo('moBulkConfirm');
+}
+
+function bulkCheckAllToggle(cb){
+  document.querySelectorAll('.bulk-chk').forEach(c=>c.checked=cb.checked);
+  updateBulkCount();
+}
+function updateBulkCount(){
+  const cnt=document.querySelectorAll('.bulk-chk:checked').length;
+  document.getElementById('bulkSelCount').textContent=`${cnt}건 선택됨`;
+}
+
+function doBulkConfirm(){
+  const d=document.getElementById('bulkPickDate').value;
+  if(!d){notify('수거 예상일자를 입력해주세요','err');return}
+  const mgr=document.getElementById('bulkMgr').value.trim();
+  const selected=[...document.querySelectorAll('.bulk-chk:checked')].map(c=>c.value);
+  if(!selected.length){notify('선택된 건이 없습니다','warn');return}
+  const now=new Date().toLocaleString('ko-KR');
+  selected.forEach(id=>{
+    const a=AS_LIST.find(x=>x.id===id);
+    if(!a) return;
+    a.status='confirmed';
+    a.confirmedAt=now;
+    a.pickExpDate=d;
+    a.confirmMgr=mgr;
+  });
+  closeMo('moBulkConfirm');
+  notify(`${bulkRegion} 지역 ${selected.length}건 최종확인 완료`,'ok');
+  renderHQ();
+  updateHQBadge();
+}
+
+// ══════════════════════════════════════════
+// PICKUP
+// ══════════════════════════════════════════
+function openPickupModal(id){
+  const a=AS_LIST.find(x=>x.id===id);
+  if(!a) return;
+  actionId=id;
+  document.getElementById('moPickupSub').textContent=`${a.id} · ${a.store} · ${a.product}`;
+  document.getElementById('pkDate').value=a.pickExpDate||today();
+  document.getElementById('pkMgr').value='';
+  document.getElementById('pkMemo').value='';
+  openMo('moPickup');
+}
+function doPickup(){
+  const a=AS_LIST.find(x=>x.id===actionId);
+  if(!a) return;
+  const d=document.getElementById('pkDate').value;
+  if(!d){notify('수거일자를 입력해주세요','err');return}
+  a.status='pickup';
+  a.pickupDate=d;
+  a.pickupMgr=document.getElementById('pkMgr').value.trim();
+  a.pickupMemo=document.getElementById('pkMemo').value.trim();
+  closeMo('moPickup');
+  notify(`[${actionId}] 수거 처리 완료`,'ok');
+  renderHQ();
+  updateHQBadge();
+}
+
+// ══════════════════════════════════════════
+// INBOUND
+// ══════════════════════════════════════════
+function openInboundModal(id){
+  const a=AS_LIST.find(x=>x.id===id);
+  if(!a) return;
+  actionId=id;
+  document.getElementById('moInboundSub').textContent=`${a.id} · ${a.store}`;
+  document.getElementById('moInboundInfo').innerHTML=`
+    <div class="ig">
+      <span class="lbl">제품명</span><span class="val">${a.product}</span>
+      <span class="lbl">신청 수량</span><span class="val" style="color:var(--ac2)">${a.qty}개</span>
+      <span class="lbl">수거일자</span><span>${a.pickupDate||'-'}</span>
+    </div>`;
+  document.getElementById('ibQty').value=a.qty;
+  document.getElementById('ibDate').value=today();
+  document.getElementById('ibMgr').value='';
+  openMo('moInbound');
+}
+function doInbound(){
+  const a=AS_LIST.find(x=>x.id===actionId);
+  if(!a) return;
+  const qty=parseInt(document.getElementById('ibQty').value)||0;
+  const d=document.getElementById('ibDate').value;
+  if(qty<1){notify('입고 수량을 입력해주세요','err');return}
+  if(!d){notify('수거확인일자를 입력해주세요','err');return}
+  a.status='done';
+  a.inboundQty=qty;
+  a.inboundDate=d;
+  a.inboundMgr=document.getElementById('ibMgr').value.trim();
+  a.qtyMismatch=qty!==a.qty;
+  closeMo('moInbound');
+  if(a.qtyMismatch) notify(`[${actionId}] 입고 완료 — ⚠️ 수량 불일치 (신청${a.qty} / 입고${qty})`,'warn');
+  else notify(`[${actionId}] 입고 완료 (${qty}개)`,'ok');
+  renderHQ();
+}
+
+// ══════════════════════════════════════════
+// STORE / PRODUCT REGISTER
+// ══════════════════════════════════════════
+function saveStore(){
+  const name=document.getElementById('rsName').value.trim();
+  const code=document.getElementById('rsCode').value.trim();
+  const route=document.getElementById('rsRoute').value.trim();
+  const region=document.getElementById('rsRegion').value;
+  if(!name||!code||!route||!region){notify('모든 항목을 입력해주세요','err');return}
+  if(STORES.find(s=>s.name===name)){notify('이미 등록된 매장명입니다','err');return}
+  STORES.push({name,code,route,region});
+  ['rsName','rsCode','rsRoute'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('rsRegion').value='';
+  closeMo('moRegStore');
+  notify(`"${name}" 매장 등록 완료`,'ok');
+}
+
+function saveProduct(){
+  const code=document.getElementById('rpCode').value.trim();
+  const name=document.getElementById('rpName').value.trim();
+  if(!code||!name){notify('상품코드와 상품명을 입력해주세요','err');return}
+  if(PRODUCTS.find(p=>p.code===code)){notify('이미 등록된 상품코드입니다','err');return}
+  PRODUCTS.push({code,name});
+  document.getElementById('rpCode').value='';
+  document.getElementById('rpName').value='';
+  closeMo('moRegProduct');
+  notify(`"${name}" 상품 등록 완료`,'ok');
+}
+
+// ══════════════════════════════════════════
+// DETAIL MODAL
+// ══════════════════════════════════════════
+function openDetail(id){
+  const a=AS_LIST.find(x=>x.id===id);
+  if(!a) return;
+  document.getElementById('moDetailSub').textContent=`${a.id} · ${a.store}`;
+  document.getElementById('moDetailBody').innerHTML=`
+    <div style="display:grid;gap:16px">
+      <div><div class="sec">기본 정보</div>
+        <div class="ig">
+          <span class="lbl">식별번호</span><span><span class="id-tag">${a.id}</span></span>
+          <span class="lbl">상태</span><span>${statusBadge(a.status)}</span>
+          <span class="lbl">매장명</span><span class="val">${a.store}</span>
+          <span class="lbl">지역/코스/코드</span><span style="font-size:12px">${a.region} / ${a.route} / ${a.code}</span>
+          <span class="lbl">구분</span><span>${a.div}</span>
+          <span class="lbl">유/무상</span><span>${chargeBadge(a.charge)}</span>
+          <span class="lbl">제품명</span><span class="val">${a.product}</span>
+          <span class="lbl">수거 개수</span><span class="val" style="color:var(--ac2)">${a.qty}개</span>
+          <span class="lbl">확인일자</span><span>${a.date}</span>
+          <span class="lbl">신청일시</span><span style="font-size:12px;color:var(--tx2)">${a.submittedAt}</span>
+          ${a.memo?`<span class="lbl">메모</span><span style="color:var(--tx2)">${a.memo}</span>`:''}
+        </div>
+      </div>
+      ${a.confirmedAt?`<div><div class="sec">최종확인</div>
+        <div class="ig">
+          <span class="lbl">확인일시</span><span style="font-size:12px">${a.confirmedAt}</span>
+          <span class="lbl">수거예상일</span><span style="color:var(--ye2)">${a.pickExpDate||'-'}</span>
+          ${a.confirmMgr?`<span class="lbl">담당자</span><span>${a.confirmMgr}</span>`:''}
+        </div>
+      </div>`:''}
+      ${a.pickupDate?`<div><div class="sec">수거 처리</div>
+        <div class="ig">
+          <span class="lbl">수거일자</span><span class="val">${a.pickupDate}</span>
+          <span class="lbl">담당자</span><span>${a.pickupMgr||'-'}</span>
+          ${a.pickupMemo?`<span class="lbl">메모</span><span style="color:var(--tx2)">${a.pickupMemo}</span>`:''}
+        </div>
+      </div>`:''}
+      ${a.inboundDate?`<div><div class="sec">입고 확인</div>
+        <div class="ig">
+          <span class="lbl">입고확인일자</span><span class="val">${a.inboundDate}</span>
+          <span class="lbl">입고 수량</span><span class="val" style="color:${a.qtyMismatch?'var(--ye2)':'var(--gn2)'}">${a.inboundQty}개 ${a.qtyMismatch?'⚠️ 수량 불일치':''}</span>
+          <span class="lbl">담당자</span><span>${a.inboundMgr||'-'}</span>
+        </div>
+      </div>`:''}
+    </div>`;
+  openMo('moDetail');
+}
+
+// ══════════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════════
+function renderDash(){
+  const total=AS_LIST.length;
+  const pend=AS_LIST.filter(a=>a.status==='pending').length;
+  const conf=AS_LIST.filter(a=>a.status==='confirmed').length;
+  const pick=AS_LIST.filter(a=>a.status==='pickup').length;
+  const done=AS_LIST.filter(a=>a.status==='done').length;
+  document.getElementById('dashStats').innerHTML=`
+    <div class="sc c1"><div class="sc-num">${total}</div><div class="sc-lbl">전체 신청</div></div>
+    <div class="sc c2"><div class="sc-num">${pend}</div><div class="sc-lbl">확인 대기</div></div>
+    <div class="sc c3"><div class="sc-num">${conf}</div><div class="sc-lbl">최종 확인</div></div>
+    <div class="sc c4"><div class="sc-num">${pick}</div><div class="sc-lbl">수거 진행중</div></div>
+    <div class="sc c5"><div class="sc-num">${done}</div><div class="sc-lbl">입고 완료</div></div>`;
+
+  // 지역별
+  const regions=[...new Set(AS_LIST.map(a=>a.region))].sort();
+  document.getElementById('dashRegion').innerHTML=regions.length
+    ?regions.map(r=>{
+        const ri=AS_LIST.filter(a=>a.region===r);
+        const rd=ri.filter(a=>a.status==='done').length;
+        const pct=ri.length?Math.round(rd/ri.length*100):0;
+        const pb=ri.filter(a=>a.status==='pending').length;
+        return `<div class="rcard" style="margin-bottom:8px">
+          <div class="rcard-title">
+            <span>${r} <span style="font-size:12px;font-weight:400;color:var(--tx2)">${ri.length}건</span></span>
+            <span style="font-size:12px;color:var(--tx2)">${pb?`<span style="color:var(--ye2)">대기 ${pb}</span>`:''} 완료 ${rd}/${ri.length}</span>
+          </div>
+          <div class="rbar"><div class="rbar-fill" style="width:${pct}%"></div></div>
+        </div>`;
+      }).join('')
+    :`<div class="empty">지역 데이터 없음</div>`;
+
+  // 최근 10건
+  document.getElementById('dashRecent').innerHTML=AS_LIST.slice(0,10).map(a=>`<tr>
+    <td><span class="id-tag">${a.id}</span></td>
+    <td class="tb" style="font-size:12px">${a.store}</td>
+    <td style="font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.product}</td>
+    <td>${statusBadge(a.status)}</td>
+  </tr>`).join('')||`<tr><td colspan="4"><div class="empty">없음</div></td></tr>`;
+}
+
+// ══════════════════════════════════════════
+// BADGES
+// ══════════════════════════════════════════
+function statusBadge(s){
+  const m={pending:['b-pend','⏳ 확인대기'],confirmed:['b-conf','✅ 최종확인'],pickup:['b-pick','🚚 수거완료'],done:['b-done','🚚 수거완료']};
+  const[c,t]=m[s]||['b-pend','대기'];
+  return `<span class="badge ${c}">${t}</span>`;
+}
+function chargeBadge(c){
+  const m={무상:'b-free 무상',유상:'b-paid 유상',수거:'b-etc 수거'};
+  const v=m[c]||('b-etc '+c);
+  const[cls,txt]=v.split(' ');
+  return `<span class="badge ${cls}">${txt}</span>`;
+}
+
+// ══════════════════════════════════════════
+// HQ 체크박스 일괄 수거예상일 적용
+// ══════════════════════════════════════════
+function onHQCheck(){
+  const checked = [...document.querySelectorAll('.hq-chk:checked')];
+  const bar = document.getElementById('bulkDateBar');
+  document.getElementById('bulkSelCnt').textContent = checked.length;
+  if(checked.length > 0){
+    bar.style.display = 'flex';
+    // pending이 있으면 확인 섹션 표시
+    const hasPending = checked.some(c=>c.dataset.status==='pending');
+    // confirmed가 있으면 수거처리 섹션 표시
+    const hasConfirmed = checked.some(c=>c.dataset.status==='confirmed');
+    document.getElementById('bulkConfirmSection').style.display = hasPending ? 'flex' : 'none';
+    document.getElementById('bulkDivider').style.display = (hasPending && hasConfirmed) ? 'block' : 'none';
+    document.getElementById('bulkPickupSection').style.display = hasConfirmed ? 'flex' : 'none';
+  } else {
+    bar.style.display = 'none';
+  }
+}
+function hqCheckAll(cb){
+  document.querySelectorAll('.hq-chk:not(:disabled)').forEach(c=>c.checked=cb.checked);
+  onHQCheck();
+}
+
+function clearBulkSel(){
+  document.querySelectorAll('.hq-chk').forEach(c=>c.checked=false);
+  const all = document.getElementById('hqChkAll');
+  if(all) all.checked=false;
+  document.getElementById('bulkDateBar').style.display='none';
+}
+
+// ══════════════════════════════════════════
+// SUPABASE DB 연동
+// ══════════════════════════════════════════
+const SB_URL = 'https://fmbcrvhyfxkcphveodet.supabase.co';
+const SB_KEY = 'sb_publishable_EFtGJSivFdur04_bW_jWyQ_84mn90a_';
+const SB_HDR = {'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
+
+async function dbLoad(){
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/as_requests?order=created_at.desc&limit=1000`,{headers:SB_HDR});
+    const rows = await r.json();
+    if(!Array.isArray(rows)) throw new Error(JSON.stringify(rows));
+    AS_LIST = rows.map(r=>({
+      id: r.seq_id, _dbid: r.id,
+      store: r.store, region: r.region, route: r.route, code: r.store_code,
+      div: r.div, charge: r.charge, product: r.product, qty: r.qty,
+      date: r.confirm_date, memo: r.memo, status: r.status,
+      pickExpDate: r.pick_exp_date, pickupDate: r.pickup_date, pickupMgr: r.pickup_mgr,
+      inboundQty: r.inbound_qty, inboundDate: r.inbound_date, inboundMgr: r.inbound_mgr,
+      qtyMismatch: r.qty_mismatch, confirmedAt: r.confirmed_at, submittedAt: r.submitted_at
+    }));
+    // regionCounters 동기화
+    AS_LIST.forEach(a=>{
+      if(!a.id||!a.id.includes('-')) return;
+      const parts = a.id.split('-');
+      const num = parseInt(parts[parts.length-1]);
+      const reg = parts.slice(0,-1).join('-');
+      if(!isNaN(num)) regionCounters[reg] = Math.max(regionCounters[reg]||0, num);
+    });
+    renderDash(); renderTeamMini(); buildRegionTabs(); updateHQBadge();
+    if(document.getElementById('page-hq').classList.contains('active')) renderHQ();
+    if(document.getElementById('page-team-hist').classList.contains('active')) renderTeamList();
+  } catch(e){
+    console.error('DB 로드 오류:', e);
+    notify('DB 연결 오류: '+e.message,'err');
+  }
+}
+
+async function dbInsert(item){
+  const body = {
+    seq_id: item.id, store: item.store, region: item.region,
+    route: item.route, store_code: item.code, div: item.div,
+    charge: item.charge, product: item.product, qty: item.qty,
+    confirm_date: item.date, memo: item.memo, status: item.status,
+    submitted_at: item.submittedAt
+  };
+  const r = await fetch(`${SB_URL}/rest/v1/as_requests`,{
+    method:'POST', headers:{...SB_HDR,'Prefer':'return=representation'}, body:JSON.stringify(body)
+  });
+  const data = await r.json();
+  if(!r.ok) throw new Error(JSON.stringify(data));
+  return Array.isArray(data) ? data[0].id : data.id;
+}
+
+async function dbUpdate(seqId, fields){
+  const r = await fetch(`${SB_URL}/rest/v1/as_requests?seq_id=eq.${encodeURIComponent(seqId)}`,{
+    method:'PATCH', headers:{...SB_HDR,'Prefer':'return=minimal'}, body:JSON.stringify(fields)
+  });
+  if(!r.ok){ const t=await r.text(); throw new Error(t); }
+}
+
+// DB 연동 버전 submitAS 오버라이드
+const _submitAS_orig = submitAS;
+async function submitAS(){
+  const store = document.getElementById('fStore').value.trim();
+  const storeInfo = STORES.find(s=>s.name===store);
+  const date = document.getElementById('fDate').value;
+  if(!store||!storeInfo){notify('유효한 수거 매장명을 선택해주세요','err');return}
+  if(!date){notify('확인일자를 입력해주세요','err');return}
+  const rows = [...document.getElementById('itemRows').querySelectorAll('tr')];
+  if(!rows.length){notify('품목을 한 건 이상 입력해주세요','err');return}
+  const items=[];
+  for(const tr of rows){
+    const id=tr.id.replace('irow-','');
+    const product=document.getElementById(`ip-${id}`)?.value.trim();
+    const div=document.getElementById(`id-${id}`)?.value;
+    const charge=document.getElementById(`ic-${id}`)?.value;
+    const qty=parseInt(document.getElementById(`iq-${id}`)?.value)||0;
+    const memo=document.getElementById(`im-${id}`)?.value.trim()||'';
+    if(!product&&!div&&!charge&&qty===0) continue;
+    if(!product){notify(`${id}번 행: 제품명을 입력해주세요`,'err');return}
+    if(!div){notify(`${id}번 행: 구분을 선택해주세요`,'err');return}
+    if(!charge){notify(`${id}번 행: 유/무상을 선택해주세요`,'err');return}
+    if(qty<1){notify(`${id}번 행: 수거 개수를 입력해주세요`,'err');return}
+    items.push({product,div,charge,qty,memo});
+  }
+  if(!items.length){notify('유효한 품목이 없습니다','err');return}
+
+  const region=storeInfo.region;
+  const now=new Date().toLocaleString('ko-KR');
+  notify('등록 중...','ok');
+
+  let successCnt=0;
+  for(const item of items){
+    regionCounters[region]=(regionCounters[region]||0)+1;
+    const seqId=`${region}-${String(regionCounters[region]).padStart(5,'0')}`;
+    const entry={
+      id:seqId, store, region, route:storeInfo.route, code:storeInfo.code,
+      div:item.div, charge:item.charge, product:item.product, qty:item.qty,
+      date, memo:item.memo, status:'pending', submittedAt:now,
+      confirmedAt:null, pickExpDate:null, pickupDate:null, pickupMgr:null,
+      inboundQty:null, inboundDate:null, inboundMgr:null, qtyMismatch:false
+    };
+    try{
+      await dbInsert(entry);
+      AS_LIST.unshift(entry);
+      successCnt++;
+    } catch(e){
+      notify(`${seqId} 저장 실패: `+e.message,'err');
+      console.error(e);
+    }
+  }
+  if(successCnt>0){
+    notify(`${successCnt}건 신청 완료!`,'ok');
+    resetForm(); renderTeamMini(); buildRegionTabs(); updateHQBadge();
+  }
+}
+
+// 상태 변경 시 DB 업데이트 래퍼
+const _doConfirm_orig = doConfirm;
+async function doConfirm(){
+  const a=AS_LIST.find(x=>x.id===actionId);
+  if(!a) return;
+  const d=document.getElementById('cfPickDate').value;
+  if(!d){notify('수거 예상일자를 입력해주세요','err');return}
+  const now=new Date().toLocaleString('ko-KR');
+  try{
+    await dbUpdate(actionId,{status:'confirmed',confirmed_at:now,pick_exp_date:d,
+      pickup_mgr:document.getElementById('cfMgr').value.trim()});
+    a.status='confirmed'; a.confirmedAt=now; a.pickExpDate=d;
+    a.confirmMgr=document.getElementById('cfMgr').value.trim();
+    closeMo('moConfirm');
+    notify(`[${actionId}] 최종확인 완료`,'ok');
+    renderHQ(); updateHQBadge();
+  } catch(e){ notify('저장 실패: '+e.message,'err'); }
+}
+
+async function doBulkConfirm(){
+  const d=document.getElementById('bulkPickDate').value;
+  if(!d){notify('수거 예상일자를 입력해주세요','err');return}
+  const mgr=document.getElementById('bulkMgr').value.trim();
+  const selected=[...document.querySelectorAll('.bulk-chk:checked')].map(c=>c.value);
+  if(!selected.length){notify('선택된 건이 없습니다','warn');return}
+  const now=new Date().toLocaleString('ko-KR');
+  let cnt=0;
+  for(const id of selected){
+    const a=AS_LIST.find(x=>x.id===id);
+    if(!a) continue;
+    try{
+      await dbUpdate(id,{status:'confirmed',confirmed_at:now,pick_exp_date:d,pickup_mgr:mgr});
+      a.status='confirmed'; a.confirmedAt=now; a.pickExpDate=d; a.confirmMgr=mgr;
+      cnt++;
+    } catch(e){ console.error(id, e); }
+  }
+  closeMo('moBulkConfirm');
+  notify(`${cnt}건 최종확인 완료`,'ok');
+  renderHQ(); updateHQBadge();
+}
+
+async function doPickup(){
+  const a=AS_LIST.find(x=>x.id===actionId);
+  if(!a) return;
+  const d=document.getElementById('pkDate').value;
+  if(!d){notify('수거일자를 입력해주세요','err');return}
+  const mgr=document.getElementById('pkMgr').value.trim();
+  const memo=document.getElementById('pkMemo').value.trim();
+  try{
+    await dbUpdate(actionId,{status:'done',pickup_date:d,pickup_mgr:mgr});
+    a.status='done'; a.pickupDate=d; a.pickupMgr=mgr; a.pickupMemo=memo;
+    closeMo('moPickup');
+    notify(`[${actionId}] 수거 완료 처리됐습니다`,'ok');
+    renderHQ(); updateHQBadge();
+  } catch(e){ notify('저장 실패: '+e.message,'err'); }
+}
+
+async function doInbound(){
+  const a=AS_LIST.find(x=>x.id===actionId);
+  if(!a) return;
+  const qty=parseInt(document.getElementById('ibQty').value)||0;
+  const d=document.getElementById('ibDate').value;
+  if(qty<1){notify('입고 수량을 입력해주세요','err');return}
+  if(!d){notify('수거확인일자를 입력해주세요','err');return}
+  const mgr=document.getElementById('ibMgr').value.trim();
+  const mismatch=qty!==a.qty;
+  try{
+    await dbUpdate(actionId,{status:'done',inbound_qty:qty,inbound_date:d,inbound_mgr:mgr,qty_mismatch:mismatch});
+    a.status='done'; a.inboundQty=qty; a.inboundDate=d; a.inboundMgr=mgr; a.qtyMismatch=mismatch;
+    closeMo('moInbound');
+    if(mismatch) notify(`[${actionId}] 입고 완료 — ⚠️ 수량 불일치 (신청${a.qty}/입고${qty})`,'warn');
+    else notify(`[${actionId}] 입고 완료 (${qty}개)`,'ok');
+    renderHQ();
+  } catch(e){ notify('저장 실패: '+e.message,'err'); }
+}
+
+async function applyBulkPickup(){
+  const d=document.getElementById('bulkPickupDateInput').value;
+  if(!d){notify('수거일자를 입력해주세요','err');return}
+  const ids=[...document.querySelectorAll('.hq-chk:checked')].map(c=>c.value);
+  const targets=ids.filter(id=>{const a=AS_LIST.find(x=>x.id===id);return a&&a.status==='confirmed';});
+  if(!targets.length){notify('최종확인 상태인 건이 없습니다','warn');return}
+  let cnt=0;
+  for(const id of targets){
+    const a=AS_LIST.find(x=>x.id===id);
+    if(!a) continue;
+    try{
+      await dbUpdate(id,{status:'done',pickup_date:d});
+      a.status='done'; a.pickupDate=d;
+      cnt++;
+    } catch(e){ console.error(id,e); }
+  }
+  notify(`${cnt}건 수거처리 완료 (${d})`,'ok');
+  clearBulkSel(); renderHQ(); updateHQBadge();
+}
+
+async function applyBulkDate(){
+  const d=document.getElementById('bulkDateInput').value;
+  if(!d){notify('수거 예상일자를 입력해주세요','err');return}
+  const ids=[...document.querySelectorAll('.hq-chk:checked')].map(c=>c.value);
+  if(!ids.length){notify('선택된 건이 없습니다','warn');return}
+  const now=new Date().toLocaleString('ko-KR');
+  let cnt=0;
+  for(const id of ids){
+    const a=AS_LIST.find(x=>x.id===id);
+    if(!a||a.status!=='pending') continue;
+    try{
+      await dbUpdate(id,{status:'confirmed',confirmed_at:now,pick_exp_date:d});
+      a.status='confirmed'; a.confirmedAt=now; a.pickExpDate=d;
+      cnt++;
+    } catch(e){ console.error(id,e); }
+  }
+  notify(`${cnt}건 수거예상일 일괄 적용 완료 (${d})`,'ok');
+  clearBulkSel(); renderHQ(); updateHQBadge();
+}
+
+// ══════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════
+document.getElementById('fDate').value=today();
+addItemRow();
+dbLoad(); // DB에서 데이터 로드
+</script>
+
+
+</body></html>
