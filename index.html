@@ -3007,12 +3007,12 @@ function acPurchaseItem(inp) {
   const val = inp.value.toLowerCase();
   const list = inp.nextElementSibling;
   if (!val) { list.classList.remove('show'); return; }
-  const matches = ORDER_PRODUCTS.filter(p => p.name.toLowerCase().includes(val) || p.code.toLowerCase().includes(val)).slice(0, 8);
+  const matches = INV.filter(p => p.name.toLowerCase().includes(val) || p.code.toLowerCase().includes(val)).slice(0, 15);
   if (!matches.length) { list.classList.remove('show'); return; }
   list.innerHTML = matches.map(p => `
     <div class="aci" onclick="selPurchaseItem(this.closest('.acw').querySelector('input'), '${p.code}', '${p.name.replace(/'/g,"\\'")}')">
       <div class="aci-nm">${p.name}</div>
-      <div class="aci-sb">${p.code}${p.vendor ? ' · ' + p.vendor : ''}</div>
+      <div class="aci-sb">${p.code}</div>
     </div>`).join('');
   list.classList.add('show');
 }
