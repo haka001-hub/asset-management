@@ -1,7 +1,7 @@
 <!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8">
+<!-- saved from url=(0056)file:///C:/Users/user/Downloads/as-management-v3_12.html -->
+<html lang="ko"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>AS 수거 관리 시스템</title>
 <style>
@@ -205,23 +205,23 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
 
   <!-- 대시보드 -->
   <div class="nav-sec">메인</div>
-  <button class="ni active" onclick="showPage('dash',this)"><span class="ic">⊞</span>대시보드</button>
+  <button class="ni active" onclick="showPage(&#39;dash&#39;,this)"><span class="ic">⊞</span>대시보드</button>
 
   <!-- ── AS 수거 신청 (아코디언) ── -->
   <div class="nav-group" id="grp-as">
-    <button class="ni ng-header open" onclick="toggleGroup('grp-as')">
+    <button class="ni ng-header open" onclick="toggleGroup(&#39;grp-as&#39;)">
       <span class="ic">📦</span>
       <span class="ng-label">AS 수거 신청</span>
       <span class="ng-arrow">▾</span>
     </button>
     <div class="ng-body">
       <div class="nav-sub-sec">직영팀장</div>
-      <button class="ni ni-sub" onclick="showPage('team',this)"><span class="ic">✏️</span>수거 신청</button>
-      <button class="ni ni-sub" onclick="showPage('team-hist',this)"><span class="ic">◎</span>신청 이력</button>
+      <button class="ni ni-sub" onclick="showPage(&#39;team&#39;,this)"><span class="ic">✏️</span>수거 신청</button>
+      <button class="ni ni-sub" onclick="showPage(&#39;team-hist&#39;,this)"><span class="ic">◎</span>신청 이력</button>
       <div class="nav-sub-sec">본사 확인</div>
-      <button class="ni ni-sub" onclick="showPage('hq',this)">
+      <button class="ni ni-sub" onclick="showPage(&#39;hq&#39;,this)">
         <span class="ic">☑</span>수거 관리
-        <span class="nbadge" id="hqPendBadge" style="display:none">0</span>
+        <span class="nbadge" id="hqPendBadge" style="">4</span>
       </button>
     </div>
   </div>
@@ -237,8 +237,8 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
   </div> -->
 
   <div class="sidebar-bottom">
-    <button class="btn btn-gst btn-sm" onclick="openMo('moRegStore')" style="justify-content:center">+ 매장 등록</button>
-    <button class="btn btn-gst btn-sm" onclick="openMo('moRegProduct')" style="justify-content:center">+ 상품 등록</button>
+    <button class="btn btn-gst btn-sm" onclick="openMo(&#39;moRegStore&#39;)" style="justify-content:center">+ 매장 등록</button>
+    <button class="btn btn-gst btn-sm" onclick="openMo(&#39;moRegProduct&#39;)" style="justify-content:center">+ 상품 등록</button>
   </div>
 </nav>
 
@@ -256,17 +256,68 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
 
 <!-- ══════════ 대시보드 ══════════ -->
 <div class="page active" id="page-dash">
-  <div class="stats" id="dashStats"></div>
+  <div class="stats" id="dashStats">
+    <div class="sc c1"><div class="sc-num">8</div><div class="sc-lbl">전체 신청</div></div>
+    <div class="sc c2"><div class="sc-num">4</div><div class="sc-lbl">확인 대기</div></div>
+    <div class="sc c3"><div class="sc-num">0</div><div class="sc-lbl">최종 확인</div></div>
+    <div class="sc c4"><div class="sc-num">1</div><div class="sc-lbl">수거 진행중</div></div>
+    <div class="sc c5"><div class="sc-num">3</div><div class="sc-lbl">입고 완료</div></div></div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
     <div class="card">
       <div class="card-hd"><div class="card-title">📍 지역별 현황</div></div>
-      <div id="dashRegion"></div>
+      <div id="dashRegion"><div class="rcard" style="margin-bottom:8px">
+          <div class="rcard-title">
+            <span>부산 <span style="font-size:12px;font-weight:400;color:var(--tx2)">8건</span></span>
+            <span style="font-size:12px;color:var(--tx2)"><span style="color:var(--ye2)">대기 4</span> 완료 3/8</span>
+          </div>
+          <div class="rbar"><div class="rbar-fill" style="width:38%"></div></div>
+        </div></div>
     </div>
     <div class="card">
       <div class="card-hd"><div class="card-title">🕐 최근 신청 (10건)</div></div>
       <div class="tbl-wrap">
         <table><thead><tr><th>식별번호</th><th>매장명</th><th>제품명</th><th>상태</th></tr></thead>
-        <tbody id="dashRecent"></tbody></table>
+        <tbody id="dashRecent"><tr>
+    <td><span class="id-tag">부산-00742</span></td>
+    <td class="tb" style="font-size:12px">센텀역직영점</td>
+    <td style="font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">시그니처 C타입 테두리 (스카이블루)</td>
+    <td><span class="badge b-pick">🚚 수거완료</span></td>
+  </tr><tr>
+    <td><span class="id-tag">부산-00741</span></td>
+    <td class="tb" style="font-size:12px">센텀역직영점</td>
+    <td style="font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">1.9% MAX - 거스트블루</td>
+    <td><span class="badge b-done">🚚 수거완료</span></td>
+  </tr><tr>
+    <td><span class="id-tag">부산-00740</span></td>
+    <td class="tb" style="font-size:12px">센텀역직영점</td>
+    <td style="font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">시그니처 테두리(화이트)</td>
+    <td><span class="badge b-done">🚚 수거완료</span></td>
+  </tr><tr>
+    <td><span class="id-tag">부산-00739</span></td>
+    <td class="tb" style="font-size:12px">센텀역직영점</td>
+    <td style="font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">시그니처 테두리(화이트)</td>
+    <td><span class="badge b-pend">⏳ 확인대기</span></td>
+  </tr><tr>
+    <td><span class="id-tag">부산-00738</span></td>
+    <td class="tb" style="font-size:12px">동래역직영점</td>
+    <td style="font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">[C타입]하카시그니처 배터리 (시트러스옐로우)</td>
+    <td><span class="badge b-pend">⏳ 확인대기</span></td>
+  </tr><tr>
+    <td><span class="id-tag">부산-00737</span></td>
+    <td class="tb" style="font-size:12px">동래역직영점</td>
+    <td style="font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">시그니처 C타입 테두리 (시트러스옐로우)</td>
+    <td><span class="badge b-pend">⏳ 확인대기</span></td>
+  </tr><tr>
+    <td><span class="id-tag">부산-00736</span></td>
+    <td class="tb" style="font-size:12px">동래역직영점</td>
+    <td style="font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">시그니처 테두리(화이트)</td>
+    <td><span class="badge b-pend">⏳ 확인대기</span></td>
+  </tr><tr>
+    <td><span class="id-tag">부산-00735</span></td>
+    <td class="tb" style="font-size:12px">동래역직영점</td>
+    <td style="font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">시그니처 C타입 테두리 (검정)</td>
+    <td><span class="badge b-done">🚚 수거완료</span></td>
+  </tr></tbody></table>
       </div>
     </div>
   </div>
@@ -282,22 +333,21 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
       <div class="fgrp span2">
         <label class="flb">수거 매장명<em>*</em></label>
         <div class="acw">
-          <input class="fi" id="fStore" placeholder="매장명 입력 (예: 동래)..." autocomplete="off"
-            oninput="acStore(this.value)" onfocus="acStore(this.value)" onkeydown="acKey(event,'acStoreList')">
-          <div class="acl" id="acStoreList"></div>
+          <input class="fi" id="fStore" placeholder="매장명 입력 (예: 동래)..." autocomplete="off" oninput="acStore(this.value)" onfocus="acStore(this.value)" onkeydown="acKey(event,&#39;acStoreList&#39;)">
+          <div class="acl" id="acStoreList" style="display: none;"></div>
         </div>
       </div>
       <div class="fgrp">
         <label class="flb">지역 <span style="font-weight:400;color:var(--tx3)">(자동)</span></label>
-        <input class="fi auto" id="fRegion" disabled>
+        <input class="fi auto" id="fRegion" disabled="">
       </div>
       <div class="fgrp">
         <label class="flb">배송코스 <span style="font-weight:400;color:var(--tx3)">(자동)</span></label>
-        <input class="fi auto" id="fRoute" disabled>
+        <input class="fi auto" id="fRoute" disabled="">
       </div>
       <div class="fgrp">
         <label class="flb">매장코드 <span style="font-weight:400;color:var(--tx3)">(자동)</span></label>
-        <input class="fi auto" id="fCode" disabled>
+        <input class="fi auto" id="fCode" disabled="">
       </div>
       <div class="fgrp">
         <label class="flb">확인일자<em>*</em></label>
@@ -312,7 +362,7 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
       <div class="card-title">📦 품목 목록</div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-gst btn-sm" onclick="addItemRow()">+ 행 추가</button>
-        <button class="btn btn-gst btn-sm" onclick="showPage('team-hist',document.querySelector('.ni[onclick*=team-hist]'))">신청 이력 →</button>
+        <button class="btn btn-gst btn-sm" onclick="showPage(&#39;team-hist&#39;,document.querySelector(&#39;.ni[onclick*=team-hist]&#39;))">신청 이력 →</button>
       </div>
     </div>
 
@@ -332,7 +382,33 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
           <th style="min-width:160px">메모</th>
           <th style="width:36px"></th>
         </tr></thead>
-        <tbody id="itemRows"></tbody>
+        <tbody id="itemRows"><tr id="irow-1" data-rowid="1">
+    <td style="text-align:center;color:var(--tx3);font-size:12px;user-select:none">1</td>
+    <td>
+      <div class="acw">
+        <input class="fi item-cell" id="ip-1" placeholder="제품명..." autocomplete="off" style="font-size:12px;padding:6px 9px" value="" oninput="acProductRow(this.value,1)" onfocus="acProductRow(this.value,1)" onkeydown="cellKey(event,&#39;ip-1&#39;)">
+        <div class="acl" id="apl-1" style="display: none;"></div>
+      </div>
+    </td>
+    <td>
+      <select class="fsel item-cell" id="id-1" style="font-size:12px;padding:6px 9px" onkeydown="cellKey(event,&#39;id-1&#39;)">
+        <option value="">선택...</option><option>즉시처리</option><option>예외조치</option><option>보상판매에어릭스</option><option>보상판매R</option><option>보상판매H</option><option>본사별도수거 박시영</option><option>본사별도수거 이지영</option>
+      </select>
+    </td>
+    <td>
+      <select class="fsel item-cell" id="ic-1" style="font-size:12px;padding:6px 9px" onkeydown="cellKey(event,&#39;ic-1&#39;)">
+        <option value="">선택...</option><option>무상</option><option>유상</option><option>수거</option>
+      </select>
+    </td>
+    <td>
+      <input class="fi item-cell" type="number" id="iq-1" placeholder="0" min="1" style="font-size:12px;padding:6px 9px;text-align:center" value="" onkeydown="cellKey(event,&#39;iq-1&#39;)">
+    </td>
+    <td>
+      <input class="fi item-cell" id="im-1" placeholder="메모" style="font-size:12px;padding:6px 9px" value="" onkeydown="cellKey(event,&#39;im-1&#39;)">
+    </td>
+    <td style="text-align:center">
+      <button onclick="removeItemRow(1)" style="background:transparent;border:none;color:var(--tx3);cursor:pointer;font-size:16px;padding:2px 6px" title="행 삭제">✕</button>
+    </td></tr></tbody>
       </table>
     </div>
 
@@ -352,7 +428,7 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
         <div class="sw"><span style="color:var(--tx3)">⌕</span><input placeholder="매장/제품/식별번호 검색..." oninput="renderTeamList(this.value)" style="width:220px"></div>
       </div>
     </div>
-    <div class="rtabs" id="teamRegionTabs"></div>
+    <div class="rtabs" id="teamRegionTabs"><button class="rtab on" onclick="setTeamRegion(&#39;all&#39;,this)">전체</button><button class="rtab " onclick="setTeamRegion(&#39;부산&#39;,this)">부산</button></div>
     <div class="tbl-wrap">
       <table>
         <thead><tr><th>식별번호</th><th>매장명</th><th>지역</th><th>구분</th><th>유/무상</th><th>제품명</th><th>수량</th><th>확인일자</th><th>상태</th></tr></thead>
@@ -389,18 +465,18 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
   <div class="md" style="max-width:520px">
     <div class="md-hd">
       <div><div class="md-ti">✅ 확인 처리</div><div class="md-su" id="moConfirmSub"></div></div>
-      <button class="md-cl" onclick="closeMo('moConfirm')">✕</button>
+      <button class="md-cl" onclick="closeMo(&#39;moConfirm&#39;)">✕</button>
     </div>
     <div class="md-bd">
       <div id="moConfirmInfo" style="background:var(--sf3);border-radius:var(--r);padding:12px;margin-bottom:14px;font-size:13px"></div>
       <div class="fg fg2" style="gap:11px">
         <div class="fgrp">
           <label class="flb">매장명 <span style="font-weight:400;color:var(--tx3)">(자동)</span></label>
-          <input class="fi auto" id="cfStore" disabled>
+          <input class="fi auto" id="cfStore" disabled="">
         </div>
         <div class="fgrp">
           <label class="flb">배송코스 <span style="font-weight:400;color:var(--tx3)">(자동)</span></label>
-          <input class="fi auto" id="cfRoute" disabled>
+          <input class="fi auto" id="cfRoute" disabled="">
         </div>
         <div class="fgrp span2">
           <label class="flb">수거 예상일자<em>*</em></label>
@@ -417,7 +493,7 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
       </div>
     </div>
     <div class="md-ft">
-      <button class="btn btn-gst" onclick="closeMo('moConfirm')">취소</button>
+      <button class="btn btn-gst" onclick="closeMo(&#39;moConfirm&#39;)">취소</button>
       <button class="btn btn-pri" onclick="doConfirm()">✅ 최종확인 완료</button>
     </div>
   </div>
@@ -428,7 +504,7 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
   <div class="md" style="max-width:620px">
     <div class="md-hd">
       <div><div class="md-ti">📦 지역 일괄 확인</div><div class="md-su" id="moBulkSub"></div></div>
-      <button class="md-cl" onclick="closeMo('moBulkConfirm')">✕</button>
+      <button class="md-cl" onclick="closeMo(&#39;moBulkConfirm&#39;)">✕</button>
     </div>
     <div class="md-bd">
       <div class="fgrp" style="margin-bottom:14px">
@@ -453,7 +529,7 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
     <div class="md-ft" style="justify-content:space-between">
       <span id="bulkSelCount" style="font-size:12px;color:var(--tx2);align-self:center"></span>
       <div style="display:flex;gap:8px">
-        <button class="btn btn-gst" onclick="closeMo('moBulkConfirm')">취소</button>
+        <button class="btn btn-gst" onclick="closeMo(&#39;moBulkConfirm&#39;)">취소</button>
         <button class="btn btn-pri" onclick="doBulkConfirm()">✅ 선택 건 최종확인</button>
       </div>
     </div>
@@ -465,7 +541,7 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
   <div class="md" style="max-width:460px">
     <div class="md-hd">
       <div><div class="md-ti">🚚 수거 처리</div><div class="md-su" id="moPickupSub"></div></div>
-      <button class="md-cl" onclick="closeMo('moPickup')">✕</button>
+      <button class="md-cl" onclick="closeMo(&#39;moPickup&#39;)">✕</button>
     </div>
     <div class="md-bd">
       <div class="fg fg2" style="gap:11px">
@@ -484,7 +560,7 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
       </div>
     </div>
     <div class="md-ft">
-      <button class="btn btn-gst" onclick="closeMo('moPickup')">취소</button>
+      <button class="btn btn-gst" onclick="closeMo(&#39;moPickup&#39;)">취소</button>
       <button class="btn btn-pu" onclick="doPickup()">🚚 수거 처리</button>
     </div>
   </div>
@@ -495,7 +571,7 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
   <div class="md" style="max-width:460px">
     <div class="md-hd">
       <div><div class="md-ti">✔ 입고 확인</div><div class="md-su" id="moInboundSub"></div></div>
-      <button class="md-cl" onclick="closeMo('moInbound')">✕</button>
+      <button class="md-cl" onclick="closeMo(&#39;moInbound&#39;)">✕</button>
     </div>
     <div class="md-bd">
       <div id="moInboundInfo" style="background:var(--sf3);border-radius:var(--r);padding:12px;margin-bottom:14px"></div>
@@ -515,7 +591,7 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
       </div>
     </div>
     <div class="md-ft">
-      <button class="btn btn-gst" onclick="closeMo('moInbound')">취소</button>
+      <button class="btn btn-gst" onclick="closeMo(&#39;moInbound&#39;)">취소</button>
       <button class="btn btn-gn" onclick="doInbound()">✔ 입고 완료</button>
     </div>
   </div>
@@ -526,7 +602,7 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
   <div class="md" style="max-width:480px">
     <div class="md-hd">
       <div><div class="md-ti">🏪 매장 등록</div><div class="md-su">신규 매장을 등록합니다</div></div>
-      <button class="md-cl" onclick="closeMo('moRegStore')">✕</button>
+      <button class="md-cl" onclick="closeMo(&#39;moRegStore&#39;)">✕</button>
     </div>
     <div class="md-bd">
       <div class="fg fg2" style="gap:11px">
@@ -554,7 +630,7 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
       </div>
     </div>
     <div class="md-ft">
-      <button class="btn btn-gst" onclick="closeMo('moRegStore')">취소</button>
+      <button class="btn btn-gst" onclick="closeMo(&#39;moRegStore&#39;)">취소</button>
       <button class="btn btn-pri" onclick="saveStore()">등록</button>
     </div>
   </div>
@@ -565,7 +641,7 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
   <div class="md" style="max-width:480px">
     <div class="md-hd">
       <div><div class="md-ti">📦 상품 등록</div><div class="md-su">신규 상품을 등록합니다</div></div>
-      <button class="md-cl" onclick="closeMo('moRegProduct')">✕</button>
+      <button class="md-cl" onclick="closeMo(&#39;moRegProduct&#39;)">✕</button>
     </div>
     <div class="md-bd">
       <div class="fg fg2" style="gap:11px">
@@ -580,7 +656,7 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
       </div>
     </div>
     <div class="md-ft">
-      <button class="btn btn-gst" onclick="closeMo('moRegProduct')">취소</button>
+      <button class="btn btn-gst" onclick="closeMo(&#39;moRegProduct&#39;)">취소</button>
       <button class="btn btn-pri" onclick="saveProduct()">등록</button>
     </div>
   </div>
@@ -591,10 +667,10 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
   <div class="md" style="max-width:540px">
     <div class="md-hd">
       <div><div class="md-ti">📄 상세 정보</div><div class="md-su" id="moDetailSub"></div></div>
-      <button class="md-cl" onclick="closeMo('moDetail')">✕</button>
+      <button class="md-cl" onclick="closeMo(&#39;moDetail&#39;)">✕</button>
     </div>
     <div class="md-bd" id="moDetailBody"></div>
-    <div class="md-ft"><button class="btn btn-gst" onclick="closeMo('moDetail')">닫기</button></div>
+    <div class="md-ft"><button class="btn btn-gst" onclick="closeMo(&#39;moDetail&#39;)">닫기</button></div>
   </div>
 </div>
 
@@ -1108,8 +1184,7 @@ function renderHQ(){
           <span style="font-size:12px;font-weight:400;color:var(--tx2)">전체 ${items.length}건</span>
           ${pend.length?`<span class="badge b-pend">확인대기 ${pend.length}</span>`:''}
           ${conf.length?`<span class="badge b-conf">최종확인 ${conf.length}</span>`:''}
-          ${pick.length?`<span class="badge b-pick">수거중 ${pick.length}</span>`:''}
-          ${done.length?`<span class="badge b-done">완료 ${done.length}</span>`:''}
+          ${done.length?`<span class="badge b-done">수거완료 ${done.length}</span>`:''}
         </div>
         <div style="display:flex;gap:7px">
           ${pend.length?`<button class="btn btn-sm" style="background:rgba(79,142,247,.15);color:var(--ac2);border:1px solid rgba(79,142,247,.3)" onclick="openBulkConfirm('${region}')">📋 일괄 확인 (${pend.length}건)</button>`:''}
@@ -1117,7 +1192,7 @@ function renderHQ(){
       </div>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th style="width:36px"><input type="checkbox" id="hqChkAll" onchange="hqCheckAll(this)"></th><th>식별번호</th><th>매장명</th><th>지역</th><th>배송코스</th><th>구분</th><th>유/무상</th><th>제품명</th><th>수량</th><th>확인일자</th><th>수거예상일</th><th>상태</th><th>액션</th></tr></thead>
+          <thead><tr><th style="width:36px"><input type="checkbox" id="hqChkAll" onchange="hqCheckAll(this)"></th><th>식별번호</th><th>매장명</th><th>지역</th><th>배송코스</th><th>구분</th><th>유/무상</th><th>제품명</th><th>수량</th><th>확인일자</th><th>수거예상일</th><th>수거완료일</th><th>상태</th><th>액션</th></tr></thead>
           <tbody>${renderHQRows(items)}</tbody>
         </table>
       </div>
@@ -1126,7 +1201,7 @@ function renderHQ(){
 }
 
 function renderHQRows(items){
-  if(!items.length) return `<tr><td colspan="13"><div class="empty" style="padding:16px">건이 없습니다</div></td></tr>`;
+  if(!items.length) return `<tr><td colspan="14"><div class="empty" style="padding:16px">건이 없습니다</div></td></tr>`;
   return items.map(a=>{
     const acts=[];
     acts.push(`<button class="btn btn-gst btn-sm" onclick="openDetail('${a.id}')">상세</button>`);
@@ -1134,8 +1209,6 @@ function renderHQRows(items){
       acts.push(`<button class="btn btn-sm" style="background:rgba(79,142,247,.15);color:var(--ac2);border:1px solid rgba(79,142,247,.3)" onclick="openConfirmModal('${a.id}')">확인필요</button>`);
     if(a.status==='confirmed')
       acts.push(`<button class="btn btn-pu btn-sm" onclick="openPickupModal('${a.id}')">🚚 수거처리</button>`);
-    if(a.status==='pickup')
-      acts.push(`<button class="btn btn-gn btn-sm" onclick="openInboundModal('${a.id}')">✔ 입고확인</button>`);
     return `<tr>
       <td style="text-align:center">
         <input type="checkbox" class="hq-chk" value="${a.id}" onchange="onHQCheck()" ${a.status==='pending'?'':'disabled style="opacity:.3"'}>
@@ -1150,6 +1223,7 @@ function renderHQRows(items){
       <td class="tm">${a.qty}개</td>
       <td style="font-size:12px;color:var(--tx2)">${a.date}</td>
       <td style="font-size:12px;color:var(--ye2)">${a.pickExpDate||'-'}</td>
+      <td style="font-size:12px;color:var(--gn)">${a.pickupDate||'-'}</td>
       <td>${statusBadge(a.status)}</td>
       <td style="white-space:nowrap">${acts.join(' ')}</td>
     </tr>`;
@@ -1441,7 +1515,7 @@ function renderDash(){
 // BADGES
 // ══════════════════════════════════════════
 function statusBadge(s){
-  const m={pending:['b-pend','⏳ 확인대기'],confirmed:['b-conf','✅ 최종확인'],pickup:['b-pick','🚚 수거중'],done:['b-done','✔ 입고완료']};
+  const m={pending:['b-pend','⏳ 확인대기'],confirmed:['b-conf','✅ 최종확인'],pickup:['b-pick','🚚 수거완료'],done:['b-done','🚚 수거완료']};
   const[c,t]=m[s]||['b-pend','대기'];
   return `<span class="badge ${c}">${t}</span>`;
 }
@@ -1657,10 +1731,10 @@ async function doPickup(){
   const mgr=document.getElementById('pkMgr').value.trim();
   const memo=document.getElementById('pkMemo').value.trim();
   try{
-    await dbUpdate(actionId,{status:'pickup',pickup_date:d,pickup_mgr:mgr});
-    a.status='pickup'; a.pickupDate=d; a.pickupMgr=mgr; a.pickupMemo=memo;
+    await dbUpdate(actionId,{status:'done',pickup_date:d,pickup_mgr:mgr});
+    a.status='done'; a.pickupDate=d; a.pickupMgr=mgr; a.pickupMemo=memo;
     closeMo('moPickup');
-    notify(`[${actionId}] 수거 처리 완료`,'ok');
+    notify(`[${actionId}] 수거 완료 처리됐습니다`,'ok');
     renderHQ(); updateHQBadge();
   } catch(e){ notify('저장 실패: '+e.message,'err'); }
 }
@@ -1711,5 +1785,6 @@ document.getElementById('fDate').value=today();
 addItemRow();
 dbLoad(); // DB에서 데이터 로드
 </script>
-</body>
-</html>
+
+
+</body></html>
