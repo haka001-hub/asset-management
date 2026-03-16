@@ -59,6 +59,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
 .b-appr{background:rgba(59,130,246,.1);border-color:rgba(59,130,246,.3);color:var(--ac2)}.b-appr::before{background:var(--ac)}
 .b-ship{background:rgba(16,185,129,.1);border-color:rgba(16,185,129,.3);color:var(--gn)}.b-ship::before{background:var(--gn)}
 .b-rejt{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.3);color:var(--rd)}.b-rejt::before{background:var(--rd)}
+.b-prog{background:rgba(99,102,241,.1);border-color:rgba(99,102,241,.3);color:#818cf8}.b-prog::before{background:#818cf8}
 .b-warn{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.3);color:var(--yw)}
 .b-zero{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.3);color:var(--rd)}
 .b-fix{background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.3);color:#a78bfa}
@@ -306,7 +307,8 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
       <div class="tabbar">
         <button class="tab active" onclick="setPkFilter('all',this)">전체</button>
         <button class="tab" onclick="setPkFilter('pending',this)">대기중</button>
-        <button class="tab" onclick="setPkFilter('confirmed',this)">수거확인</button>
+        <button class="tab" onclick="setPkFilter('in_progress',this)">진행중</button>
+        <button class="tab" onclick="setPkFilter('confirmed',this)">수거완료</button>
         <button class="tab" onclick="setPkFilter('rejected',this)">반려</button>
       </div>
       <table><thead><tr><th>수거번호</th><th>요청일자</th><th>담당자</th><th>수거 사유</th><th>비고</th><th>품목명</th><th>수량</th><th>수거 매장</th><th>배송코스</th><th>상태</th><th>액션</th></tr></thead>
@@ -1035,18 +1037,20 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
       <div class="sdiv">수거 신청 내용</div>
       <div class="cfb" id="pkCfBox"></div>
       <div class="sdiv">수거 확인 정보</div>
-      <div class="fg">
+      <div class="fg" id="pkStartFields">
         <div class="fgrp"><label class="flb">수거일자 <span>*</span></label><input type="date" class="fi" id="pkPickupDate"></div>
-        <div class="fgrp"><label class="flb">수거확인일자 <span>*</span></label><input type="date" class="fi" id="pkConfDate"></div>
         <div class="fgrp"><label class="flb">확인 담당자 (물류팀) <span>*</span></label><input type="text" class="fi" id="pkConfMgr" placeholder="담당자명"></div>
         <div class="fgrp s2"><label class="flb">메모</label><input type="text" class="fi" id="pkConfMemo" placeholder="수거 상태, 특이사항 등"></div>
+      </div>
+      <div class="fg" id="pkConfirmFields">
+        <div class="fgrp s2"><label class="flb">수거확인일자 <span>*</span></label><input type="date" class="fi" id="pkConfDate"></div>
       </div>
       <div class="info-box" style="margin-top:14px" id="pkConfInfo"></div>
     </div>
     <div class="md-ft">
       <button class="btn btn-gst" onclick="closeMo('moPkConfirm')">취소</button>
-      <button class="btn btn-dan btn-sm" onclick="rejectPickup()">반려</button>
-      <button class="btn btn-suc" onclick="confirmPickup()">수거 확인 ✓</button>
+      <button class="btn btn-dan btn-sm" id="pkRejectBtn" onclick="rejectPickup()">반려</button>
+      <button class="btn btn-suc" id="pkActionBtn">수거 진행</button>
     </div>
   </div>
 </div>
@@ -1938,7 +1942,7 @@ function updateBadge(){
   const n=REQS.filter(r=>r.status==='pending').length;
   const b=document.getElementById('pendingBadge');
   b.textContent=n; b.style.display=n?'inline-block':'none';
-  const pk=PICKUPS.filter(p=>p.status==='pending').length;
+  const pk=PICKUPS.filter(p=>p.status==='pending'||p.status==='in_progress').length;
   const pb=document.getElementById('pickupBadge');
   pb.textContent=pk; pb.style.display=pk?'inline-block':'none';
 }
@@ -2382,13 +2386,13 @@ function renderPickup(){
     return mf&&ms;
   });
   const sbadgePk=s=>{
-    const m={pending:'b-pend 대기중',confirmed:'b-ship 수거완료',rejected:'b-rejt 반려'};
+    const m={pending:'b-pend 대기중',in_progress:'b-prog 수거진행중',confirmed:'b-ship 수거완료',rejected:'b-rejt 반려'};
     const[c,t]=(m[s]||'b-pend 대기중').split(' ');
     return`<span class="badge ${c}">${t}</span>`;
   };
   document.getElementById('pickupTable').innerHTML=[...data].reverse().map(p=>{
     const act=p.status==='pending'
-      ?`<button class="btn btn-suc btn-sm" onclick="openPkConfirmModal('${p.id}')">수거확인</button>`
+      ?`<button class="btn btn-suc btn-sm" onclick="openPkConfirmModal('${p.id}','start')">수거확인</button>`
       :'<span style="color:var(--tx3);font-size:12px">-</span>';
     const rBg = p.reason==='고장'?'rgba(248,113,113,.12)':p.reason==='일반수거'?'rgba(34,197,94,.1)':'rgba(59,130,246,.08)';
     const rClr = p.reason==='고장'?'#f87171':p.reason==='일반수거'?'var(--gn)':'var(--ac2)';
@@ -2414,12 +2418,12 @@ function setPkFilter(t,el){pkFilter=t;document.querySelectorAll('#page-pickup .t
 // ═══ PICKUP: 수거 관리 ═══
 function renderPickupMgmt(){
   const q=(document.getElementById('pkmSrch')?.value||'').toLowerCase();
-  const pend=PICKUPS.filter(p=>p.status==='pending'&&(p.store.toLowerCase().includes(q)||p.asset.toLowerCase().includes(q)));
+  const pend=PICKUPS.filter(p=>p.status==='in_progress'&&(p.store.toLowerCase().includes(q)||p.asset.toLowerCase().includes(q)));
   document.getElementById('pkMgmtTable').innerHTML=pend.length?pend.map(p=>
     `<tr><td class="tm">${p.id}</td><td class="tm">${fd(p.date)}</td><td>${p.manager}</td>
     <td class="tb2">${p.asset}</td><td class="tm">${p.qty}개</td><td>${rtag(p.route)}</td>
     <td>${p.store}</td><td style="font-size:12px;color:var(--tx3)">${p.address}</td>
-    <td><button class="btn btn-suc btn-sm" onclick="openPkConfirmModal('${p.id}')">수거확인 →</button></td></tr>`
+    <td><button class="btn btn-suc btn-sm" onclick="openPkConfirmModal('${p.id}','confirm')">수거확인 →</button></td></tr>`
   ).join(''):'<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--tx3)">수거 대기 없음 ✓</td></tr>';
   const done=PICKUPS.filter(p=>p.status==='confirmed'&&(p.store.toLowerCase().includes(q)||p.asset.toLowerCase().includes(q)));
   document.getElementById('pkDoneTable').innerHTML=[...done].reverse().map((p,i)=>
@@ -2435,7 +2439,7 @@ function renderPickupMgmt(){
 function renderPickupHist(){
   const q=(document.getElementById('pkHistSrch')?.value||'').toLowerCase();
   const sbadgePk=s=>{
-    const m={pending:'b-pend 대기중',confirmed:'b-ship 수거완료',rejected:'b-rejt 반려'};
+    const m={pending:'b-pend 대기중',in_progress:'b-prog 수거진행중',confirmed:'b-ship 수거완료',rejected:'b-rejt 반려'};
     const[c,t]=(m[s]||'b-pend 대기중').split(' ');
     return`<span class="badge ${c}">${t}</span>`;
   };
@@ -2593,9 +2597,16 @@ async function submitPickup(){
 }
 
 // ═══ PICKUP: 수거 확인 모달 ═══
-function openPkConfirmModal(pkId){
+function openPkConfirmModal(pkId, mode='start'){
   const p=PICKUPS.find(x=>x.id===pkId);if(!p)return;
   curPkId=pkId;
+  const isStart = mode==='start';
+  document.getElementById('pkStartFields').style.display = isStart ? '' : 'none';
+  document.getElementById('pkConfirmFields').style.display = isStart ? 'none' : '';
+  document.getElementById('pkRejectBtn').style.display = isStart ? '' : 'none';
+  const btn=document.getElementById('pkActionBtn');
+  btn.textContent = isStart ? '수거 진행' : '수거 확인 ✓';
+  btn.onclick = isStart ? startPickup : confirmPickup;
   document.getElementById('pkPickupDate').value=today();
   document.getElementById('pkConfDate').value=today();
   document.getElementById('pkConfMgr').value='';
@@ -2627,13 +2638,24 @@ function openPkConfirmModal(pkId){
   openMo('moPkConfirm');
 }
 
-async function confirmPickup(){
+async function startPickup(){
   const p=PICKUPS.find(x=>x.id===curPkId);if(!p)return;
   const pickupDate=document.getElementById('pkPickupDate').value;
-  const confDate=document.getElementById('pkConfDate').value;
   const confMgr=document.getElementById('pkConfMgr').value.trim();
   const confMemo=document.getElementById('pkConfMemo').value.trim();
-  if(!pickupDate||!confDate||!confMgr){notify('수거 확인 정보를 입력해주세요','error');return}
+  if(!pickupDate||!confMgr){notify('수거일자와 담당자를 입력해주세요','error');return}
+  p.status='in_progress';p.pickupDate=pickupDate;p.confMgr=confMgr;p.confMemo=confMemo;
+  const {error}=await db.from('pickups').update({status:'in_progress',pickup_date:pickupDate,confirmed_mgr:confMgr,conf_memo:confMemo}).eq('id',curPkId);
+  if(error){notify('저장 실패: '+error.message,'error');return}
+  closeMo('moPkConfirm');
+  notify(`수거 진행 처리 완료 (${curPkId})`,'success');
+  updateBadge();renderPickup();renderPickupMgmt();
+}
+
+async function confirmPickup(){
+  const p=PICKUPS.find(x=>x.id===curPkId);if(!p)return;
+  const confDate=document.getElementById('pkConfDate').value;
+  if(!confDate){notify('수거확인일자를 입력해주세요','error');return}
   // 물류재고 증가 (고장 여부 분리)
   const li=LOGI.find(l=>l.code===p.code);
   if(li){
@@ -2650,8 +2672,8 @@ async function confirmPickup(){
   // 직영점 자산 현황 반영 (-수량)
   applyStoreAssetDelta(p.store, p.asset, -p.qty, `수거 확인 / ${confMgr}`);
   // 상태 변경
-  p.status='confirmed';p.pickupDate=pickupDate;p.confDate=confDate;p.confMgr=confMgr;p.confMemo=confMemo;
-  const {error:updErr}=await db.from('pickups').update({status:'confirmed',pickup_date:pickupDate,confirmed_at:confDate,confirmed_mgr:confMgr,conf_memo:confMemo}).eq('id',curPkId);
+  p.status='confirmed';p.confDate=confDate;
+  const {error:updErr}=await db.from('pickups').update({status:'confirmed',confirmed_at:confDate}).eq('id',curPkId);
   if(updErr){notify('수거 확인 저장 실패: '+updErr.message,'error');return}
   const _liPk=LOGI.find(l=>l.code===p.code); if(_liPk) db.from('inventory').update({qty:_liPk.qty,broken_qty:_liPk.broken||0}).eq('code',p.code).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   closeMo('moPkConfirm');
