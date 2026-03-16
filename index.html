@@ -3027,6 +3027,7 @@ function selPurchaseItem(inp, code, name) {
 function downloadPurchaseTemplate() {
   const loadAndDl = () => {
     const wb = XLSX.utils.book_new();
+    // ── Sheet 1: 입력 양식 ──
     const headers = ['담당자','구매요청일','자산코드','품목명','요청수량','비고'];
     const today = new Date().toISOString().split('T')[0];
     const data = [headers];
@@ -3034,8 +3035,20 @@ function downloadPurchaseTemplate() {
     const ws = XLSX.utils.aoa_to_sheet(data);
     ws['!cols'] = [{wch:12},{wch:14},{wch:12},{wch:30},{wch:10},{wch:20}];
     XLSX.utils.book_append_sheet(wb, ws, '구매요청서');
+    // ── Sheet 2: 매장코드 목록 ──
+    const storeData = [['매장코드','매장명','코스','주소']];
+    getAllStores().forEach(s=>storeData.push([s.code||'', s.name, s.route||'', s.address||'']));
+    const wsStore = XLSX.utils.aoa_to_sheet(storeData);
+    wsStore['!cols'] = [{wch:10},{wch:24},{wch:8},{wch:50}];
+    XLSX.utils.book_append_sheet(wb, wsStore, '🏪 매장코드 목록');
+    // ── Sheet 3: 자산코드 목록 ──
+    const assetData = [['자산코드','자산명','카테고리','현재재고']];
+    INV.forEach(i=>assetData.push([i.code, i.name, i.cat||'', i.total-i.out]));
+    const wsAsset = XLSX.utils.aoa_to_sheet(assetData);
+    wsAsset['!cols'] = [{wch:12},{wch:30},{wch:14},{wch:10}];
+    XLSX.utils.book_append_sheet(wb, wsAsset, '📦 자산코드 목록');
     XLSX.writeFile(wb, '구매요청서_양식.xlsx');
-    notify('구매요청서 양식 다운로드 완료');
+    notify('구매요청서 양식 다운로드 완료 (xlsx 3시트)', 'success');
   };
   if(typeof XLSX==='undefined'){const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=loadAndDl;document.head.appendChild(s);}else{loadAndDl();}
 }
