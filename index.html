@@ -1940,7 +1940,7 @@ function histPush(entry) {
 // ═══ TELEGRAM 알림 ═══
 function sendTelegram(msg){
   const token='7631301557:AAHaX_j_jaqZcozlayCOLQXFjXB9JQhkIRQ';
-  const chatId='6846635920';
+  const chatId='-5189056099';
   fetch(`https://api.telegram.org/bot${token}/sendMessage`,{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({chat_id:chatId,text:msg,parse_mode:'HTML'})
