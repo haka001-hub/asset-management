@@ -2670,7 +2670,7 @@ async function confirmPickup(){
   const inv=INV.find(i=>i.code===p.code);
   if(inv)inv.total+=p.qty;
   // 직영점 자산 현황 반영 (-수량)
-  applyStoreAssetDelta(p.store, p.asset, -p.qty, `수거 확인 / ${confMgr}`);
+  applyStoreAssetDelta(p.store, p.asset, -p.qty, `수거 확인 / ${p.confMgr}`);
   // 상태 변경
   p.status='confirmed';p.confDate=confDate;
   const {error:updErr}=await db.from('pickups').update({status:'confirmed',confirmed_at:confDate}).eq('id',curPkId);
