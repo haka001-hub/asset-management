@@ -170,6 +170,8 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
     <button class="ni" onclick="showPage('logistics',this)"><span class="ic">▦</span>물류 재고</button>
     <button class="ni" onclick="showPage('storeout',this)"><span class="ic">⊛</span>직영점 출고 현황</button>
     <button class="ni" onclick="showPage('storeasset',this)"><span class="ic">◈</span>직영점 자산 현황</button>
+    <div class="nav-sec">AS 관리</div>
+    <button class="ni" onclick="showPage('aspickup',this)"><span class="ic">📦</span>AS 수거 관리<span class="nbadge" id="asPendBadge" style="display:none">0</span></button>
   </div>
 </nav>
 
@@ -1007,6 +1009,27 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
   </div>
 </div>
 
+<!-- ══ AS 수거 관리 ══ -->
+<div id="page-aspickup" class="hidden">
+  <div class="tw">
+
+    <!-- 일괄 날짜 적용 바 -->
+    <div id="asBulkBar" style="display:none;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.25);border-radius:8px;padding:11px 16px;margin-bottom:16px;align-items:center;gap:12px;flex-wrap:wrap">
+      <span style="font-size:13px;font-weight:600;color:#60a5fa">✅ <span id="asBulkCnt">0</span>건 선택</span>
+      <div style="display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap">
+        <label style="font-size:12px;color:var(--tx2)">수거 예상일자</label>
+        <input type="date" class="fi" id="asBulkDate" style="width:160px;padding:6px 10px">
+        <button class="btn btn-pri btn-sm" onclick="asApplyBulkDate()">일괄 적용</button>
+        <button class="btn btn-gst btn-sm" onclick="asClearSel()">선택 해제</button>
+      </div>
+    </div>
+
+    <!-- 지역별 섹션 -->
+    <div id="asRegionSections"></div>
+
+  </div>
+</div>
+
 <div class="notif" id="notif"><span id="nIcon">✓</span><span id="nMsg"></span></div>
 
 <script>
@@ -1129,6 +1152,7 @@ const META={
   pickupmgmt:['수거 관리','수거 확인 처리 — 확인 시 물류재고 자동 증가'],
   pickuphist:['수거 이력','전체 수거 요청·확인 이력'],
   bulkorder:['일괄 자산 신청','엑셀 양식으로 여러 매장·품목 한번에 출고 처리'],
+  aspickup:['AS 수거 관리','직영팀장 AS 수거 신청 — 지역별 확인 및 수거 처리'],
 };
 function showPage(id,btn){
   document.querySelectorAll('[id^="page-"]').forEach(e=>e.classList.add('hidden'));
@@ -1139,7 +1163,7 @@ function showPage(id,btn){
   const[t,s]=META[id]||['',''];
   document.getElementById('pgTitle').textContent=t;
   document.getElementById('pgSub').textContent=s;
-  ({dashboard:renderDash,inventory:renderInv,request:renderReqs,outgoing:renderOut,history:renderHist,logistics:renderLogi,storeout:renderStoreOut,storeasset:renderSA,pickup:renderPickup,pickupmgmt:renderPickupMgmt,pickuphist:renderPickupHist,bulkorder:renderBulkHist})[id]?.();
+  ({dashboard:renderDash,inventory:renderInv,request:renderReqs,outgoing:renderOut,history:renderHist,logistics:renderLogi,storeout:renderStoreOut,storeasset:renderSA,pickup:renderPickup,pickupmgmt:renderPickupMgmt,pickuphist:renderPickupHist,bulkorder:renderBulkHist,aspickup:renderASPickup})[id]?.();
   updateBadge();
 }
 
@@ -2661,6 +2685,259 @@ function downloadInvExcel(){
     sc.onload=loadAndExport;
     document.head.appendChild(sc);
   } else { loadAndExport(); }
+}
+
+
+// ═══ AS 수거 관리 (Supabase 연동) ═══
+const AS_SB_URL = 'https://fmbcrvhyfxkcphveodet.supabase.co';
+const AS_SB_KEY = 'sb_publishable_EFtGJSivFdur04_bW_jWyQ_84mn90a_';
+const AS_HDR = {'Content-Type':'application/json','apikey':AS_SB_KEY,'Authorization':'Bearer '+AS_SB_KEY};
+let AS_DATA = [];
+let asActionId = null;
+const AS_REGIONS = ['부산','서울','인천','경기','경남','대구','울산','제주'];
+
+async function asLoadDB(){
+  try{
+    const r = await fetch(`${AS_SB_URL}/rest/v1/as_requests?order=created_at.desc&limit=2000`,{headers:AS_HDR});
+    const rows = await r.json();
+    if(!Array.isArray(rows)) throw new Error(JSON.stringify(rows));
+    AS_DATA = rows.map(r=>({
+      id:r.seq_id, _dbid:r.id,
+      store:r.store, region:r.region, route:r.route,
+      div:r.div, charge:r.charge, product:r.product, qty:r.qty,
+      date:r.confirm_date, memo:r.memo, status:r.status,
+      pickExpDate:r.pick_exp_date, pickupDate:r.pickup_date, pickupMgr:r.pickup_mgr,
+      inboundQty:r.inbound_qty, inboundDate:r.inbound_date, inboundMgr:r.inbound_mgr,
+      qtyMismatch:r.qty_mismatch, confirmedAt:r.confirmed_at, submittedAt:r.submitted_at
+    }));
+    renderASPickup();
+    asUpdateBadge();
+  } catch(e){ notify('AS DB 로드 오류: '+e.message,'err'); }
+}
+
+async function asDbUpdate(seqId, fields){
+  const r = await fetch(`${AS_SB_URL}/rest/v1/as_requests?seq_id=eq.${encodeURIComponent(seqId)}`,{
+    method:'PATCH', headers:{...AS_HDR,'Prefer':'return=minimal'}, body:JSON.stringify(fields)
+  });
+  if(!r.ok){ const t=await r.text(); throw new Error(t); }
+}
+
+function asUpdateBadge(){
+  const cnt = AS_DATA.filter(a=>a.status==='pending').length;
+  const el = document.getElementById('asPendBadge');
+  if(!el) return;
+  if(cnt>0){el.textContent=cnt;el.style.display='';}
+  else el.style.display='none';
+}
+
+function renderASPickup(){
+  const container = document.getElementById('asRegionSections');
+  if(!container) return;
+  const allRegions = [...new Set(AS_DATA.map(a=>a.region))];
+  const ordered = AS_REGIONS.filter(r=>allRegions.includes(r)).concat(allRegions.filter(r=>!AS_REGIONS.includes(r)));
+
+  if(!ordered.length){
+    container.innerHTML=`<div class="card"><div style="text-align:center;padding:36px;color:var(--tx3)">📭 AS 수거 신청 내역이 없습니다</div></div>`;
+    return;
+  }
+
+  container.innerHTML = ordered.map(region=>{
+    const items = AS_DATA.filter(a=>a.region===region);
+    const pend = items.filter(a=>a.status==='pending').length;
+    const conf = items.filter(a=>a.status==='confirmed').length;
+    const pick = items.filter(a=>a.status==='pickup').length;
+    const done = items.filter(a=>a.status==='done').length;
+    return `<div class="tw" style="margin-bottom:16px">
+      <div class="th" style="flex-wrap:wrap;gap:8px">
+        <div>
+          <span class="tt">📍 ${region}</span>
+          <span style="font-size:12px;color:var(--tx3);margin-left:8px">전체 ${items.length}건</span>
+          ${pend?`<span class="badge b-pend" style="margin-left:6px">대기 ${pend}</span>`:''}
+          ${conf?`<span class="badge b-ship" style="margin-left:4px">확인 ${conf}</span>`:''}
+          ${pick?`<span class="badge" style="background:rgba(139,92,246,.15);color:#a78bfa;border:1px solid rgba(139,92,246,.3);margin-left:4px">수거중 ${pick}</span>`:''}
+          ${done?`<span class="badge b-comp" style="margin-left:4px">완료 ${done}</span>`:''}
+        </div>
+        <div style="display:flex;gap:7px">
+          ${pend?`<button class="btn btn-pri btn-sm" onclick="asOpenBulkConfirm('${region}')">📋 일괄 확인 (${pend}건)</button>`:''}
+          <button class="btn btn-gst btn-sm" onclick="asLoadDB()">↻ 새로고침</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr>
+            <th style="width:36px"><input type="checkbox" onchange="asCheckAll(this,'${region}')"></th>
+            <th>식별번호</th><th>매장명</th><th>배송코스</th>
+            <th>구분</th><th>유/무상</th><th>제품명</th><th>수량</th>
+            <th>확인일자</th><th>수거예상일</th><th>상태</th><th>액션</th>
+          </tr></thead>
+          <tbody>${asRenderRows(items)}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function asRenderRows(items){
+  if(!items.length) return `<tr><td colspan="12" style="text-align:center;color:var(--tx3);padding:20px">건이 없습니다</td></tr>`;
+  return items.map(a=>{
+    const acts=[];
+    acts.push(`<button class="btn btn-gst btn-sm" onclick="asOpenDetail('${a.id}')">상세</button>`);
+    if(a.status==='pending')
+      acts.push(`<button class="btn btn-sm" style="background:rgba(59,130,246,.15);color:#60a5fa;border:1px solid rgba(59,130,246,.3)" onclick="asOpenConfirm('${a.id}')">확인필요</button>`);
+    if(a.status==='confirmed')
+      acts.push(`<button class="btn btn-sm" style="background:rgba(139,92,246,.15);color:#a78bfa;border:1px solid rgba(139,92,246,.3)" onclick="asOpenPickup('${a.id}')">🚚 수거처리</button>`);
+    if(a.status==='pickup')
+      acts.push(`<button class="btn btn-suc btn-sm" onclick="asOpenInbound('${a.id}')">✔ 입고확인</button>`);
+
+    const stBadge = {
+      pending:`<span class="badge b-pend">⏳ 확인대기</span>`,
+      confirmed:`<span class="badge b-ship">✅ 최종확인</span>`,
+      pickup:`<span class="badge" style="background:rgba(139,92,246,.15);color:#a78bfa">🚚 수거중</span>`,
+      done:`<span class="badge b-comp">✔ 입고완료</span>`
+    }[a.status]||`<span class="badge">${a.status}</span>`;
+
+    const chBadge = {무상:`<span class="badge b-comp" style="font-size:10px">무상</span>`,유상:`<span class="badge b-pend" style="font-size:10px">유상</span>`,수거:`<span class="badge" style="font-size:10px">수거</span>`}[a.charge]||a.charge;
+
+    return `<tr>
+      <td style="text-align:center"><input type="checkbox" class="as-chk" data-region="${a.region}" value="${a.id}" onchange="asOnCheck()" ${a.status==='pending'?'':'disabled style="opacity:.3"'}></td>
+      <td><span class="tm" style="color:#60a5fa;font-weight:700;font-size:11px">${a.id}</span></td>
+      <td class="tb2">${a.store}</td>
+      <td><span class="tm" style="font-size:11px">${a.route||'-'}</span></td>
+      <td style="font-size:12px">${a.div||'-'}</td>
+      <td>${chBadge}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px" title="${a.product}">${a.product}</td>
+      <td class="tm">${a.qty}개</td>
+      <td style="font-size:12px;color:var(--tx3)">${a.date||'-'}</td>
+      <td style="font-size:12px;color:#fbbf24">${a.pickExpDate||'-'}</td>
+      <td>${stBadge}</td>
+      <td style="white-space:nowrap">${acts.join(' ')}</td>
+    </tr>`;
+  }).join('');
+}
+
+// 체크박스
+function asOnCheck(){
+  const cnt = [...document.querySelectorAll('.as-chk:checked')].length;
+  const bar = document.getElementById('asBulkBar');
+  document.getElementById('asBulkCnt').textContent = cnt;
+  bar.style.display = cnt>0 ? 'flex' : 'none';
+}
+function asCheckAll(cb, region){
+  document.querySelectorAll(`.as-chk[data-region="${region}"]:not(:disabled)`).forEach(c=>c.checked=cb.checked);
+  asOnCheck();
+}
+function asClearSel(){
+  document.querySelectorAll('.as-chk').forEach(c=>c.checked=false);
+  document.getElementById('asBulkBar').style.display='none';
+}
+
+// 일괄 날짜 적용
+async function asApplyBulkDate(){
+  const d = document.getElementById('asBulkDate').value;
+  if(!d){notify('수거 예상일자를 입력해주세요','err');return}
+  const ids = [...document.querySelectorAll('.as-chk:checked')].map(c=>c.value);
+  if(!ids.length){notify('선택된 건이 없습니다','warn');return}
+  const now = new Date().toLocaleString('ko-KR');
+  let cnt=0;
+  for(const id of ids){
+    try{
+      await asDbUpdate(id,{status:'confirmed',confirmed_at:now,pick_exp_date:d});
+      const a=AS_DATA.find(x=>x.id===id);
+      if(a){a.status='confirmed';a.confirmedAt=now;a.pickExpDate=d;}
+      cnt++;
+    } catch(e){ console.error(id,e); }
+  }
+  notify(`${cnt}건 수거예상일 일괄 적용 완료 (${d})`,'ok');
+  asClearSel(); renderASPickup(); asUpdateBadge();
+}
+
+// 단건 확인 모달
+let asConfirmTarget=null;
+function asOpenConfirm(id){
+  const a=AS_DATA.find(x=>x.id===id);
+  if(!a) return;
+  asConfirmTarget=id;
+  // 간단 인라인 프롬프트 대신 모달 재사용
+  const d=prompt(`[${id}] ${a.store}\n${a.product} ${a.qty}개\n\n수거 예상일자 입력 (YYYY-MM-DD):`);
+  if(!d) return;
+  (async()=>{
+    const now=new Date().toLocaleString('ko-KR');
+    try{
+      await asDbUpdate(id,{status:'confirmed',confirmed_at:now,pick_exp_date:d});
+      a.status='confirmed';a.confirmedAt=now;a.pickExpDate=d;
+      notify(`[${id}] 최종확인 완료`,'ok');
+      renderASPickup(); asUpdateBadge();
+    } catch(e){ notify('저장 실패: '+e.message,'err'); }
+  })();
+}
+
+function asOpenPickup(id){
+  const a=AS_DATA.find(x=>x.id===id);
+  if(!a) return;
+  const d=prompt(`[${id}] ${a.store} 수거처리\n\n수거일자 입력 (YYYY-MM-DD):`);
+  if(!d) return;
+  (async()=>{
+    try{
+      await asDbUpdate(id,{status:'pickup',pickup_date:d});
+      a.status='pickup';a.pickupDate=d;
+      notify(`[${id}] 수거 처리 완료`,'ok');
+      renderASPickup(); asUpdateBadge();
+    } catch(e){ notify('저장 실패: '+e.message,'err'); }
+  })();
+}
+
+function asOpenInbound(id){
+  const a=AS_DATA.find(x=>x.id===id);
+  if(!a) return;
+  const qtyStr=prompt(`[${id}] ${a.store}\n${a.product}\n신청수량: ${a.qty}개\n\n입고 확인 수량 입력:`);
+  if(!qtyStr) return;
+  const qty=parseInt(qtyStr);
+  if(isNaN(qty)||qty<1){notify('올바른 수량을 입력해주세요','err');return}
+  const d=prompt('수거확인일자 입력 (YYYY-MM-DD):') || new Date().toISOString().slice(0,10);
+  (async()=>{
+    const mismatch=qty!==a.qty;
+    try{
+      await asDbUpdate(id,{status:'done',inbound_qty:qty,inbound_date:d,qty_mismatch:mismatch});
+      a.status='done';a.inboundQty=qty;a.inboundDate=d;a.qtyMismatch=mismatch;
+      if(mismatch) notify(`[${id}] 입고완료 ⚠️ 수량불일치 (신청${a.qty}/입고${qty})`,'warn');
+      else notify(`[${id}] 입고완료 (${qty}개)`,'ok');
+      renderASPickup(); asUpdateBadge();
+    } catch(e){ notify('저장 실패: '+e.message,'err'); }
+  })();
+}
+
+// 일괄 확인 모달 (지역별)
+function asOpenBulkConfirm(region){
+  const d = prompt(`${region} 지역 확인대기 건 일괄 확인\n\n수거 예상일자 입력 (YYYY-MM-DD):`);
+  if(!d) return;
+  const pending = AS_DATA.filter(a=>a.region===region&&a.status==='pending');
+  (async()=>{
+    const now=new Date().toLocaleString('ko-KR');
+    let cnt=0;
+    for(const a of pending){
+      try{
+        await asDbUpdate(a.id,{status:'confirmed',confirmed_at:now,pick_exp_date:d});
+        a.status='confirmed';a.confirmedAt=now;a.pickExpDate=d;cnt++;
+      } catch(e){console.error(a.id,e);}
+    }
+    notify(`${region} ${cnt}건 최종확인 완료`,'ok');
+    renderASPickup(); asUpdateBadge();
+  })();
+}
+
+function asOpenDetail(id){
+  const a=AS_DATA.find(x=>x.id===id);
+  if(!a) return;
+  alert(`[${a.id}] ${a.store}
+지역: ${a.region} / 코스: ${a.route||'-'}
+구분: ${a.div||'-'} / 유무상: ${a.charge||'-'}
+제품: ${a.product}
+수량: ${a.qty}개 / 확인일자: ${a.date||'-'}
+상태: ${a.status}
+수거예상일: ${a.pickExpDate||'-'}
+수거일: ${a.pickupDate||'-'}
+입고일: ${a.inboundDate||'-'} / 입고수량: ${a.inboundQty||'-'}
+신청일시: ${a.submittedAt||'-'}`);
 }
 
 // ═══ INIT ═══
