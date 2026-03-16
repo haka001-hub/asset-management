@@ -338,7 +338,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
         <div class="tt">수거 전체 이력</div>
         <div class="ta"><div class="sw"><span class="sic">⌕</span><input class="si" id="pkHistSrch" placeholder="검색..." oninput="renderPickupHist()"></div></div>
       </div>
-      <table><thead><tr><th>수거번호</th><th>요청일자</th><th>수거확인일자</th><th>신청자</th><th>품목명</th><th>수량</th><th>배송코스</th><th>수거 매장</th><th>주소</th><th>비고</th><th>상태</th></tr></thead>
+      <table><thead><tr><th>수거번호</th><th>요청일자</th><th>수거확인일자</th><th>신청자</th><th>품목명</th><th>수량</th><th>배송코스</th><th>수거 매장</th><th>주소</th><th>비고</th><th>배송비고</th><th>상태</th></tr></thead>
       <tbody id="pkHistTable"></tbody></table>
     </div>
   </div>
@@ -1173,7 +1173,7 @@ async function loadFromDB() {
     }
     if (pkRes.data) {
       PICKUPS.length = 0;
-      pkRes.data.forEach(r => PICKUPS.push({id:r.id,date:r.date,manager:r.manager||'',team:r.team||'',store:r.store,route:r.route||'',address:r.address||'',asset:r.asset,code:r.code,qty:r.qty,brokenQty:r.broken_qty||0,normalQty:r.qty-(r.broken_qty||0),reason:r.reason||'',note:r.note||'',shipType:r.ship_type||'직납',status:r.status,confDate:r.confirmed_at||'',confMgr:r.confirmed_mgr||'',confMemo:''}));
+      pkRes.data.forEach(r => PICKUPS.push({id:r.id,date:r.date,manager:r.manager||'',team:r.team||'',store:r.store,route:r.route||'',address:r.address||'',asset:r.asset,code:r.code,qty:r.qty,brokenQty:r.broken_qty||0,normalQty:r.qty-(r.broken_qty||0),reason:r.reason||'',note:r.note||'',shipType:r.ship_type||'직납',status:r.status,confDate:r.confirmed_at||'',confMgr:r.confirmed_mgr||'',confMemo:r.conf_memo||''}));
     }
     // store_history
     const histRes = await db.from('store_history').select('*').order('created_at', {ascending: false}).limit(1000);
@@ -2446,8 +2446,9 @@ function renderPickupHist(){
     <td>${rtag(p.route)}</td><td>${p.store}</td>
     <td style="font-size:12px;color:var(--tx3)">${p.address||'-'}</td>
     <td style="font-size:12px;color:var(--tx3)">${p.note||'-'}</td>
+    <td style="font-size:12px;color:var(--tx3)">${p.confMemo||'-'}</td>
     <td>${sbadgePk(p.status)}</td></tr>`
-  ).join('')||'<tr><td colspan="11" style="text-align:center;padding:28px;color:var(--tx3)">수거 이력 없음</td></tr>';
+  ).join('')||'<tr><td colspan="12" style="text-align:center;padding:28px;color:var(--tx3)">수거 이력 없음</td></tr>';
 }
 
 // ═══ PICKUP: 수거 신청 모달 ═══
@@ -2644,7 +2645,7 @@ async function confirmPickup(){
   applyStoreAssetDelta(p.store, p.asset, -p.qty, `수거 확인 / ${confMgr}`);
   // 상태 변경
   p.status='confirmed';p.confDate=confDate;p.confMgr=confMgr;p.confMemo=confMemo;
-  const {error:updErr}=await db.from('pickups').update({status:'confirmed',confirmed_at:confDate,confirmed_mgr:confMgr}).eq('id',curPkId);
+  const {error:updErr}=await db.from('pickups').update({status:'confirmed',confirmed_at:confDate,confirmed_mgr:confMgr,conf_memo:confMemo}).eq('id',curPkId);
   if(updErr){notify('수거 확인 저장 실패: '+updErr.message,'error');return}
   const _liPk=LOGI.find(l=>l.code===p.code); if(_liPk) db.from('inventory').update({qty:_liPk.qty,broken_qty:_liPk.broken||0}).eq('code',p.code).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   closeMo('moPkConfirm');
