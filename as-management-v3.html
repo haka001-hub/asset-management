@@ -1491,13 +1491,225 @@ function clearBulkSel(){
 }
 
 // ══════════════════════════════════════════
+// SUPABASE DB 연동
+// ══════════════════════════════════════════
+const SB_URL = 'https://fmbcrvhyfxkcphveodet.supabase.co';
+const SB_KEY = 'sb_publishable_EFtGJSivFdur04_bW_jWyQ_84mn90a_';
+const SB_HDR = {'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
+
+async function dbLoad(){
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/as_requests?order=created_at.desc&limit=1000`,{headers:SB_HDR});
+    const rows = await r.json();
+    if(!Array.isArray(rows)) throw new Error(JSON.stringify(rows));
+    AS_LIST = rows.map(r=>({
+      id: r.seq_id, _dbid: r.id,
+      store: r.store, region: r.region, route: r.route, code: r.store_code,
+      div: r.div, charge: r.charge, product: r.product, qty: r.qty,
+      date: r.confirm_date, memo: r.memo, status: r.status,
+      pickExpDate: r.pick_exp_date, pickupDate: r.pickup_date, pickupMgr: r.pickup_mgr,
+      inboundQty: r.inbound_qty, inboundDate: r.inbound_date, inboundMgr: r.inbound_mgr,
+      qtyMismatch: r.qty_mismatch, confirmedAt: r.confirmed_at, submittedAt: r.submitted_at
+    }));
+    // regionCounters 동기화
+    AS_LIST.forEach(a=>{
+      if(!a.id||!a.id.includes('-')) return;
+      const parts = a.id.split('-');
+      const num = parseInt(parts[parts.length-1]);
+      const reg = parts.slice(0,-1).join('-');
+      if(!isNaN(num)) regionCounters[reg] = Math.max(regionCounters[reg]||0, num);
+    });
+    renderDash(); renderTeamMini(); buildRegionTabs(); updateHQBadge();
+    if(document.getElementById('page-hq').classList.contains('active')) renderHQ();
+    if(document.getElementById('page-team-hist').classList.contains('active')) renderTeamList();
+  } catch(e){
+    console.error('DB 로드 오류:', e);
+    notify('DB 연결 오류: '+e.message,'err');
+  }
+}
+
+async function dbInsert(item){
+  const body = {
+    seq_id: item.id, store: item.store, region: item.region,
+    route: item.route, store_code: item.code, div: item.div,
+    charge: item.charge, product: item.product, qty: item.qty,
+    confirm_date: item.date, memo: item.memo, status: item.status,
+    submitted_at: item.submittedAt
+  };
+  const r = await fetch(`${SB_URL}/rest/v1/as_requests`,{
+    method:'POST', headers:{...SB_HDR,'Prefer':'return=representation'}, body:JSON.stringify(body)
+  });
+  const data = await r.json();
+  if(!r.ok) throw new Error(JSON.stringify(data));
+  return Array.isArray(data) ? data[0].id : data.id;
+}
+
+async function dbUpdate(seqId, fields){
+  const r = await fetch(`${SB_URL}/rest/v1/as_requests?seq_id=eq.${encodeURIComponent(seqId)}`,{
+    method:'PATCH', headers:{...SB_HDR,'Prefer':'return=minimal'}, body:JSON.stringify(fields)
+  });
+  if(!r.ok){ const t=await r.text(); throw new Error(t); }
+}
+
+// DB 연동 버전 submitAS 오버라이드
+const _submitAS_orig = submitAS;
+async function submitAS(){
+  const store = document.getElementById('fStore').value.trim();
+  const storeInfo = STORES.find(s=>s.name===store);
+  const date = document.getElementById('fDate').value;
+  if(!store||!storeInfo){notify('유효한 수거 매장명을 선택해주세요','err');return}
+  if(!date){notify('확인일자를 입력해주세요','err');return}
+  const rows = [...document.getElementById('itemRows').querySelectorAll('tr')];
+  if(!rows.length){notify('품목을 한 건 이상 입력해주세요','err');return}
+  const items=[];
+  for(const tr of rows){
+    const id=tr.id.replace('irow-','');
+    const product=document.getElementById(`ip-${id}`)?.value.trim();
+    const div=document.getElementById(`id-${id}`)?.value;
+    const charge=document.getElementById(`ic-${id}`)?.value;
+    const qty=parseInt(document.getElementById(`iq-${id}`)?.value)||0;
+    const memo=document.getElementById(`im-${id}`)?.value.trim()||'';
+    if(!product&&!div&&!charge&&qty===0) continue;
+    if(!product){notify(`${id}번 행: 제품명을 입력해주세요`,'err');return}
+    if(!div){notify(`${id}번 행: 구분을 선택해주세요`,'err');return}
+    if(!charge){notify(`${id}번 행: 유/무상을 선택해주세요`,'err');return}
+    if(qty<1){notify(`${id}번 행: 수거 개수를 입력해주세요`,'err');return}
+    items.push({product,div,charge,qty,memo});
+  }
+  if(!items.length){notify('유효한 품목이 없습니다','err');return}
+
+  const region=storeInfo.region;
+  const now=new Date().toLocaleString('ko-KR');
+  notify('등록 중...','ok');
+
+  let successCnt=0;
+  for(const item of items){
+    regionCounters[region]=(regionCounters[region]||0)+1;
+    const seqId=`${region}-${String(regionCounters[region]).padStart(5,'0')}`;
+    const entry={
+      id:seqId, store, region, route:storeInfo.route, code:storeInfo.code,
+      div:item.div, charge:item.charge, product:item.product, qty:item.qty,
+      date, memo:item.memo, status:'pending', submittedAt:now,
+      confirmedAt:null, pickExpDate:null, pickupDate:null, pickupMgr:null,
+      inboundQty:null, inboundDate:null, inboundMgr:null, qtyMismatch:false
+    };
+    try{
+      await dbInsert(entry);
+      AS_LIST.unshift(entry);
+      successCnt++;
+    } catch(e){
+      notify(`${seqId} 저장 실패: `+e.message,'err');
+      console.error(e);
+    }
+  }
+  if(successCnt>0){
+    notify(`${successCnt}건 신청 완료!`,'ok');
+    resetForm(); renderTeamMini(); buildRegionTabs(); updateHQBadge();
+  }
+}
+
+// 상태 변경 시 DB 업데이트 래퍼
+const _doConfirm_orig = doConfirm;
+async function doConfirm(){
+  const a=AS_LIST.find(x=>x.id===actionId);
+  if(!a) return;
+  const d=document.getElementById('cfPickDate').value;
+  if(!d){notify('수거 예상일자를 입력해주세요','err');return}
+  const now=new Date().toLocaleString('ko-KR');
+  try{
+    await dbUpdate(actionId,{status:'confirmed',confirmed_at:now,pick_exp_date:d,
+      pickup_mgr:document.getElementById('cfMgr').value.trim()});
+    a.status='confirmed'; a.confirmedAt=now; a.pickExpDate=d;
+    a.confirmMgr=document.getElementById('cfMgr').value.trim();
+    closeMo('moConfirm');
+    notify(`[${actionId}] 최종확인 완료`,'ok');
+    renderHQ(); updateHQBadge();
+  } catch(e){ notify('저장 실패: '+e.message,'err'); }
+}
+
+async function doBulkConfirm(){
+  const d=document.getElementById('bulkPickDate').value;
+  if(!d){notify('수거 예상일자를 입력해주세요','err');return}
+  const mgr=document.getElementById('bulkMgr').value.trim();
+  const selected=[...document.querySelectorAll('.bulk-chk:checked')].map(c=>c.value);
+  if(!selected.length){notify('선택된 건이 없습니다','warn');return}
+  const now=new Date().toLocaleString('ko-KR');
+  let cnt=0;
+  for(const id of selected){
+    const a=AS_LIST.find(x=>x.id===id);
+    if(!a) continue;
+    try{
+      await dbUpdate(id,{status:'confirmed',confirmed_at:now,pick_exp_date:d,pickup_mgr:mgr});
+      a.status='confirmed'; a.confirmedAt=now; a.pickExpDate=d; a.confirmMgr=mgr;
+      cnt++;
+    } catch(e){ console.error(id, e); }
+  }
+  closeMo('moBulkConfirm');
+  notify(`${cnt}건 최종확인 완료`,'ok');
+  renderHQ(); updateHQBadge();
+}
+
+async function doPickup(){
+  const a=AS_LIST.find(x=>x.id===actionId);
+  if(!a) return;
+  const d=document.getElementById('pkDate').value;
+  if(!d){notify('수거일자를 입력해주세요','err');return}
+  const mgr=document.getElementById('pkMgr').value.trim();
+  const memo=document.getElementById('pkMemo').value.trim();
+  try{
+    await dbUpdate(actionId,{status:'pickup',pickup_date:d,pickup_mgr:mgr});
+    a.status='pickup'; a.pickupDate=d; a.pickupMgr=mgr; a.pickupMemo=memo;
+    closeMo('moPickup');
+    notify(`[${actionId}] 수거 처리 완료`,'ok');
+    renderHQ(); updateHQBadge();
+  } catch(e){ notify('저장 실패: '+e.message,'err'); }
+}
+
+async function doInbound(){
+  const a=AS_LIST.find(x=>x.id===actionId);
+  if(!a) return;
+  const qty=parseInt(document.getElementById('ibQty').value)||0;
+  const d=document.getElementById('ibDate').value;
+  if(qty<1){notify('입고 수량을 입력해주세요','err');return}
+  if(!d){notify('수거확인일자를 입력해주세요','err');return}
+  const mgr=document.getElementById('ibMgr').value.trim();
+  const mismatch=qty!==a.qty;
+  try{
+    await dbUpdate(actionId,{status:'done',inbound_qty:qty,inbound_date:d,inbound_mgr:mgr,qty_mismatch:mismatch});
+    a.status='done'; a.inboundQty=qty; a.inboundDate=d; a.inboundMgr=mgr; a.qtyMismatch=mismatch;
+    closeMo('moInbound');
+    if(mismatch) notify(`[${actionId}] 입고 완료 — ⚠️ 수량 불일치 (신청${a.qty}/입고${qty})`,'warn');
+    else notify(`[${actionId}] 입고 완료 (${qty}개)`,'ok');
+    renderHQ();
+  } catch(e){ notify('저장 실패: '+e.message,'err'); }
+}
+
+async function applyBulkDate(){
+  const d=document.getElementById('bulkDateInput').value;
+  if(!d){notify('수거 예상일자를 입력해주세요','err');return}
+  const ids=[...document.querySelectorAll('.hq-chk:checked')].map(c=>c.value);
+  if(!ids.length){notify('선택된 건이 없습니다','warn');return}
+  const now=new Date().toLocaleString('ko-KR');
+  let cnt=0;
+  for(const id of ids){
+    const a=AS_LIST.find(x=>x.id===id);
+    if(!a||a.status!=='pending') continue;
+    try{
+      await dbUpdate(id,{status:'confirmed',confirmed_at:now,pick_exp_date:d});
+      a.status='confirmed'; a.confirmedAt=now; a.pickExpDate=d;
+      cnt++;
+    } catch(e){ console.error(id,e); }
+  }
+  notify(`${cnt}건 수거예상일 일괄 적용 완료 (${d})`,'ok');
+  clearBulkSel(); renderHQ(); updateHQBadge();
+}
+
+// ══════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════
 document.getElementById('fDate').value=today();
-buildRegionTabs();
-renderDash();
-updateHQBadge();
-addItemRow(); // 기본 1행 생성
+addItemRow();
+dbLoad(); // DB에서 데이터 로드
 </script>
 </body>
 </html>
