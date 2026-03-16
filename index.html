@@ -1937,6 +1937,16 @@ function histPush(entry) {
     date_str:   entry.date||null
   }).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
 }
+// ═══ TELEGRAM 알림 ═══
+function sendTelegram(msg){
+  const token='7631301557:AAHaX_j_jaqZcozlayCOLQXFjXB9JQhkIRQ';
+  const chatId='6846635920';
+  fetch(`https://api.telegram.org/bot${token}/sendMessage`,{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({chat_id:chatId,text:msg,parse_mode:'HTML'})
+  }).catch(e=>console.error('[텔레그램 오류]',e));
+}
+
 // ═══ BADGE ═══
 function updateBadge(){
   const n=REQS.filter(r=>r.status==='pending').length;
@@ -2058,6 +2068,7 @@ function submitReq(){
   REQS.push({id,date,manager,team,asset,code,qty,store,route,shipType,address,note,status:'pending',outDate:'',outMgr:'',outMemo:'',arrDate:''});
   db.from('requests').insert({id,date,manager,team,asset,code,qty,store,route,ship_type:shipType,address,note,status:'pending',out_date:'',out_mgr:'',out_memo:'',arr_date:''}).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   closeMo('moReq');notify(`신청 완료! (${id})`);updateBadge();renderReqs();
+  sendTelegram(`📦 <b>자산신청</b>\n신청번호: ${id}\n신청일자: ${date}\n신청품목: ${asset}\n수량: ${qty}개\n매장: ${store}\n담당자: ${manager} (${team})`);
 }
 
 // ═══ OUTGOING MODAL ═══
@@ -2593,6 +2604,7 @@ async function submitPickup(){
   PICKUPS.push({id,date,manager,team,reason,asset,code,qty,brokenQty,normalQty,store,route,shipType,address,note,status:'pending',pickupDate:'',confDate:'',confMgr:'',confMemo:''});
   closeMo('moPk');
   notify(`수거 신청 완료! (${id}) · 사유: ${reason}`);
+  sendTelegram(`🔄 <b>수거신청</b>\n수거번호: ${id}\n신청일자: ${date}\n수거품목: ${asset}\n수량: ${qty}개\n매장: ${store}\n사유: ${reason}\n담당자: ${manager} (${team})`);
   updateBadge();renderPickup();
 }
 
