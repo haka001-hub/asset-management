@@ -1060,8 +1060,8 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
 
   <!-- ① 버튼 + 출고 규칙 한 줄 -->
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
-    <button class="btn btn-gst btn-sm" onclick="downloadBagTemplate()">⬇ 양식 다운로드</button>
-    <label class="btn btn-pri btn-sm" style="cursor:pointer">⬆ 파일 선택
+    <button class="btn btn-gst" onclick="downloadBagTemplate()">⬇ 양식 다운로드</button>
+    <label class="btn btn-pri" style="cursor:pointer">⬆ 파일 선택
       <input type="file" id="bagFileInput" accept=".xlsx,.xls" style="display:none" onchange="handleBagFile(event)">
     </label>
     <div style="margin-left:auto;display:flex;gap:16px;align-items:center;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:6px 14px">
@@ -3722,15 +3722,37 @@ function withXLSX(fn) {
 // ── 업로드 탭 ──
 function renderBagUpload() { /* 정적 HTML, 재렌더 불필요 */ }
 
+// 주소에서 지역 추출
+function getRegionFromAddr(addr) {
+  const a = addr||'';
+  if(a.includes('서울')) return '서울';
+  if(a.includes('부산')) return '부산';
+  if(a.includes('경기')) return '경기';
+  if(a.includes('인천')) return '인천';
+  if(a.includes('대구')) return '대구';
+  if(a.includes('광주')) return '광주';
+  if(a.includes('대전')) return '대전';
+  if(a.includes('울산')) return '울산';
+  if(a.includes('세종')) return '세종';
+  if(a.includes('경상남도')||a.includes('경남')) return '경남';
+  if(a.includes('경상북도')||a.includes('경북')) return '경북';
+  if(a.includes('전라남도')||a.includes('전남')) return '전남';
+  if(a.includes('전라북도')||a.includes('전북')) return '전북';
+  if(a.includes('충청남도')||a.includes('충남')) return '충남';
+  if(a.includes('충청북도')||a.includes('충북')) return '충북';
+  if(a.includes('강원')) return '강원';
+  if(a.includes('제주')) return '제주';
+  return '';
+}
+
 // 양식 다운로드
 function downloadBagTemplate() {
   withXLSX(() => {
     const wb = XLSX.utils.book_new();
-    const stores = ADDR.filter(s => s.name.includes('직영점'));
-    const rows = [['매장명','매장코드','쇼핑백(100매) 현재수량','무지봉투(100매) 현재수량']];
-    stores.forEach(s => rows.push([s.name, s.code||'', '', '']));
+    const rows = [['매장명','매장코드','쇼핑백(100매) 현재수량','무지봉투(100매) 현재수량','지역']];
+    ADDR.forEach(s => rows.push([s.name, s.code||'', '', '', getRegionFromAddr(s.address)]));
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{wch:26},{wch:12},{wch:24},{wch:24}];
+    ws['!cols'] = [{wch:26},{wch:12},{wch:24},{wch:24},{wch:10}];
     XLSX.utils.book_append_sheet(wb, ws, '재고현황입력');
     XLSX.writeFile(wb, `쇼핑백무지봉투_재고현황_양식_${new Date().toISOString().slice(0,10)}.xlsx`);
     notify('양식 다운로드 완료', 'success');
