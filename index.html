@@ -2761,6 +2761,7 @@ async function submitPickupInline(){
     PICKUPS.push({id,date,manager,team,reason,asset:it.name,code:it.code,qty:it.qty,brokenQty:0,normalQty:it.qty,store,route,shipType:it.shipType,address,note,status:'pending',pickupDate:'',confDate:'',confMgr:'',confMemo:''});
     created.push(`${it.name} ${it.qty}개`);
   }
+  created.forEach((label,i)=>{const it=items[i];histPush({date:new Date().toLocaleString('ko-KR'),store,col:it.name,before:null,after:it.qty,type:'수거신청',memo:`${PICKUPS[PICKUPS.length-items.length+i]?.id||''} / 사유: ${reason}`});});
   notify(`수거 신청 완료! ${created.join(' · ')}`);
   sendTelegram(`🔄 <b>수거신청</b>\n신청일자: ${date}\n수거품목: ${created.join(', ')}\n매장: ${store}\n배송코스: ${route||'-'}\n사유: ${reason}\n주소: ${address}\n담당자: ${manager} (${team})\n\n🔗 <a href="https://haka001-hub.github.io/asset-management/#pickup">↙ 수거 신청 탭 바로가기</a>`);
   clearPkForm();updateBadge();renderPickup();
@@ -2862,6 +2863,7 @@ async function confirmPickup(){
   const {error:updErr}=await db.from('pickups').update({status:'confirmed',confirmed_at:confDate}).eq('id',curPkId);
   if(updErr){notify('수거 확인 저장 실패: '+updErr.message,'error');return}
   const _liPk=LOGI.find(l=>l.code===p.code); if(_liPk) db.from('inventory').update({qty:_liPk.qty,broken_qty:_liPk.broken||0}).eq('code',p.code).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
+  histPush({date:new Date().toLocaleString('ko-KR'),store:p.store,col:p.asset,before:null,after:p.qty,type:'수거확인',memo:`${curPkId} / 수거확인일: ${confDate} / 담당: ${p.confMgr||'-'}`});
   closeMo('moPkConfirm');
   notify(`수거 확인 완료 ✓  물류재고 +${p.qty}개 증가`,'success');
   updateBadge();renderPickupMgmt();renderLogi();renderInv();renderDash();
