@@ -3756,7 +3756,7 @@ function downloadBagTemplate() {
   withXLSX(() => {
     const wb = XLSX.utils.book_new();
     const rows = [['매장명','매장코드','쇼핑백(100매) 현재수량','무지봉투(100매) 현재수량','지역']];
-    ADDR.filter(s => s.route==='직영').forEach(s => rows.push([s.name, s.code||'', '', '', getRegionFromAddr(s.address)]));
+    ADDR.filter(s => s.name.includes('직영점') || (s.route||'').includes('직영')).forEach(s => rows.push([s.name, s.code||'', '', '', getRegionFromAddr(s.address)]));
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws['!cols'] = [{wch:26},{wch:12},{wch:24},{wch:24},{wch:10}];
     XLSX.utils.book_append_sheet(wb, ws, '재고현황입력');
