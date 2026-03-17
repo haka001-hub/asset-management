@@ -1981,14 +1981,14 @@ async function exportAllTables(){
       {t:'store_assets',   s:'직영점자산현황', cols:['id','store_name','asset_name','qty']},
       {t:'requests',       s:'자산신청',       cols:['id','date','manager','team','asset','code','qty','store','route','address','note','status','ship_type','out_date','out_mgr','out_memo','arr_date','created_at']},
       {t:'pickups',        s:'수거신청',       cols:['id','date','manager','team','store','route','address','asset','code','qty','reason','note','status','pickup_date','conf_mgr','conf_memo','conf_date','created_at']},
-      {t:'store_history',  s:'이력',           cols:['id','date','store','asset','code','qty','type','manager','note','created_at']},
+      {t:'store_history',  s:'이력',           cols:['id','date_str','store_name','asset_name','before_val','after_val','type','memo','created_at'], orderCol:'created_at'},
       {t:'purchase_requests',s:'구매요청서헤더',cols:['id','request_date','manager','status','note','created_at']},
       {t:'purchase_items', s:'구매요청품목',   cols:['id','request_id','asset_code','asset_name','req_qty','order_qty','received_qty','status','note']},
       {t:'bag_shipping',   s:'쇼핑백출고',     cols:['id','batch_id','batch_label','calc_date','store_name','store_code','product_code','product_name','current_qty','need_ship','ship_qty','dispatched','created_at']},
     ];
 
-    for(const {t, s, cols} of tables){
-      const {data, error} = await db.from(t).select('*').order('id');
+    for(const {t, s, cols, orderCol} of tables){
+      const {data, error} = await db.from(t).select('*').order(orderCol||'id');
       if(error){ console.error(`[${t}]`, error.message); continue; }
       const rows = data || [];
       // 헤더 행
