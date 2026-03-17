@@ -1120,38 +1120,35 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
 
 <!-- ══════════════════════════════ 쇼핑백/무지봉투 - 데이터 업로드 ══════════════════════════════ -->
 <div id="page-bag-upload" class="hidden" style="padding:22px 28px">
-  <!-- 상단 액션바: 양식다운로드 + 파일업로드 -->
-  <div class="tw" style="margin-bottom:14px">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px">
-      <div style="font-size:13px;color:var(--tx2)">
-        <strong style="color:var(--tx)">① 양식 다운로드</strong> → 매장별 재고 수량 입력 →
-        <strong style="color:var(--tx)">② 파일 업로드</strong> → 출고량 계산
-      </div>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-gst btn-sm" onclick="downloadBagTemplate()">⬇ 양식 다운로드</button>
-        <label class="btn btn-pri btn-sm" style="cursor:pointer">⬆ 파일 선택
-          <input type="file" id="bagFileInput" accept=".xlsx,.xls" style="display:none" onchange="handleBagFile(event)">
-        </label>
-      </div>
-    </div>
+
+  <!-- ① 최상단: 버튼 2개 -->
+  <div style="display:flex;gap:10px;margin-bottom:14px">
+    <button class="btn btn-gst" onclick="downloadBagTemplate()" style="flex:1;justify-content:center">⬇ 양식 다운로드</button>
+    <label class="btn btn-pri" style="cursor:pointer;flex:1;justify-content:center">⬆ 파일 선택
+      <input type="file" id="bagFileInput" accept=".xlsx,.xls" style="display:none" onchange="handleBagFile(event)">
+    </label>
   </div>
-  <!-- 출고 규칙 안내 -->
-  <div style="background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:12px 18px;margin-bottom:14px;display:flex;gap:24px;align-items:center;flex-wrap:wrap">
-    <span style="font-size:11px;font-weight:700;color:var(--tx3);letter-spacing:.08em;text-transform:uppercase">출고 규칙</span>
-    <span style="font-size:13px"><span class="badge b-pend">쇼핑백(100매)</span>&nbsp; 현재수량 <strong>1묶음 이하</strong> → <strong>4묶음</strong> 출고</span>
-    <span style="font-size:13px"><span class="badge b-appr">무지봉투(100매)</span>&nbsp; 현재수량 <strong>2묶음 이하</strong> → <strong>10묶음</strong> 출고</span>
+
+  <!-- ② 출고 규칙 안내 -->
+  <div style="background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:11px 16px;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:16px;align-items:center">
+    <span style="font-size:10px;font-weight:700;color:var(--tx3);letter-spacing:.1em;text-transform:uppercase;white-space:nowrap">출고 규칙</span>
+    <span style="font-size:12px;white-space:nowrap"><span class="badge b-pend">쇼핑백</span> 1묶음 이하 → 4묶음 출고</span>
+    <span style="font-size:12px;white-space:nowrap"><span class="badge b-appr">무지봉투</span> 2묶음 이하 → 10묶음 출고</span>
   </div>
-  <!-- 드래그&드롭 영역 -->
-  <div id="bagDropZone" style="border:2px dashed var(--bd);border-radius:12px;padding:28px 24px;text-align:center;transition:all .2s;cursor:pointer;background:var(--sf);margin-bottom:16px"
+
+  <!-- ③ 드래그&드롭 영역 (중앙 배치) -->
+  <div id="bagDropZone"
+    style="border:2px dashed var(--bd);border-radius:12px;padding:40px 24px;text-align:center;transition:all .2s;cursor:pointer;background:var(--sf);margin-bottom:16px;display:flex;flex-direction:column;align-items:center;justify-content:center"
     ondragover="event.preventDefault();this.style.borderColor='var(--ac)';this.style.background='rgba(59,130,246,.06)'"
     ondragleave="this.style.borderColor='var(--bd)';this.style.background='var(--sf)'"
     ondrop="onBagDrop(event)"
     onclick="document.getElementById('bagFileInput').click()">
-    <div style="font-size:26px;margin-bottom:8px">📂</div>
-    <div style="font-size:13px;font-weight:600;color:var(--tx);margin-bottom:3px">재고 현황 엑셀 파일을 드래그하거나 클릭하여 업로드</div>
-    <div style="font-size:12px;color:var(--tx3)">xlsx 지원 · 열: 매장명 / 매장코드 / 쇼핑백 현재수량 / 무지봉투 현재수량</div>
+    <div style="font-size:32px;margin-bottom:10px">📂</div>
+    <div style="font-size:14px;font-weight:600;color:var(--tx);margin-bottom:5px">엑셀 파일을 드래그하거나 클릭하여 업로드</div>
+    <div style="font-size:12px;color:var(--tx3)">xlsx 지원 &nbsp;·&nbsp; 열 순서: 매장명 / 매장코드 / 쇼핑백 수량 / 무지봉투 수량</div>
   </div>
-  <!-- 미리보기 -->
+
+  <!-- ④ 미리보기 (업로드 후 표시) -->
   <div id="bagPreviewWrap" style="display:none">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <div>
@@ -3747,39 +3744,69 @@ async function calcBagShipping() {
     if (error) throw error;
     data.forEach(r => BAG_SHIPPING.unshift(r));
     const shipCnt = data.filter(r => r.need_ship).length;
-
-    // ── 물류재고 차감 ──
-    // 출고 필요한 쇼핑백/무지봉투 총량 계산
-    const totalShop = insertRows.filter(r => r.product_code === 'ETC-0013'  && r.need_ship).reduce((s,r) => s + r.ship_qty, 0);
-    const totalEnv  = insertRows.filter(r => r.product_code === 'ETC-0016-1' && r.need_ship).reduce((s,r) => s + r.ship_qty, 0);
-
-    // LOGI에서 이름으로 매칭 후 차감
-    const shopItem = LOGI.find(l => l.name.includes('쇼핑백'));
-    const envItem  = LOGI.find(l => l.name.includes('무지봉투'));
-
-    const invUpdates = [];
-    if (shopItem && totalShop > 0) {
-      const newQty = Math.max(0, shopItem.qty - totalShop);
-      invUpdates.push(db.from('inventory').update({qty: newQty}).eq('code', shopItem.code));
-      shopItem.qty = newQty;
-      const invRow = INV.find(i => i.code === shopItem.code);
-      if (invRow) invRow.total = newQty;
-    }
-    if (envItem && totalEnv > 0) {
-      const newQty = Math.max(0, envItem.qty - totalEnv);
-      invUpdates.push(db.from('inventory').update({qty: newQty}).eq('code', envItem.code));
-      envItem.qty = newQty;
-      const invRow = INV.find(i => i.code === envItem.code);
-      if (invRow) invRow.total = newQty;
-    }
-    if (invUpdates.length) await Promise.all(invUpdates);
-
-    notify(`출고 계산 완료 — ${shipCnt}건 출고 필요 / 물류재고 차감 완료`, 'success');
+    notify(`출고 계산 완료 — ${shipCnt}건 출고 필요 (출고 결과 탭에서 출고 처리하세요)`, 'success');
     clearBagUpload();
     showPage('bag-result');
   } catch(e) {
     notify('저장 실패: '+e.message, 'error');
   } finally { hideLoading(); }
+}
+
+// ── 출고 처리 (재고 차감 + dispatched 표시) ──
+async function dispatchBagBatch(batchId) {
+  if (!confirm('해당 배치를 출고 처리하시겠습니까?\n물류 재고에서 출고 수량이 차감됩니다.')) return;
+  showLoading('출고 처리 중...');
+  try {
+    const now = new Date().toISOString();
+    const {error} = await db.from('bag_shipping')
+      .update({dispatched: true, dispatched_at: now})
+      .eq('batch_id', batchId)
+      .eq('need_ship', true);
+    if (error) throw error;
+
+    // 로컬 메모리 업데이트
+    BAG_SHIPPING.filter(r => r.batch_id === batchId && r.need_ship).forEach(r => {
+      r.dispatched = true; r.dispatched_at = now;
+    });
+
+    // 물류재고 차감
+    const batchItems = BAG_SHIPPING.filter(r => r.batch_id === batchId && r.need_ship);
+    const totalShop = batchItems.filter(r => r.product_code === 'ETC-0013').reduce((s,r) => s + r.ship_qty, 0);
+    const totalEnv  = batchItems.filter(r => r.product_code === 'ETC-0016-1').reduce((s,r) => s + r.ship_qty, 0);
+    const shopItem  = LOGI.find(l => l.name.includes('쇼핑백'));
+    const envItem   = LOGI.find(l => l.name.includes('무지봉투'));
+    const invUpdates = [];
+    if (shopItem && totalShop > 0) {
+      const newQty = Math.max(0, shopItem.qty - totalShop);
+      invUpdates.push(db.from('inventory').update({qty: newQty}).eq('code', shopItem.code));
+      shopItem.qty = newQty;
+      const invRow = INV.find(i => i.code === shopItem.code); if (invRow) invRow.total = newQty;
+    }
+    if (envItem && totalEnv > 0) {
+      const newQty = Math.max(0, envItem.qty - totalEnv);
+      invUpdates.push(db.from('inventory').update({qty: newQty}).eq('code', envItem.code));
+      envItem.qty = newQty;
+      const invRow = INV.find(i => i.code === envItem.code); if (invRow) invRow.total = newQty;
+    }
+    if (invUpdates.length) await Promise.all(invUpdates);
+
+    notify('출고 처리 완료 — 물류재고 차감 완료', 'success');
+    renderBagResult();
+  } catch(e) { notify('출고 처리 실패: '+e.message, 'error'); }
+  finally { hideLoading(); }
+}
+
+// ── 행 삭제 ──
+async function deleteBagRow(id) {
+  if (!confirm('이 항목을 삭제하시겠습니까?')) return;
+  try {
+    const {error} = await db.from('bag_shipping').delete().eq('id', id);
+    if (error) throw error;
+    const idx = BAG_SHIPPING.findIndex(r => r.id === id);
+    if (idx !== -1) BAG_SHIPPING.splice(idx, 1);
+    renderBagResult();
+    notify('삭제 완료', 'success');
+  } catch(e) { notify('삭제 실패: '+e.message, 'error'); }
 }
 
 // DB에서 bag_shipping 다시 로드
@@ -3827,24 +3854,27 @@ function renderBagResult() {
     if (filter === 'ok')   items = items.filter(r => !r.need_ship);
     if (search) items = items.filter(r => r.store_name.toLowerCase().includes(search));
 
-    const shipCount = batch.items.filter(r => r.need_ship).length;
-    const okCount   = batch.items.length - shipCount;
+    const shipCount     = batch.items.filter(r => r.need_ship).length;
+    const okCount       = batch.items.length - shipCount;
+    const isDispatched  = batch.items.filter(r => r.need_ship).every(r => r.dispatched);
 
     html += `
     <div class="tw" style="margin-bottom:20px">
       <div class="th">
-        <div style="display:flex;align-items:center;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span class="tt">${batch.label}</span>
           <span class="badge b-pend">출고필요 ${shipCount}</span>
           <span class="badge b-ship">충분 ${okCount}</span>
+          ${isDispatched && shipCount > 0 ? '<span class="badge b-appr">✓ 출고완료</span>' : ''}
         </div>
-        <div class="ta">
-          <button class="btn btn-gst btn-sm" onclick="downloadPlayPos('${batchId}')">📋 플레이엠디 포스 등록</button>
-          <button class="btn btn-pri btn-sm" onclick="downloadBagHanjin('${batchId}')">🚚 한진택배 발송목록</button>
+        <div class="ta" style="flex-wrap:wrap;gap:6px">
+          ${!isDispatched && shipCount > 0 ? `<button class="btn btn-suc btn-sm" onclick="dispatchBagBatch('${batchId}')">🚀 출고 처리</button>` : ''}
+          <button class="btn btn-gst btn-sm" onclick="downloadPlayPos('${batchId}')">📋 포스 등록</button>
+          <button class="btn btn-gst btn-sm" onclick="downloadBagHanjin('${batchId}')">🚚 한진택배</button>
         </div>
       </div>
       <div style="overflow-x:auto"><table>
-        <thead><tr><th>매장명</th><th>품목</th><th>현재수량</th><th>출고여부</th><th>출고수량</th></tr></thead>
+        <thead><tr><th>매장명</th><th>품목</th><th>현재수량</th><th>출고여부</th><th>출고수량</th><th>상태</th><th></th></tr></thead>
         <tbody>${items.map(r => `
           <tr>
             <td class="tb2">${r.store_name}</td>
@@ -3852,6 +3882,8 @@ function renderBagResult() {
             <td class="tm">${r.current_qty}묶음</td>
             <td>${r.need_ship ? '<span class="badge b-pend">출고 필요</span>' : '<span class="badge b-ship">충분</span>'}</td>
             <td class="tm">${r.need_ship ? r.ship_qty+'묶음' : '-'}</td>
+            <td>${r.dispatched ? '<span class="badge b-appr">출고완료</span>' : (r.need_ship ? '<span class="badge b-warn">대기</span>' : '-')}</td>
+            <td><button class="btn btn-dan btn-sm" onclick="deleteBagRow(${r.id})">삭제</button></td>
           </tr>`).join('')}
         </tbody>
       </table></div>
@@ -3896,7 +3928,7 @@ function renderBagHistory() {
         <span class="badge b-pend">${weeks[wk].length}건</span>
       </div>
       <div style="overflow-x:auto"><table>
-        <thead><tr><th>등록일</th><th>매장명</th><th>품목</th><th>현재수량</th><th>출고수량</th><th>배치</th></tr></thead>
+        <thead><tr><th>등록일</th><th>매장명</th><th>품목</th><th>현재수량</th><th>출고수량</th><th>상태</th></tr></thead>
         <tbody>${weeks[wk].map(r => `
           <tr>
             <td class="tm">${r.calc_date||''}</td>
@@ -3904,7 +3936,7 @@ function renderBagHistory() {
             <td>${r.product_name}</td>
             <td class="tm">${r.current_qty}묶음</td>
             <td class="tm">${r.ship_qty}묶음</td>
-            <td class="tm" style="color:var(--tx3)">${r.batch_label||''}</td>
+            <td>${r.dispatched ? '<span class="badge b-appr">출고완료</span>' : '<span class="badge b-warn">대기</span>'}</td>
           </tr>`).join('')}
         </tbody>
       </table></div>
