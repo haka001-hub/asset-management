@@ -1975,7 +1975,9 @@ function sendTelegram(msg){
   fetch(`https://api.telegram.org/bot${token}/sendMessage`,{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({chat_id:chatId,text:msg,parse_mode:'HTML'})
-  }).catch(e=>console.error('[텔레그램 오류]',e));
+  }).then(r=>r.json()).then(res=>{
+    if(!res.ok) console.error('[텔레그램 전송 실패]',res.description, res);
+  }).catch(e=>console.error('[텔레그램 네트워크 오류]',e));
 }
 
 // ═══ BADGE ═══
