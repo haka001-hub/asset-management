@@ -249,13 +249,43 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
 
   <!-- ── REQUEST ── -->
   <div id="page-request" class="hidden">
+    <!-- 상단: 신청 폼 -->
+    <div class="tw" style="margin-bottom:14px">
+      <div class="th">
+        <div class="tt">+ 자산 신청</div>
+        <button class="btn btn-gst btn-sm" onclick="toggleReqForm()">접기 ▲</button>
+      </div>
+      <div id="reqFormBody" style="padding:16px 20px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+          <div class="fgrp"><label class="flb">신청일자 <span>*</span></label><input type="date" class="fi" id="rDate"></div>
+          <div class="fgrp"><label class="flb">담당자 <span>*</span></label><input type="text" class="fi" id="rMgr" placeholder="이름"></div>
+          <div class="fgrp"><label class="flb">소속팀 <span>*</span></label>
+            <select class="fsel" id="rTeam"><option value="">선택</option><option>물류팀</option><option>경영지원(본사)</option><option>재무팀</option><option>인사팀</option></select>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div class="fgrp"><label class="flb">보낼 매장명 <span>*</span></label>
+            <div class="acw"><input type="text" class="fi" id="rStore" placeholder="매장명 입력..." autocomplete="off" oninput="acStore(this.value)" onfocus="acStore(this.value)"><div class="acl" id="acStList"></div></div>
+          </div>
+          <div class="fgrp"><label class="flb">배송코스</label>
+            <div class="acw"><input type="text" class="fi" id="rRoute" placeholder="자동 입력" autocomplete="off" oninput="acRoute(this.value,'acRtList','rRoute')" onfocus="acRoute(this.value,'acRtList','rRoute')"><div class="acl" id="acRtList"></div></div>
+          </div>
+          <div class="fgrp" style="grid-column:span 2"><label class="flb">매장 주소 <span>*</span></label><input type="text" class="fi" id="rAddr" placeholder="매장 선택 시 자동 입력"></div>
+        </div>
+        <div class="sdiv">신청 품목</div>
+        <div id="reqItemsWrap"></div>
+        <button class="btn btn-gst btn-sm" onclick="addReqItem()" style="margin-top:8px">+ 품목 추가</button>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+          <button class="btn btn-gst" onclick="clearReqForm()">초기화</button>
+          <button class="btn btn-pri" onclick="submitReqInline()">신청하기</button>
+        </div>
+      </div>
+    </div>
+    <!-- 하단: 신청 목록 -->
     <div class="tw">
       <div class="th">
         <div class="tt">자산 신청 목록</div>
-        <div class="ta">
-          <div class="sw"><span class="sic">⌕</span><input class="si" id="reqSrch" placeholder="검색..." oninput="renderReqs()"></div>
-          <button class="btn btn-pri btn-sm" onclick="openReqModal()">+ 자산 신청</button>
-        </div>
+        <div class="ta"><div class="sw"><span class="sic">⌕</span><input class="si" id="reqSrch" placeholder="검색..." oninput="renderReqs()"></div></div>
       </div>
       <div class="tabbar">
         <button class="tab active" onclick="setReqFilter('all',this)">전체</button>
@@ -264,7 +294,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
         <button class="tab" onclick="setReqFilter('shipped',this)">출고완료</button>
         <button class="tab" onclick="setReqFilter('rejected',this)">반려</button>
       </div>
-      <table><thead><tr><th>신청번호</th><th>신청일자</th><th>담당자</th><th>자산명</th><th>수량</th><th>매장명</th><th>배송코스</th><th>비고</th><th>상태</th><th>액션</th></tr></thead>
+      <table><thead><tr><th>신청번호</th><th>신청일자</th><th>담당자</th><th>자산명</th><th>수량</th><th>매장명</th><th>배송코스</th><th>비고</th><th>상태</th><th>액션</th><th></th></tr></thead>
       <tbody id="reqTable"></tbody></table>
     </div>
   </div>
@@ -300,13 +330,55 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
 
   <!-- ── PICKUP REQUEST (수거 신청) ── -->
   <div id="page-pickup" class="hidden">
+    <!-- 상단: 수거 신청 폼 -->
+    <div class="tw" style="margin-bottom:14px">
+      <div class="th">
+        <div class="tt">+ 수거 신청</div>
+        <button class="btn btn-gst btn-sm" onclick="togglePkForm()">접기 ▲</button>
+      </div>
+      <div id="pkFormBody" style="padding:16px 20px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+          <div class="fgrp"><label class="flb">요청일자 <span>*</span></label><input type="date" class="fi" id="pkDate"></div>
+          <div class="fgrp"><label class="flb">담당자 <span>*</span></label><input type="text" class="fi" id="pkMgr" placeholder="이름"></div>
+          <div class="fgrp"><label class="flb">소속팀 <span>*</span></label>
+            <select class="fsel" id="pkTeam"><option value="">선택</option><option>물류팀</option><option>경영지원(본사)</option><option>재무팀</option></select>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div class="fgrp"><label class="flb">수거 사유 <span>*</span></label>
+            <select class="fsel" id="pkReason">
+              <option value="">선택</option>
+              <option value="일반수거">📦 일반수거</option>
+              <option value="고장">🔧 고장</option>
+              <option value="운영진 지시사항">📋 운영진 지시사항</option>
+              <option value="기타">📝 기타</option>
+            </select>
+          </div>
+          <div class="fgrp"><label class="flb">비고</label><input type="text" class="fi" id="pkNote" placeholder="특이사항"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div class="fgrp"><label class="flb">수거 매장명 <span>*</span></label>
+            <div class="acw"><input type="text" class="fi" id="pkStore" placeholder="매장명 입력..." autocomplete="off" oninput="acStorePk(this.value)" onfocus="acStorePk(this.value)"><div class="acl" id="acPkStList"></div></div>
+          </div>
+          <div class="fgrp"><label class="flb">배송코스</label>
+            <div class="acw"><input type="text" class="fi" id="pkRoute" placeholder="자동 입력" autocomplete="off" oninput="acRoute(this.value,'acPkRtList','pkRoute')" onfocus="acRoute(this.value,'acPkRtList','pkRoute')"><div class="acl" id="acPkRtList"></div></div>
+          </div>
+          <div class="fgrp" style="grid-column:span 2"><label class="flb">매장 주소 <span>*</span></label><input type="text" class="fi" id="pkAddr" placeholder="매장 선택 시 자동 입력"></div>
+        </div>
+        <div class="sdiv">수거 품목</div>
+        <div id="pkItemsWrap"></div>
+        <button class="btn btn-gst btn-sm" onclick="addPkItem()" style="margin-top:8px">+ 품목 추가</button>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+          <button class="btn btn-gst" onclick="clearPkForm()">초기화</button>
+          <button class="btn btn-pri" onclick="submitPickupInline()">수거 신청</button>
+        </div>
+      </div>
+    </div>
+    <!-- 하단: 수거 신청 목록 -->
     <div class="tw">
       <div class="th">
         <div class="tt">수거 신청 목록</div>
-        <div class="ta">
-          <div class="sw"><span class="sic">⌕</span><input class="si" id="pkSrch" placeholder="검색..." oninput="renderPickup()"></div>
-          <button class="btn btn-pri btn-sm" onclick="openPickupModal()">+ 수거 신청</button>
-        </div>
+        <div class="ta"><div class="sw"><span class="sic">⌕</span><input class="si" id="pkSrch" placeholder="검색..." oninput="renderPickup()"></div></div>
       </div>
       <div class="tabbar">
         <button class="tab active" onclick="setPkFilter('all',this)">전체</button>
@@ -315,7 +387,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
         <button class="tab" onclick="setPkFilter('confirmed',this)">수거완료</button>
         <button class="tab" onclick="setPkFilter('rejected',this)">반려</button>
       </div>
-      <table><thead><tr><th>수거번호</th><th>요청일자</th><th>담당자</th><th>수거 사유</th><th>비고</th><th>품목명</th><th>수량</th><th>수거 매장</th><th>배송코스</th><th>상태</th><th>액션</th></tr></thead>
+      <table><thead><tr><th>수거번호</th><th>요청일자</th><th>담당자</th><th>수거 사유</th><th>비고</th><th>품목명</th><th>수량</th><th>수거 매장</th><th>배송코스</th><th>상태</th><th>액션</th><th></th></tr></thead>
       <tbody id="pickupTable"></tbody></table>
     </div>
   </div>
@@ -664,57 +736,6 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
   </div>
 </main>
 
-<!-- ══ MODAL: 자산 신청 ══ -->
-<div class="mo" id="moReq">
-  <div class="md">
-    <div class="md-hd">
-      <div><div class="md-ti">자산 신청</div><div class="md-su">매장명 앞글자 입력 → 코스·주소 자동 완성</div></div>
-      <button class="md-cl" onclick="closeMo('moReq')">✕</button>
-    </div>
-    <div class="md-bd">
-      <div class="sdiv">신청 정보</div>
-      <div class="fg">
-        <div class="fgrp"><label class="flb">신청일자 <span>*</span></label><input type="date" class="fi" id="rDate"></div>
-        <div class="fgrp"><label class="flb">담당자 <span>*</span></label><input type="text" class="fi" id="rMgr" placeholder="이름"></div>
-        <div class="fgrp"><label class="flb">소속팀 <span>*</span></label>
-          <select class="fsel" id="rTeam"><option value="">선택</option><option>물류팀</option><option>경영지원(본사)</option><option>재무팀</option><option>인사팀</option></select>
-        </div>
-        <div class="fgrp"><label class="flb">자산명 <span>*</span></label>
-          <div class="acw">
-            <input type="text" class="fi" id="rAssetInput" placeholder="품목명 검색..." autocomplete="off"
-              oninput="acReqAsset(this.value)" onfocus="acReqAsset(this.value)">
-            <input type="hidden" id="rAssetCode">
-            <div class="acl" id="acReqAssetList"></div>
-          </div>
-        </div>
-        <div class="fgrp"><label class="flb">수량 <span>*</span></label><input type="number" class="fi" id="rQty" placeholder="0" min="1"></div>
-        <div class="fgrp"><label class="flb">배송방법 <span>*</span></label>
-          <select class="fsel" id="rShipType">
-            <option value="직납">🚚 직납</option>
-            <option value="택배">📦 택배</option>
-          </select>
-        </div>
-        <div class="sdiv s2" style="grid-column:span 2">매장 정보</div>
-        <div class="fgrp s2"><label class="flb">보낼 매장명 <span>*</span></label>
-          <div class="acw"><input type="text" class="fi" id="rStore" placeholder="매장명 앞글자 입력..." autocomplete="off" oninput="acStore(this.value)" onfocus="acStore(this.value)"><div class="acl" id="acStList"></div></div>
-        </div>
-        <div class="fgrp s2"><label class="flb">배송코스</label>
-          <div class="acw"><input type="text" class="fi" id="rRoute" placeholder="코스 입력 (매장 선택 시 자동 입력)" autocomplete="off" oninput="acRoute(this.value,'acRtList','rRoute')" onfocus="acRoute(this.value,'acRtList','rRoute')"><div class="acl" id="acRtList"></div></div>
-        </div>
-        <div class="fgrp s2"><label class="flb">매장 주소지 <span>*</span></label><input type="text" class="fi" id="rAddr" placeholder="매장 선택 시 자동 입력"></div>
-        <div class="fgrp s2"><label class="flb">비고</label><textarea class="fta" id="rNote" placeholder="특이사항"></textarea></div>
-      </div>
-      <div id="fixedItemNote" style="display:none;margin-top:10px" class="info-box" style="background:rgba(139,92,246,.08);border-color:rgba(139,92,246,.3);color:#a78bfa">
-        📦 고정 출고 품목입니다 — 6개월 정기 출고 대상
-      </div>
-    </div>
-    <div class="md-ft">
-      <button class="btn btn-gst" onclick="closeMo('moReq')">취소</button>
-      <button class="btn btn-pri" onclick="submitReq()">신청하기</button>
-    </div>
-  </div>
-</div>
-
 <!-- ══ MODAL: 출고 처리 ══ -->
 <div class="mo" id="moOut">
   <div class="md">
@@ -940,95 +961,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
   </div>
 </div>
 
-<!-- ══ MODAL: 수거 신청 ══ -->
-<div class="mo" id="moPk">
-  <div class="md" style="width:560px">
-    <div class="md-hd">
-      <div><div class="md-ti">수거 신청</div><div class="md-su">직영점에서 물류로 반환할 물품 신청 — 수거 확인 시 물류재고 자동 증가</div></div>
-      <button class="md-cl" onclick="closeMo('moPk')">✕</button>
-    </div>
-    <div class="md-bd">
-      <div class="sdiv">신청 정보</div>
-      <div class="fg">
-        <div class="fgrp"><label class="flb">요청일자 <span>*</span></label><input type="date" class="fi" id="pkDate"></div>
-        <div class="fgrp"><label class="flb">담당자 <span>*</span></label><input type="text" class="fi" id="pkMgr" placeholder="이름"></div>
-        <div class="fgrp"><label class="flb">소속팀 <span>*</span></label>
-          <select class="fsel" id="pkTeam"><option value="">선택</option><option>물류팀</option><option>경영지원(본사)</option><option>재무팀</option></select>
-        </div>
-        <!-- 수거 사유 + 비고 -->
-        <div style="display:flex;gap:12px">
-          <div class="fgrp" style="flex:1"><label class="flb">수거 사유 <span>*</span></label>
-            <select class="fsel" id="pkReason" onchange="onPkReasonChange()">
-              <option value="">선택</option>
-              <option value="일반수거">📦 일반수거</option>
-              <option value="고장">🔧 고장</option>
-              <option value="운영진 지시사항">📋 운영진 지시사항</option>
-              <option value="기타">📝 기타</option>
-            </select>
-          </div>
-          <div class="fgrp" style="flex:1"><label class="flb">비고</label>
-            <input type="text" class="fi" id="pkNote" placeholder="비고 내용 입력 (선택)">
-          </div>
-        </div>
-        <!-- 기타 직접 입력 -->
-        <div class="fgrp" id="pkReasonEtcWrap" style="display:none">
-          <label class="flb">사유 직접 입력 <span>*</span></label>
-          <input type="text" class="fi" id="pkReasonEtc" placeholder="수거 사유를 입력해주세요">
-        </div>
-        </div>
-        <div class="fgrp"><label class="flb">품목명 <span>*</span></label>
-          <div class="acw">
-            <input type="text" class="fi" id="pkAssetInput" placeholder="품목명 검색..." autocomplete="off"
-              oninput="acPkAsset(this.value)" onfocus="acPkAsset(this.value)">
-            <input type="hidden" id="pkAssetCode">
-            <div class="acl" id="acPkAssetList"></div>
-          </div>
-        </div>
-        <div class="fgrp"><label class="flb">수량 <span>*</span></label><input type="number" class="fi" id="pkQty" placeholder="0" min="1" oninput="onPkQtyChange()"></div>
-        <div class="fgrp"><label class="flb">배송방법 <span>*</span></label>
-          <select class="fsel" id="pkShipType">
-            <option value="직납">🚚 직납</option>
-            <option value="택배">📦 택배</option>
-          </select>
-        </div>
-
-        <!-- 고장 전용 패널 -->
-        <div id="pkBrokenPanel" style="display:none;grid-column:span 2;background:rgba(248,113,113,.06);border:1px solid rgba(248,113,113,.25);border-radius:10px;padding:14px">
-          <div style="font-size:12px;font-weight:700;color:#f87171;margin-bottom:10px">🔧 고장 수량 구분 입력</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div>
-              <label class="flb" style="font-size:11px">고장 수량 <span>*</span></label>
-              <input type="number" class="fi" id="pkBrokenQty" min="0" placeholder="0" oninput="onPkBrokenQtyChange()" style="margin-top:4px">
-              <div style="font-size:11px;color:var(--tx3);margin-top:3px">수거 후 물류재고 → <b>고장</b>으로 분류</div>
-            </div>
-            <div>
-              <label class="flb" style="font-size:11px">정상(사용가능) 수량</label>
-              <input type="number" class="fi" id="pkNormalQty" min="0" placeholder="자동계산" readonly style="margin-top:4px;background:rgba(16,185,129,.06);color:var(--gn)">
-              <div style="font-size:11px;color:var(--tx3);margin-top:3px">수거 후 물류재고 → <b>사용가능</b>으로 분류</div>
-            </div>
-          </div>
-          <div style="margin-top:10px;padding:8px 10px;background:rgba(255,255,255,.03);border-radius:6px;font-size:12px;color:var(--tx2)" id="pkBrokenPreview">
-            수량을 입력하면 재고 반영 미리보기가 표시됩니다.
-          </div>
-        </div>
-
-        <div class="sdiv s2" style="grid-column:span 2">수거 매장 정보</div>
-        <div class="fgrp s2"><label class="flb">수거 매장명 <span>*</span></label>
-          <div class="acw"><input type="text" class="fi" id="pkStore" placeholder="매장명 앞글자 입력..." autocomplete="off" oninput="acStorePk(this.value)" onfocus="acStorePk(this.value)"><div class="acl" id="acPkStList"></div></div>
-        </div>
-        <div class="fgrp s2"><label class="flb">배송코스</label>
-          <div class="acw"><input type="text" class="fi" id="pkRoute" placeholder="코스 입력 (매장 선택 시 자동 입력)" autocomplete="off" oninput="acRoute(this.value,'acPkRtList','pkRoute')" onfocus="acRoute(this.value,'acPkRtList','pkRoute')"><div class="acl" id="acPkRtList"></div></div>
-        </div>
-        <div class="fgrp s2"><label class="flb">매장 주소지 <span>*</span></label><input type="text" class="fi" id="pkAddr" placeholder="매장 선택 시 자동 입력"></div>
-        <div class="fgrp s2"><label class="flb">비고</label><textarea class="fta" id="pkNote" placeholder="특이사항 등"></textarea></div>
-      </div>
-    </div>
-    <div class="md-ft">
-      <button class="btn btn-gst" onclick="closeMo('moPk')">취소</button>
-      <button class="btn btn-pri" onclick="submitPickup()">수거 신청</button>
-    </div>
-  </div>
-</div>
+<!-- 수거 신청 모달 제거됨 — 인라인 폼으로 대체 (page-pickup 섹션 참조) -->
 
 <!-- ══ MODAL: 수거 확인 ══ -->
 <div class="mo" id="moPkConfirm">
@@ -1473,15 +1406,17 @@ function renderReqs(){
     const act=(r.status==='pending'||r.status==='approved')
       ?`<button class="btn btn-suc btn-sm" onclick="openOutModal('${r.id}')">출고처리</button>`
       :'<span style="color:var(--tx3);font-size:12px">-</span>';
+    const delBtn=r.status==='pending'
+      ?`<button class="btn btn-dan btn-sm" onclick="deleteReq('${r.id}')" style="padding:4px 8px" title="삭제">🗑</button>`:'';
     return`<tr>
       <td class="tm">${r.id}</td><td class="tm">${fd(r.date)}</td>
       <td>${r.manager}<span style="font-size:11px;color:var(--tx3)"> (${r.team})</span></td>
       <td class="tb2">${r.asset}${FIXED_CODES.has(r.code)?'<span class="fix-dot"></span>':''}</td>
       <td class="tm">${r.qty}개</td><td>${r.store}</td><td>${stag(r)}</td>
       <td style="font-size:12px;color:var(--tx3)">${r.note||'-'}</td>
-      <td>${sbadge(r.status)}</td><td>${act}</td>
+      <td>${sbadge(r.status)}</td><td>${act}</td><td>${delBtn}</td>
     </tr>`;
-  }).join('')||`<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--tx3)">해당 내역 없음</td></tr>`;
+  }).join('')||`<tr><td colspan="11" style="text-align:center;padding:28px;color:var(--tx3)">해당 내역 없음</td></tr>`;
 }
 function setReqFilter(t,el){reqFilter=t;document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));el.classList.add('active');renderReqs();}
 
@@ -2109,61 +2044,120 @@ const openMo=id=>document.getElementById(id).classList.add('open');
 const closeMo=id=>document.getElementById(id).classList.remove('open');
 document.querySelectorAll('.mo').forEach(el=>el.addEventListener('click',e=>{if(e.target===el)el.classList.remove('open')}));
 
-// ═══ REQUEST MODAL ═══
-// 자산 신청 품목 자동완성
-function acReqAsset(val){
-  const list=document.getElementById('acReqAssetList');
+// ═══ REQUEST: 인라인 폼 ═══
+let reqItemRows=[];
+function toggleReqForm(){
+  const body=document.getElementById('reqFormBody');
+  const btn=body.closest('.tw').querySelector('button.btn-gst');
+  const hidden=body.style.display==='none';
+  body.style.display=hidden?'':'none';
+  btn.textContent=hidden?'접기 ▲':'펼치기 ▼';
+}
+function addReqItem(){
+  reqItemRows.push({name:'',code:'',qty:1,shipType:'직납'});
+  renderReqItems();
+}
+function removeReqItem(i){
+  reqItemRows.splice(i,1);
+  renderReqItems();
+}
+function renderReqItems(){
+  const wrap=document.getElementById('reqItemsWrap');
+  if(!wrap)return;
+  if(!reqItemRows.length){
+    wrap.innerHTML='<div style="font-size:12px;color:var(--tx3);padding:6px 0">품목을 추가해주세요</div>';
+    return;
+  }
+  wrap.innerHTML=reqItemRows.map((row,i)=>`
+    <div style="display:grid;grid-template-columns:1fr 80px 110px 34px;gap:8px;align-items:end;margin-bottom:8px">
+      <div class="acw">
+        <input type="text" class="fi" id="rItemNm_${i}" value="${row.name.replace(/"/g,'&quot;')}" placeholder="품목명 검색..." autocomplete="off"
+          oninput="acInlineReqAsset(this.value,${i})" onfocus="acInlineReqAsset(this.value,${i})">
+        <input type="hidden" id="rItemCd_${i}" value="${row.code}">
+        <div class="acl" id="acReqRow_${i}"></div>
+      </div>
+      <input type="number" class="fi" id="rItemQty_${i}" value="${row.qty}" min="1" placeholder="수량" style="text-align:center" oninput="reqItemRows[${i}].qty=parseInt(this.value)||1">
+      <select class="fsel" id="rItemShip_${i}" onchange="reqItemRows[${i}].shipType=this.value">
+        <option value="직납"${row.shipType==='직납'?' selected':''}>🚚 직납</option>
+        <option value="택배"${row.shipType==='택배'?' selected':''}>📦 택배</option>
+      </select>
+      <button class="btn btn-dan btn-sm" onclick="removeReqItem(${i})" style="padding:0;width:34px;height:38px">✕</button>
+    </div>`).join('');
+}
+function acInlineReqAsset(val,i){
+  const list=document.getElementById(`acReqRow_${i}`);
+  if(!list)return;
   const q=val.trim().toLowerCase();
-  const m=INV.filter(i=>!q||i.name.toLowerCase().includes(q)||i.code.toLowerCase().includes(q)).slice(0,15);
+  const m=INV.filter(x=>!q||x.name.toLowerCase().includes(q)||x.code.toLowerCase().includes(q)).slice(0,12);
   if(!m.length){list.classList.remove('show');return}
-  list.innerHTML=m.map(i=>`
-    <div class="aci" onclick="selReqAsset('${i.code}','${i.name.replace(/'/g,"\\'")}')">
-      <span class="tm" style="font-size:11px">${i.code}</span>
-      <span class="aci-nm" style="margin-left:8px">${i.name}</span>
-      ${FIXED_CODES.has(i.code)?'<span class="badge b-fix" style="font-size:9px;padding:1px 5px;margin-left:4px">고정</span>':''}
-      <span style="float:right;font-size:11px;color:${(i.total-i.out)<=10?'var(--yw)':'var(--tx3)'}">재고 ${i.total-i.out}개</span>
+  list.innerHTML=m.map(x=>`
+    <div class="aci" onclick="selInlineReqAsset(${i},'${x.code}','${x.name.replace(/'/g,"\\'")}')">
+      <span class="tm" style="font-size:11px">${x.code}</span>
+      <span class="aci-nm" style="margin-left:8px">${x.name}</span>
+      ${FIXED_CODES.has(x.code)?'<span class="badge b-fix" style="font-size:9px;padding:1px 5px;margin-left:4px">고정</span>':''}
+      <span style="float:right;font-size:11px;color:${(x.total-x.out)<=10?'var(--yw)':'var(--tx3)'}">재고 ${x.total-x.out}개</span>
     </div>`).join('');
   list.classList.add('show');
 }
-function selReqAsset(code,name){
-  document.getElementById('rAssetInput').value=name;
-  document.getElementById('rAssetCode').value=code;
-  document.getElementById('rAssetInput').classList.add('autofill');
-  document.getElementById('acReqAssetList').classList.remove('show');
-  // 고정출고 여부 체크
-  document.getElementById('fixedItemNote').style.display=FIXED_CODES.has(code)?'block':'none';
+function selInlineReqAsset(i,code,name){
+  reqItemRows[i]={...reqItemRows[i],name,code};
+  const nm=document.getElementById(`rItemNm_${i}`);
+  const cd=document.getElementById(`rItemCd_${i}`);
+  const ac=document.getElementById(`acReqRow_${i}`);
+  if(nm){nm.value=name;nm.classList.add('autofill');}
+  if(cd)cd.value=code;
+  if(ac)ac.classList.remove('show');
 }
-
-function openReqModal(){
-  document.getElementById('rDate').value=today();
-  ['rMgr','rQty','rStore','rAddr','rNote','rRoute','rAssetInput'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('rAssetCode').value='';
-  document.getElementById('rTeam').value='';
-  ['rStore','rAddr','rRoute','rAssetInput'].forEach(id=>document.getElementById(id).classList.remove('autofill'));
-  document.getElementById('fixedItemNote').style.display='none';
-  openMo('moReq');
-}
-function submitReq(){
+async function submitReqInline(){
   const date=document.getElementById('rDate').value;
   const manager=document.getElementById('rMgr').value.trim();
   const team=document.getElementById('rTeam').value;
-  const code=document.getElementById('rAssetCode').value;
-  const asset=document.getElementById('rAssetInput').value.trim();
-  const qty=parseInt(document.getElementById('rQty').value)||0;
   const store=document.getElementById('rStore').value.trim();
   const address=document.getElementById('rAddr').value.trim();
   const route=document.getElementById('rRoute').value.trim();
-  const shipType=document.getElementById('rShipType').value;
-  const note=document.getElementById('rNote').value.trim();
-  if(!date||!manager||!team||!code||!asset||!qty||!store||!address){notify('필수 항목을 입력해주세요','error');return}
-  if(qty<=0){notify('수량을 확인해주세요','error');return}
-  const logi=LOGI.find(l=>l.code===code);
-  if(logi&&qty>logi.qty){notify(`재고 부족 — 물류재고 ${logi.qty}개`,'error');return}
-  const id='REQ-'+new Date().getFullYear()+'-'+String(REQS.length+1).padStart(3,'0');
-  REQS.push({id,date,manager,team,asset,code,qty,store,route,shipType,address,note,status:'pending',outDate:'',outMgr:'',outMemo:'',arrDate:''});
-  db.from('requests').insert({id,date,manager,team,asset,code,qty,store,route,ship_type:shipType,address,note,status:'pending',out_date:'',out_mgr:'',out_memo:'',arr_date:''}).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
-  closeMo('moReq');notify(`신청 완료! (${id})`);updateBadge();renderReqs();
-  sendTelegram(`📦 <b>자산신청</b>\n신청번호: ${id}\n신청일자: ${date}\n신청품목: ${asset}\n수량: ${qty}개\n매장: ${store}\n배송코스: ${route||'-'}\n배송방법: ${shipType}\n주소: ${address}\n담당자: ${manager} (${team})`);
+  if(!date||!manager||!team||!store||!address){notify('필수 항목(날짜/담당자/팀/매장/주소)을 입력해주세요','error');return}
+  const items=reqItemRows.map((row,i)=>({
+    name:(document.getElementById(`rItemNm_${i}`)?.value.trim()||row.name),
+    code:(document.getElementById(`rItemCd_${i}`)?.value||row.code),
+    qty:parseInt(document.getElementById(`rItemQty_${i}`)?.value)||row.qty,
+    shipType:(document.getElementById(`rItemShip_${i}`)?.value||row.shipType)
+  }));
+  if(!items.length){notify('품목을 1개 이상 추가해주세요','error');return}
+  for(const[j,it]of items.entries()){
+    if(!it.code||!it.name){notify(`${j+1}번 품목: 목록에서 품목을 선택해주세요`,'error');return}
+    if(!(it.qty>0)){notify(`${j+1}번 품목: 수량을 입력해주세요`,'error');return}
+    const logi=LOGI.find(l=>l.code===it.code);
+    if(logi&&it.qty>logi.qty){notify(`재고 부족 — ${it.name} 현재 ${logi.qty}개`,'error');return}
+  }
+  const yr=new Date().getFullYear();
+  const{data:lastRows}=await db.from('requests').select('id').like('id',`REQ-${yr}-%`).order('id',{ascending:false}).limit(1);
+  let nextNum=1;
+  if(lastRows&&lastRows.length>0){const m=lastRows[0].id.match(/(\d+)$/);if(m)nextNum=parseInt(m[1])+1;}
+  const created=[];
+  for(const it of items){
+    const id=`REQ-${yr}-${String(nextNum).padStart(3,'0')}`;nextNum++;
+    REQS.push({id,date,manager,team,asset:it.name,code:it.code,qty:it.qty,store,route,shipType:it.shipType,address,note:'',status:'pending',outDate:'',outMgr:'',outMemo:'',arrDate:''});
+    db.from('requests').insert({id,date,manager,team,asset:it.name,code:it.code,qty:it.qty,store,route,ship_type:it.shipType,address,note:'',status:'pending',out_date:'',out_mgr:'',out_memo:'',arr_date:''}).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message);});
+    created.push(`${it.name} ${it.qty}개`);
+  }
+  notify(`신청 완료! ${created.join(' · ')}`);
+  sendTelegram(`📦 <b>자산신청</b>\n신청일자: ${date}\n신청품목: ${created.join(', ')}\n매장: ${store}\n배송코스: ${route||'-'}\n주소: ${address}\n담당자: ${manager} (${team})`);
+  clearReqForm();updateBadge();renderReqs();
+}
+function clearReqForm(){
+  document.getElementById('rDate').value=today();
+  ['rMgr','rStore','rAddr','rRoute'].forEach(id=>{const el=document.getElementById(id);if(el){el.value='';el.classList.remove('autofill');}});
+  document.getElementById('rTeam').value='';
+  reqItemRows=[];renderReqItems();
+}
+async function deleteReq(id){
+  if(!confirm(`신청 ${id}를 삭제하시겠습니까?`))return;
+  const r=REQS.find(x=>x.id===id);
+  if(r&&r.status!=='pending'){notify('대기중 신청만 삭제할 수 있습니다','error');return}
+  const idx=REQS.findIndex(x=>x.id===id);if(idx!==-1)REQS.splice(idx,1);
+  const{error}=await db.from('requests').delete().eq('id',id);
+  if(error){notify('삭제 실패: '+error.message,'error');return}
+  notify('삭제 완료');updateBadge();renderReqs();
 }
 
 // ═══ OUTGOING MODAL ═══
@@ -2508,6 +2502,8 @@ function renderPickup(){
     const brokenInfo = p.reason==='고장' && (p.brokenQty||0)>0
       ? `<span style="font-size:10px;color:#f87171;margin-left:4px">(정상${p.normalQty||0}/고장${p.brokenQty||0})</span>`
       : '';
+    const delBtn=p.status==='pending'
+      ?`<button class="btn btn-dan btn-sm" onclick="deletePickup('${p.id}')" style="padding:4px 8px" title="삭제">🗑</button>`:'';
     return`<tr>
       <td class="tm">${p.id}</td><td class="tm">${fd(p.date)}</td>
       <td>${p.manager}<span style="font-size:11px;color:var(--tx3)"> (${p.team})</span></td>
@@ -2515,9 +2511,9 @@ function renderPickup(){
       <td style="font-size:12px;color:var(--tx3)">${p.note||'-'}</td>
       <td class="tb2">${p.asset}</td><td class="tm">${p.qty}개${brokenInfo}</td>
       <td>${p.store}</td><td>${rtag(p.route)}</td>
-      <td>${sbadgePk(p.status)}</td><td>${act}</td>
+      <td>${sbadgePk(p.status)}</td><td>${act}</td><td>${delBtn}</td>
     </tr>`;
-  }).join('')||`<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--tx3)">수거 신청 내역 없음</td></tr>`;
+  }).join('')||`<tr><td colspan="12" style="text-align:center;padding:28px;color:var(--tx3)">수거 신청 내역 없음</td></tr>`;
 }
 function setPkFilter(t,el){pkFilter=t;document.querySelectorAll('#page-pickup .tab').forEach(b=>b.classList.remove('active'));el.classList.add('active');renderPickup();}
 
@@ -2615,92 +2611,121 @@ function selPkAsset(code,name){
   document.getElementById('acPkAssetList').classList.remove('show');
 }
 
-function openPickupModal(){
-  document.getElementById('pkDate').value=today();
-  ['pkMgr','pkQty','pkStore','pkAddr','pkNote','pkRoute','pkAssetInput'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('pkAssetCode').value='';
-  document.getElementById('pkTeam').value='';
-  document.getElementById('pkReason').value='';
-  document.getElementById('pkReasonEtcWrap').style.display='none';
-  document.getElementById('pkReasonEtc').value='';
-  document.getElementById('pkBrokenPanel').style.display='none';
-  document.getElementById('pkBrokenQty').value='';
-  document.getElementById('pkNormalQty').value='';
-  ['pkStore','pkAddr','pkRoute','pkAssetInput'].forEach(id=>document.getElementById(id).classList.remove('autofill'));
-  openMo('moPk');
+// ═══ PICKUP: 인라인 폼 ═══
+let pkItemRows=[];
+function togglePkForm(){
+  const body=document.getElementById('pkFormBody');
+  const btn=body.closest('.tw').querySelector('button.btn-gst');
+  const hidden=body.style.display==='none';
+  body.style.display=hidden?'':'none';
+  btn.textContent=hidden?'접기 ▲':'펼치기 ▼';
 }
-
-function onPkReasonChange(){
-  const r=document.getElementById('pkReason').value;
-  document.getElementById('pkBrokenPanel').style.display = r==='고장' ? '' : 'none';
-  document.getElementById('pkReasonEtcWrap').style.display = r==='기타' ? '' : 'none';
-  if(r!=='고장'){
-    document.getElementById('pkBrokenQty').value='';
-    document.getElementById('pkNormalQty').value='';
-    document.getElementById('pkBrokenPreview').textContent='수량을 입력하면 재고 반영 미리보기가 표시됩니다.';
-  } else {
-    onPkQtyChange();
+function addPkItem(){
+  pkItemRows.push({name:'',code:'',qty:1,shipType:'직납'});
+  renderPkItems();
+}
+function removePkItem(i){
+  pkItemRows.splice(i,1);
+  renderPkItems();
+}
+function renderPkItems(){
+  const wrap=document.getElementById('pkItemsWrap');
+  if(!wrap)return;
+  if(!pkItemRows.length){
+    wrap.innerHTML='<div style="font-size:12px;color:var(--tx3);padding:6px 0">품목을 추가해주세요</div>';
+    return;
   }
-  if(r!=='기타') document.getElementById('pkReasonEtc').value='';
+  wrap.innerHTML=pkItemRows.map((row,i)=>`
+    <div style="display:grid;grid-template-columns:1fr 80px 110px 34px;gap:8px;align-items:end;margin-bottom:8px">
+      <div class="acw">
+        <input type="text" class="fi" id="pkItemNm_${i}" value="${row.name.replace(/"/g,'&quot;')}" placeholder="품목명 검색..." autocomplete="off"
+          oninput="acInlinePkAsset(this.value,${i})" onfocus="acInlinePkAsset(this.value,${i})">
+        <input type="hidden" id="pkItemCd_${i}" value="${row.code}">
+        <div class="acl" id="acPkRow_${i}"></div>
+      </div>
+      <input type="number" class="fi" id="pkItemQty_${i}" value="${row.qty}" min="1" placeholder="수량" style="text-align:center" oninput="pkItemRows[${i}].qty=parseInt(this.value)||1">
+      <select class="fsel" id="pkItemShip_${i}" onchange="pkItemRows[${i}].shipType=this.value">
+        <option value="직납"${row.shipType==='직납'?' selected':''}>🚚 직납</option>
+        <option value="택배"${row.shipType==='택배'?' selected':''}>📦 택배</option>
+      </select>
+      <button class="btn btn-dan btn-sm" onclick="removePkItem(${i})" style="padding:0;width:34px;height:38px">✕</button>
+    </div>`).join('');
 }
-
-function onPkQtyChange(){
-  if(document.getElementById('pkReason').value==='고장') onPkBrokenQtyChange();
+function acInlinePkAsset(val,i){
+  const list=document.getElementById(`acPkRow_${i}`);
+  if(!list)return;
+  const q=val.trim().toLowerCase();
+  const m=INV.filter(x=>!q||x.name.toLowerCase().includes(q)||x.code.toLowerCase().includes(q)).slice(0,12);
+  if(!m.length){list.classList.remove('show');return}
+  list.innerHTML=m.map(x=>`
+    <div class="aci" onclick="selInlinePkAsset(${i},'${x.code}','${x.name.replace(/'/g,"\\'")}')">
+      <span class="tm" style="font-size:11px">${x.code}</span>
+      <span class="aci-nm" style="margin-left:8px">${x.name}</span>
+      <span style="float:right;font-size:11px;color:var(--tx3)">재고 ${x.total}개</span>
+    </div>`).join('');
+  list.classList.add('show');
 }
-
-function onPkBrokenQtyChange(){
-  const total=parseInt(document.getElementById('pkQty').value)||0;
-  const broken=parseInt(document.getElementById('pkBrokenQty').value)||0;
-  const normal=Math.max(0,total-broken);
-  document.getElementById('pkNormalQty').value=normal;
-  const li=LOGI.find(l=>l.code===document.getElementById('pkAssetCode').value);
-  const curQty=li?li.qty:'?';
-  const curBroken=li?(li.broken||0):'?';
-  const prvBox=document.getElementById('pkBrokenPreview');
-  if(total>0){
-    prvBox.innerHTML=`수거 후 물류재고 반영 미리보기:<br>
-      <span style="color:var(--gn)">사용가능: ${curQty==='?'?'?':(curQty+'개 → '+(curQty+normal)+'개')}</span> &nbsp;|&nbsp;
-      <span style="color:#f87171">고장: ${curBroken==='?'?'?':(curBroken+'개 → '+(curBroken+broken)+'개')}</span>`;
-  }
+function selInlinePkAsset(i,code,name){
+  pkItemRows[i]={...pkItemRows[i],name,code};
+  const nm=document.getElementById(`pkItemNm_${i}`);
+  const cd=document.getElementById(`pkItemCd_${i}`);
+  const ac=document.getElementById(`acPkRow_${i}`);
+  if(nm){nm.value=name;nm.classList.add('autofill');}
+  if(cd)cd.value=code;
+  if(ac)ac.classList.remove('show');
 }
-
-async function submitPickup(){
+async function submitPickupInline(){
   const date=document.getElementById('pkDate').value;
   const manager=document.getElementById('pkMgr').value.trim();
   const team=document.getElementById('pkTeam').value;
-  const reasonSel=document.getElementById('pkReason').value;
-  const reasonEtc=document.getElementById('pkReasonEtc').value.trim();
-  const reason = reasonSel==='기타' ? (reasonEtc||'기타') : reasonSel;
-  const code=document.getElementById('pkAssetCode').value;
-  const asset=document.getElementById('pkAssetInput').value.trim();
-  const qty=parseInt(document.getElementById('pkQty').value)||0;
+  const reason=document.getElementById('pkReason').value;
+  const note=document.getElementById('pkNote').value.trim();
   const store=document.getElementById('pkStore').value.trim();
   const address=document.getElementById('pkAddr').value.trim();
   const route=document.getElementById('pkRoute').value.trim();
-  const shipType=document.getElementById('pkShipType').value;
-  const note=document.getElementById('pkNote').value.trim();
-  if(!date||!manager||!team||!reasonSel||!code||!asset||!qty||!store||!address){notify('필수 항목을 입력해주세요','error');return}
-  if(reasonSel==='기타'&&!reasonEtc){notify('기타 사유를 입력해주세요','error');return}
-  if(qty<=0){notify('수량을 확인해주세요','error');return}
-  let brokenQty=0, normalQty=qty;
-  if(reasonSel==='고장'){
-    brokenQty=parseInt(document.getElementById('pkBrokenQty').value)||0;
-    normalQty=Math.max(0,qty-brokenQty);
-    if(brokenQty<0||brokenQty>qty){notify('고장 수량이 총 수량을 초과합니다','error');return}
+  if(!date||!manager||!team||!reason||!store||!address){notify('필수 항목(날짜/담당자/팀/사유/매장/주소)을 입력해주세요','error');return}
+  const items=pkItemRows.map((row,i)=>({
+    name:(document.getElementById(`pkItemNm_${i}`)?.value.trim()||row.name),
+    code:(document.getElementById(`pkItemCd_${i}`)?.value||row.code),
+    qty:parseInt(document.getElementById(`pkItemQty_${i}`)?.value)||row.qty,
+    shipType:(document.getElementById(`pkItemShip_${i}`)?.value||row.shipType)
+  }));
+  if(!items.length){notify('품목을 1개 이상 추가해주세요','error');return}
+  for(const[j,it]of items.entries()){
+    if(!it.code||!it.name){notify(`${j+1}번 품목: 목록에서 품목을 선택해주세요`,'error');return}
+    if(!(it.qty>0)){notify(`${j+1}번 품목: 수량을 입력해주세요`,'error');return}
   }
-  // DB 최신 ID 조회 후 +1 채번 (중복 방지)
   const yr=new Date().getFullYear();
-  const {data:lastRows}=await db.from('pickups').select('id').like('id',`PKU-${yr}-%`).order('id',{ascending:false}).limit(1);
+  const{data:lastRows}=await db.from('pickups').select('id').like('id',`PKU-${yr}-%`).order('id',{ascending:false}).limit(1);
   let nextNum=1;
   if(lastRows&&lastRows.length>0){const m=lastRows[0].id.match(/(\d+)$/);if(m)nextNum=parseInt(m[1])+1;}
-  const id='PKU-'+yr+'-'+String(nextNum).padStart(3,'0');
-  const {data:inserted,error:insErr}=await db.from('pickups').insert({id,date,manager,team,reason,asset,code,qty,broken_qty:brokenQty,store,route,ship_type:shipType,address,note,status:'pending'}).select();
-  if(insErr){notify('수거 신청 저장 실패: '+insErr.message,'error');return}
-  PICKUPS.push({id,date,manager,team,reason,asset,code,qty,brokenQty,normalQty,store,route,shipType,address,note,status:'pending',pickupDate:'',confDate:'',confMgr:'',confMemo:''});
-  closeMo('moPk');
-  notify(`수거 신청 완료! (${id}) · 사유: ${reason}`);
-  sendTelegram(`🔄 <b>수거신청</b>\n수거번호: ${id}\n신청일자: ${date}\n수거품목: ${asset}\n수량: ${qty}개\n매장: ${store}\n배송코스: ${route||'-'}\n배송방법: ${shipType}\n주소: ${address}\n사유: ${reason}\n담당자: ${manager} (${team})`);
-  updateBadge();renderPickup();
+  const created=[];
+  for(const it of items){
+    const id=`PKU-${yr}-${String(nextNum).padStart(3,'0')}`;nextNum++;
+    const{error:insErr}=await db.from('pickups').insert({id,date,manager,team,reason,asset:it.name,code:it.code,qty:it.qty,broken_qty:0,store,route,ship_type:it.shipType,address,note,status:'pending'});
+    if(insErr){notify('저장 실패: '+insErr.message,'error');return}
+    PICKUPS.push({id,date,manager,team,reason,asset:it.name,code:it.code,qty:it.qty,brokenQty:0,normalQty:it.qty,store,route,shipType:it.shipType,address,note,status:'pending',pickupDate:'',confDate:'',confMgr:'',confMemo:''});
+    created.push(`${it.name} ${it.qty}개`);
+  }
+  notify(`수거 신청 완료! ${created.join(' · ')}`);
+  sendTelegram(`🔄 <b>수거신청</b>\n신청일자: ${date}\n수거품목: ${created.join(', ')}\n매장: ${store}\n배송코스: ${route||'-'}\n사유: ${reason}\n주소: ${address}\n담당자: ${manager} (${team})`);
+  clearPkForm();updateBadge();renderPickup();
+}
+function clearPkForm(){
+  document.getElementById('pkDate').value=today();
+  ['pkMgr','pkStore','pkAddr','pkRoute','pkNote'].forEach(id=>{const el=document.getElementById(id);if(el){el.value='';el.classList.remove('autofill');}});
+  document.getElementById('pkTeam').value='';
+  document.getElementById('pkReason').value='';
+  pkItemRows=[];renderPkItems();
+}
+async function deletePickup(id){
+  if(!confirm(`수거신청 ${id}를 삭제하시겠습니까?`))return;
+  const p=PICKUPS.find(x=>x.id===id);
+  if(p&&p.status!=='pending'){notify('대기중 신청만 삭제할 수 있습니다','error');return}
+  const idx=PICKUPS.findIndex(x=>x.id===id);if(idx!==-1)PICKUPS.splice(idx,1);
+  const{error}=await db.from('pickups').delete().eq('id',id);
+  if(error){notify('삭제 실패: '+error.message,'error');return}
+  notify('삭제 완료');updateBadge();renderPickup();
 }
 
 // ═══ PICKUP: 수거 확인 모달 ═══
@@ -4033,6 +4058,8 @@ if(localStorage.getItem('ams-theme')==='light'){
   STORE_OUT_LOG = REQS.filter(r=>r.status==='shipped').map(r=>({store:r.store,code:r.code,name:r.asset,qty:r.qty,date:r.outDate,route:r.route,manager:r.outMgr,memo:r.outMemo}));
   renderDash(); updateBadge();
   renderOrderMgmt(); renderPurchaseHist(); updateOrderBadge();
+  // 인라인 폼 초기화
+  clearReqForm(); clearPkForm();
 })();
 </script>
 </body>
