@@ -4077,15 +4077,15 @@ function downloadPlayPos(batchId) {
     const items = BAG_SHIPPING.filter(r => r.batch_id === batchId && r.need_ship);
     if (!items.length) { notify('출고 필요 항목이 없습니다', 'error'); return; }
     const today = new Date().toISOString().slice(0,10);
-    const rows = [['지역','매장코드','날짜','상품코드','상품명','수량','비고']];
+    const rows = [['지역','매장코드','매장명','날짜','상품코드','상품명','수량','비고']];
     items.forEach(r => {
       const info = ADDR.find(a => a.name === r.store_name || (r.store_code && a.code === r.store_code)) || {address:''};
       const region = getBagRegion(r.store_name, info.address);
-      rows.push([region, r.store_code||'', r.dispatch_date||today, r.product_code, r.product_name, r.ship_qty, '']);
+      rows.push([region, r.store_code||'', r.store_name||'', r.dispatch_date||today, r.product_code, r.product_name, r.ship_qty, '']);
     });
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{wch:8},{wch:12},{wch:12},{wch:14},{wch:24},{wch:8},{wch:10}];
+    ws['!cols'] = [{wch:8},{wch:12},{wch:22},{wch:12},{wch:14},{wch:24},{wch:8},{wch:10}];
     XLSX.utils.book_append_sheet(wb, ws, '포스등록');
     const label = items[0]?.batch_label || batchId;
     XLSX.writeFile(wb, `플레이엠디포스등록_${label.replace(/[: ]/g,'_')}.xlsx`);
