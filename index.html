@@ -3284,9 +3284,10 @@ async function submitPurchaseRequest() {
   document.getElementById('prManager').value = '';
   document.getElementById('prDate').value = '';
   notify(`구매요청 완료! (${rid})`,'success');
+  const itemLines = items.map(i=>`• ${i.name} — ${i.qty}개`).join('\n');
+  sendTelegram(`📋 <b>구매요청서</b>\n구매요청서: ${rid}\n요청일자: ${reqDate}\n${itemLines}\n담당자: ${manager}`);
   renderPurchaseHist();
   renderOrderMgmt();
-  
   updateOrderBadge();
 }
 
@@ -3774,6 +3775,7 @@ async function calcBagShipping() {
     data.forEach(r => BAG_SHIPPING.unshift(r));
     const shipCnt = data.filter(r => r.need_ship).length;
     notify(`출고 계산 완료 — ${shipCnt}건 출고 필요 (출고 결과 탭에서 출고 처리하세요)`, 'success');
+    sendTelegram(`🛍 <b>쇼핑백/무지봉투 출고요청이 있습니다.</b>\n계산일시: ${batchLabel}\n출고 필요 건수: ${shipCnt}건`);
     clearBagUpload();
     showPage('bag-result');
   } catch(e) {
