@@ -271,6 +271,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
             <div class="acw"><input type="text" class="fi" id="rRoute" placeholder="자동 입력" autocomplete="off" oninput="acRoute(this.value,'acRtList','rRoute')" onfocus="acRoute(this.value,'acRtList','rRoute')"><div class="acl" id="acRtList"></div></div>
           </div>
           <div class="fgrp" style="grid-column:span 2"><label class="flb">매장 주소 <span>*</span></label><input type="text" class="fi" id="rAddr" placeholder="매장 선택 시 자동 입력"></div>
+          <div class="fgrp" style="grid-column:span 2"><label class="flb">비고</label><input type="text" class="fi" id="rNote" placeholder="특이사항 (선택)"></div>
         </div>
         <div class="sdiv">신청 품목</div>
         <div id="reqItemsWrap"></div>
@@ -399,12 +400,12 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
         <div class="tt">수거 대기 목록 <span style="font-size:12px;color:var(--tx3);font-weight:400">(수거 확인 시 물류재고 자동 증가)</span></div>
         <div class="ta"><div class="sw"><span class="sic">⌕</span><input class="si" id="pkmSrch" placeholder="검색..." oninput="renderPickupMgmt()"></div></div>
       </div>
-      <table><thead><tr><th>수거번호</th><th>요청일자</th><th>신청자</th><th>품목명</th><th>수량</th><th>배송코스</th><th>수거 매장</th><th>매장주소</th><th>액션</th></tr></thead>
+      <table><thead><tr><th>수거번호</th><th>요청일자</th><th>신청자</th><th>품목명</th><th>수량</th><th>배송코스</th><th>수거 매장</th><th>매장주소</th><th>비고</th><th>액션</th></tr></thead>
       <tbody id="pkMgmtTable"></tbody></table>
     </div>
     <div class="tw mt14">
       <div class="th"><div class="tt">수거 완료 기록</div></div>
-      <table><thead><tr><th>수거번호</th><th>요청일자</th><th>수거일자</th><th>수거확인일자</th><th>확인 담당자</th><th>품목명</th><th>수량</th><th>배송코스</th><th>수거 매장</th></tr></thead>
+      <table><thead><tr><th>수거번호</th><th>요청일자</th><th>수거일자</th><th>수거확인일자</th><th>확인 담당자</th><th>품목명</th><th>수량</th><th>배송코스</th><th>수거 매장</th><th>비고</th></tr></thead>
       <tbody id="pkDoneTable"></tbody></table>
     </div>
   </div>
@@ -2115,6 +2116,7 @@ async function submitReqInline(){
   const store=document.getElementById('rStore').value.trim();
   const address=document.getElementById('rAddr').value.trim();
   const route=document.getElementById('rRoute').value.trim();
+  const note=document.getElementById('rNote')?.value.trim()||'';
   if(!date||!manager||!team||!store||!address){notify('필수 항목(날짜/담당자/팀/매장/주소)을 입력해주세요','error');return}
   const items=reqItemRows.map((row,i)=>({
     name:(document.getElementById(`rItemNm_${i}`)?.value.trim()||row.name),
@@ -2136,8 +2138,8 @@ async function submitReqInline(){
   const created=[];
   for(const it of items){
     const id=`REQ-${yr}-${String(nextNum).padStart(3,'0')}`;nextNum++;
-    REQS.push({id,date,manager,team,asset:it.name,code:it.code,qty:it.qty,store,route,shipType:it.shipType,address,note:'',status:'pending',outDate:'',outMgr:'',outMemo:'',arrDate:''});
-    db.from('requests').insert({id,date,manager,team,asset:it.name,code:it.code,qty:it.qty,store,route,ship_type:it.shipType,address,note:'',status:'pending',out_date:'',out_mgr:'',out_memo:'',arr_date:''}).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message);});
+    REQS.push({id,date,manager,team,asset:it.name,code:it.code,qty:it.qty,store,route,shipType:it.shipType,address,note,status:'pending',outDate:'',outMgr:'',outMemo:'',arrDate:''});
+    db.from('requests').insert({id,date,manager,team,asset:it.name,code:it.code,qty:it.qty,store,route,ship_type:it.shipType,address,note,status:'pending',out_date:'',out_mgr:'',out_memo:'',arr_date:''}).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message);});
     created.push(`${it.name} ${it.qty}개`);
   }
   notify(`신청 완료! ${created.join(' · ')}`);
@@ -2146,7 +2148,7 @@ async function submitReqInline(){
 }
 function clearReqForm(){
   document.getElementById('rDate').value=today();
-  ['rMgr','rStore','rAddr','rRoute'].forEach(id=>{const el=document.getElementById(id);if(el){el.value='';el.classList.remove('autofill');}});
+  ['rMgr','rStore','rAddr','rRoute','rNote'].forEach(id=>{const el=document.getElementById(id);if(el){el.value='';el.classList.remove('autofill');}});
   document.getElementById('rTeam').value='';
   reqItemRows=[];renderReqItems();
 }
@@ -2525,16 +2527,18 @@ function renderPickupMgmt(){
     `<tr><td class="tm">${p.id}</td><td class="tm">${fd(p.date)}</td><td>${p.manager}</td>
     <td class="tb2">${p.asset}</td><td class="tm">${p.qty}개</td><td>${rtag(p.route)}</td>
     <td>${p.store}</td><td style="font-size:12px;color:var(--tx3)">${p.address}</td>
+    <td style="font-size:12px;color:var(--tx3)">${p.note||'-'}</td>
     <td><button class="btn btn-suc btn-sm" onclick="openPkConfirmModal('${p.id}','confirm')">수거확인 →</button></td></tr>`
-  ).join(''):'<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--tx3)">수거 대기 없음 ✓</td></tr>';
+  ).join(''):'<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--tx3)">수거 대기 없음 ✓</td></tr>';
   const done=PICKUPS.filter(p=>p.status==='confirmed'&&(p.store.toLowerCase().includes(q)||p.asset.toLowerCase().includes(q)));
   document.getElementById('pkDoneTable').innerHTML=[...done].reverse().map((p,i)=>
     `<tr><td class="tm">${p.id}</td><td class="tm">${fd(p.date)}</td>
     <td class="tm" style="color:var(--ac2)">${fd(p.pickupDate)||'-'}</td>
     <td class="tm" style="color:var(--gn)">${fd(p.confDate)}</td>
     <td>${p.confMgr}</td><td class="tb2">${p.asset}</td><td class="tm">${p.qty}개</td>
-    <td>${rtag(p.route)}</td><td>${p.store}</td></tr>`
-  ).join('')||'<tr><td colspan="9" style="text-align:center;padding:18px;color:var(--tx3)">수거 완료 기록 없음</td></tr>';
+    <td>${rtag(p.route)}</td><td>${p.store}</td>
+    <td style="font-size:12px;color:var(--tx3)">${p.note||'-'}</td></tr>`
+  ).join('')||'<tr><td colspan="10" style="text-align:center;padding:18px;color:var(--tx3)">수거 완료 기록 없음</td></tr>';
 }
 
 // ═══ PICKUP: 수거 이력 ═══
