@@ -182,6 +182,10 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
     <div class="nav-sec">주문 관리</div>
     <button class="ni" onclick="showPage('purchase-req',this)"><span class="ic">📋</span>구매요청서</button>
     <button class="ni" id="navOrderMgmt" onclick="showPage('order-mgmt',this)"><span class="ic">📦</span>비품주문표<span class="nbadge" id="orderBadge"></span></button>
+    <div class="nav-sec">쇼핑백/무지봉투 출고</div>
+    <button class="ni" onclick="showPage('bag-upload',this)"><span class="ic">📥</span>데이터 업로드</button>
+    <button class="ni" onclick="showPage('bag-result',this)"><span class="ic">📦</span>출고 결과</button>
+    <button class="ni" onclick="showPage('bag-history',this)"><span class="ic">📊</span>출고 이력</button>
   </div>
   <div style="padding:12px 16px;border-top:1px solid var(--bd)">
     <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="라이트/다크 모드 전환" style="width:100%;display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:12px;color:var(--tx2);border-radius:6px;border:1px solid var(--bd);background:transparent;cursor:pointer">
@@ -1114,6 +1118,82 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
   </div>
 </div>
 
+<!-- ══════════════════════════════ 쇼핑백/무지봉투 - 데이터 업로드 ══════════════════════════════ -->
+<div id="page-bag-upload" class="hidden">
+  <div id="bagDropZone" style="border:2px dashed var(--bd);border-radius:12px;padding:36px 24px;text-align:center;margin-bottom:20px;transition:all .2s;cursor:pointer;background:var(--sf)"
+    ondragover="event.preventDefault();this.style.borderColor='var(--ac)';this.style.background='rgba(59,130,246,.06)'"
+    ondragleave="this.style.borderColor='var(--bd)';this.style.background='var(--sf)'"
+    ondrop="onBagDrop(event)"
+    onclick="document.getElementById('bagFileInput').click()">
+    <div style="font-size:30px;margin-bottom:10px">🛍️</div>
+    <div style="font-size:14px;font-weight:600;color:var(--tx);margin-bottom:4px">재고 현황 엑셀 파일을 드래그하거나 클릭하여 업로드</div>
+    <div style="font-size:12px;color:var(--tx3)">xlsx 지원 · 열: 매장명 / 매장코드 / 쇼핑백 현재수량 / 무지봉투 현재수량</div>
+    <div style="margin-top:16px;display:flex;justify-content:center;gap:10px">
+      <button class="btn btn-gst btn-sm" onclick="event.stopPropagation();downloadBagTemplate()">⬇ 양식 다운로드</button>
+      <label class="btn btn-pri btn-sm" style="cursor:pointer" onclick="event.stopPropagation()">⬆ 파일 선택
+        <input type="file" id="bagFileInput" accept=".xlsx,.xls" style="display:none" onchange="handleBagFile(event)">
+      </label>
+    </div>
+  </div>
+  <div class="tw" style="margin-bottom:14px;background:var(--sf2);border-radius:10px;padding:14px 18px">
+    <div style="font-size:12px;color:var(--tx3);font-weight:600;margin-bottom:8px">출고 규칙</div>
+    <div style="display:flex;gap:20px;font-size:13px">
+      <span><span class="badge b-pend">쇼핑백(100매)</span> 현재수량 <strong>1묶음 이하</strong> → <strong>4묶음</strong> 출고</span>
+      <span><span class="badge b-appr">무지봉투(100매)</span> 현재수량 <strong>2묶음 이하</strong> → <strong>10묶음</strong> 출고</span>
+    </div>
+  </div>
+  <div id="bagPreviewWrap" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div>
+        <span style="font-size:14px;font-weight:600;color:var(--tx)">업로드 미리보기</span>
+        <span id="bagRowCount" style="font-size:12px;color:var(--tx3);margin-left:8px"></span>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-gst btn-sm" onclick="clearBagUpload()">✕ 취소</button>
+        <button class="btn btn-pri btn-sm" onclick="calcBagShipping()">▶ 출고량 계산 &amp; 저장</button>
+      </div>
+    </div>
+    <div class="tw" style="overflow-x:auto">
+      <table>
+        <thead><tr><th>매장명</th><th>매장코드</th><th>쇼핑백 현재수량</th><th>무지봉투 현재수량</th></tr></thead>
+        <tbody id="bagPreviewBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════ 쇼핑백/무지봉투 - 출고 결과 ══════════════════════════════ -->
+<div id="page-bag-result" class="hidden">
+  <div class="tw" style="margin-bottom:14px">
+    <div style="display:grid;grid-template-columns:160px 1fr auto;gap:10px;align-items:center;padding:14px 18px">
+      <select class="fsel" id="bagResultFilter" onchange="renderBagResult()">
+        <option value="all">전체</option>
+        <option value="ship">출고 필요</option>
+        <option value="ok">재고 충분</option>
+      </select>
+      <input type="text" class="fi" id="bagResultSearch" placeholder="매장명 검색..." oninput="renderBagResult()">
+      <button class="btn btn-gst btn-sm" onclick="loadBagFromDB()">↺ 새로고침</button>
+    </div>
+  </div>
+  <div id="bag-result-content"></div>
+</div>
+
+<!-- ══════════════════════════════ 쇼핑백/무지봉투 - 출고 이력 ══════════════════════════════ -->
+<div id="page-bag-history" class="hidden">
+  <div class="tw" style="margin-bottom:14px">
+    <div style="display:grid;grid-template-columns:160px 1fr auto;gap:10px;align-items:center;padding:14px 18px">
+      <select class="fsel" id="bagHistProduct" onchange="renderBagHistory()">
+        <option value="all">전체 품목</option>
+        <option value="ETC-0013">쇼핑백</option>
+        <option value="ETC-0016-1">무지봉투</option>
+      </select>
+      <input type="text" class="fi" id="bagHistSearch" placeholder="매장명 검색..." oninput="renderBagHistory()">
+      <button class="btn btn-dan btn-sm" onclick="clearBagHistory()">🗑 이력 초기화</button>
+    </div>
+  </div>
+  <div id="bag-history-content"></div>
+</div>
+
 <div class="notif" id="notif"><span id="nIcon">✓</span><span id="nMsg"></span></div>
 
 <script>
@@ -1139,14 +1219,15 @@ function hideLoading() { const el=document.getElementById('db-loading'); if(el) 
 async function loadFromDB() {
   showLoading();
   try {
-    const [invRes, storeRes, saRes, reqRes, pkRes, purchReqRes, purchItemRes] = await Promise.all([
+    const [invRes, storeRes, saRes, reqRes, pkRes, purchReqRes, purchItemRes, bagRes] = await Promise.all([
       db.from('inventory').select('*').order('id'),
       db.from('stores').select('*').order('name'),
       db.from('store_assets').select('*'),
       db.from('requests').select('*').order('created_at', {ascending: false}),
       db.from('pickups').select('*').order('created_at', {ascending: false}),
       db.from('purchase_requests').select('*').order('created_at', {ascending: false}),
-      db.from('purchase_items').select('*').order('id')
+      db.from('purchase_items').select('*').order('id'),
+      db.from('bag_shipping').select('*').order('created_at', {ascending: false})
     ]);
     if (invRes.data && invRes.data.length > 0) {
       LOGI.length = 0;
@@ -1194,6 +1275,10 @@ async function loadFromDB() {
     if (purchItemRes.data) {
       PURCHASE_ITEMS.length = 0;
       purchItemRes.data.forEach(r => PURCHASE_ITEMS.push(r));
+    }
+    if (bagRes.data) {
+      BAG_SHIPPING.length = 0;
+      bagRes.data.forEach(r => BAG_SHIPPING.push(r));
     }
   } catch(e) {
     console.error('DB load error:', e);
@@ -1312,6 +1397,9 @@ const META={
   bulkorder:['일괄 자산 신청','엑셀 양식으로 여러 매장·품목 한번에 출고 처리'],
   'purchase-req':['구매요청서','물류팀 → 구매요청 등록'],
   'order-mgmt':['비품주문표','주문관리팀 승인 · 물류팀 입고확인'],
+  'bag-upload':['데이터 업로드','재고 현황 엑셀 업로드 후 출고량 자동 계산'],
+  'bag-result':['출고 결과','배치별 출고 계산 결과 및 양식 다운로드'],
+  'bag-history':['출고 이력','주차별 출고 기록 조회'],
 };
 function showPage(id,btn){
   document.querySelectorAll('[id^="page-"]').forEach(e=>e.classList.add('hidden'));
@@ -1322,7 +1410,7 @@ function showPage(id,btn){
   const[t,s]=META[id]||['',''];
   document.getElementById('pgTitle').textContent=t;
   document.getElementById('pgSub').textContent=s;
-  ({dashboard:renderDash,inventory:renderInv,request:renderReqs,outgoing:renderOut,history:renderHist,logistics:renderLogi,storeout:renderStoreOut,storeasset:renderSA,pickup:renderPickup,pickupmgmt:renderPickupMgmt,pickuphist:renderPickupHist,bulkorder:renderBulkHist,'purchase-req':renderPurchaseHist,'order-mgmt':renderOrderMgmt})[id]?.();
+  ({dashboard:renderDash,inventory:renderInv,request:renderReqs,outgoing:renderOut,history:renderHist,logistics:renderLogi,storeout:renderStoreOut,storeasset:renderSA,pickup:renderPickup,pickupmgmt:renderPickupMgmt,pickuphist:renderPickupHist,bulkorder:renderBulkHist,'purchase-req':renderPurchaseHist,'order-mgmt':renderOrderMgmt,'bag-upload':renderBagUpload,'bag-result':renderBagResult,'bag-history':renderBagHistory})[id]?.();
   updateBadge();
 }
 
@@ -2980,6 +3068,14 @@ function downloadInvExcel(){
 let PURCHASE_REQS = [];
 let PURCHASE_ITEMS = [];
 
+// ═══ 쇼핑백/무지봉투 출고 DATA ═══
+let BAG_SHIPPING = [];
+let bagUploadRows = []; // 업로드 후 계산 전 임시 데이터
+const BAG_RULES = {
+  'ETC-0013':   {name:'쇼핑백(100매)',       threshold:1, shipQty:4},
+  'ETC-0016-1': {name:'종이봉투(무지)100매', threshold:2, shipQty:10}
+};
+
 // 주문 비품 마스터 (엑셀에서 추출)
 const ORDER_PRODUCTS = [{"code": "AST-001", "name": "마우스", "vendor": "쿠팡", "productName": "로지텍 무소음 무선 마우스 M331", "productCode": ""}, {"code": "AST-002", "name": "키보드", "vendor": "쿠팡", "productName": "삼성전자 유선 일반형 키보드 + 키스킨", "productCode": "링크"}, {"code": "AST-003", "name": "마우스패드", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-004", "name": "모니터(선포함)", "vendor": "네이버", "productName": "한성컴퓨터 ULTRON 2760G PLUS 180Hz 게이밍 모니터 68~69cm(27인치), 일반", "productCode": "링크"}, {"code": "AST-005", "name": "본체(선포함)", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-006", "name": "B5 아크릴", "vendor": "네이버", "productName": "", "productCode": ""}, {"code": "AST-007", "name": "액자", "vendor": "네이버", "productName": "상장 사진 가벼운 틀 프레임 사업자등록증 액자 도매 제작 사이즈 A4", "productCode": "링크"}, {"code": "AST-008", "name": "매직흑색", "vendor": "다이소", "productName": "둥근 닙 유성 매직 3개입 블랙", "productCode": "56463"}, {"code": "AST-009", "name": "건전지AA (2개입)", "vendor": "쿠팡", "productName": "벡셀 베이직 알카라인 AA건전지, 48개입, 1개", "productCode": ""}, {"code": "AST-010", "name": "물레방아 리필용 테이프", "vendor": "쿠팡", "productName": "대박테이프 다용도 물레방아 리필테이프 15mm x 25m, 30개", "productCode": ""}, {"code": "AST-011", "name": "박스테이프", "vendor": "네이버", "productName": "우림 박스테이프 투명테이프 80M 50개", "productCode": ""}, {"code": "AST-012", "name": "저울 & AAA건전지 (1씩)", "vendor": "쿠팡", "productName": "레토 가정용 디지털 주방저울", "productCode": ""}, {"code": "AST-013", "name": "스테이플러 & 리필 심 (1씩)", "vendor": "다이소", "productName": "평화 스테이플러 33호 심포함", "productCode": "1007785"}, {"code": "AST-014", "name": "3M장갑 / M사이즈", "vendor": "다이소", "productName": "슬림 논슬립 코팅장갑 S 여성용", "productCode": "58635"}, {"code": "AST-097", "name": "면봉 (500 1통)", "vendor": "다이소", "productName": "나무 스틱 둥근 면봉 400개입", "productCode": "1005518"}, {"code": "AST-016", "name": "노란고무줄 (1묶음)", "vendor": "쿠팡", "productName": "코멧 대용량 노란고무줄 1kg 70 x 1.5 mm", "productCode": ""}, {"code": "AST-017", "name": "건전지AAA (2개입)", "vendor": "쿠팡", "productName": "벡셀 베이직 알카라인 AA건전지, 48개입, 1개", "productCode": ""}, {"code": "AST-018", "name": "신문지 (묶음)", "vendor": "네이버", "productName": "신문지 포장지 신문포장 택배포장 10-12kg", "productCode": ""}, {"code": "AST-019", "name": "클립 (1통)", "vendor": "쿠팡", "productName": "피스코리아 평화크립 500, 1개입, 50개", "productCode": ""}, {"code": "AST-020", "name": "저속 충전기 어댑터", "vendor": "쿠팡", "productName": "서가 5V 1A 저전력 USB 충전기 어댑터", "productCode": ""}, {"code": "AST-021", "name": "집게 (대)", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-022", "name": "집게 (중)", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-023", "name": "집게 (소)", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-025", "name": "볼펜 (1박스 24)", "vendor": "쿠팡", "productName": "동아 스피디볼 유성펜 1.0mm 24p, 흑색, 6개", "productCode": ""}, {"code": "AST-026", "name": "가위", "vendor": "다이소", "productName": "오피스 블랙코팅 가위 6 cm", "productCode": "1048670"}, {"code": "AST-027", "name": "칼(소)", "vendor": "다이소", "productName": "컬러 커터 칼 9mm 5개입", "productCode": "1034261"}, {"code": "AST-028", "name": "칼 리필심 (소 / 10개입)", "vendor": "다이소", "productName": "커터날 9mm 30개입", "productCode": "1040207"}, {"code": "AST-029", "name": "계산기(대)", "vendor": "다이소", "productName": "고급 알루미늄 계산기 (12자리)", "productCode": "1034279"}, {"code": "AST-030", "name": "커피 (믹스커피) / 200입", "vendor": "쿠팡", "productName": "맥심 모카 210TX4", "productCode": ""}, {"code": "AST-031", "name": "종이컵 (5줄이 1개)", "vendor": "쿠팡", "productName": "서연 계량 눈금 종이컵 175ml, 2000개입, 2세트", "productCode": ""}, {"code": "AST-032", "name": "쓰레기통", "vendor": "다이소", "productName": "원터치 푸시 휴지통 10 L", "productCode": "1054330"}, {"code": "AST-033", "name": "핸드타월", "vendor": "다이소", "productName": "송월 면 핸드타월 30 X 30 cm 민트", "productCode": "1058363"}, {"code": "AST-034", "name": "타월고리", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-035", "name": "분리수거용 비닐 50L (40개입)", "vendor": "다이소", "productName": "뽑아 쓰는 분리수거 봉투 63X80cm 40매입", "productCode": "1042385"}, {"code": "AST-036", "name": "스티커제거제", "vendor": "쿠팡", "productName": "탐사 스티커 앤 타르 제거제, 250ml, 2개", "productCode": ""}, {"code": "AST-037", "name": "극세사걸레", "vendor": "쿠팡", "productName": "월드크린 고급 바둑 극세사 손걸레 그레이", "productCode": ""}, {"code": "AST-038", "name": "먼지털이", "vendor": "쿠팡", "productName": "크린메이트 그물망 먼지털이 대형, 혼합색상, 6개", "productCode": ""}, {"code": "AST-131", "name": "알콜스왑", "vendor": "다이소", "productName": "오죤 알콜스왑 100매입", "productCode": "1032539"}, {"code": "AST-040", "name": "사탕", "vendor": "쿠팡", "productName": "코피코 커피맛 캔디, 800g", "productCode": ""}, {"code": "AST-041", "name": "물티슈", "vendor": "다이소", "productName": "두툼한 물티슈 100매", "productCode": "1059142"}, {"code": "AST-042", "name": "유리세정제 (본품)", "vendor": "쿠팡", "productName": "산도깨비 유리세정제 600ml, 12개", "productCode": ""}, {"code": "AST-043", "name": "고무장갑", "vendor": "다이소", "productName": "3M 스카치 브라이트 고무장갑 중", "productCode": "1021629"}, {"code": "AST-044", "name": "세제본품", "vendor": "쿠팡", "productName": "탐사 베이킹소다 주방세제 레몬향, 780ml", "productCode": ""}, {"code": "AST-045", "name": "세제 리필형 대용량", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-046", "name": "수세미", "vendor": "다이소", "productName": "하드 부직포 수세미 6개입", "productCode": "1017096"}, {"code": "AST-132", "name": "커피바구니", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-047", "name": "사탕바구니", "vendor": "다이소", "productName": "멜라민 각진 다용도 볼 13 cm", "productCode": "1042157"}, {"code": "AST-048", "name": "빨래비누", "vendor": "다이소", "productName": "EM 세탁비누 250g", "productCode": "59157"}, {"code": "AST-049", "name": "쟁반", "vendor": "다이소", "productName": "PP컬러쟁반(약29*21.2 cm)", "productCode": "1048897"}, {"code": "AST-049", "name": "쟁반", "vendor": "다이소", "productName": "밀함유 쟁반 31x22cm", "productCode": "1037309"}, {"code": "AST-050", "name": "비누받침대", "vendor": "다이소", "productName": "세라픽 오픈 비누 받침", "productCode": "1018321"}, {"code": "AST-051", "name": "줄자(7.5m)", "vendor": "쿠팡", "productName": "탐사 고급형 줄자 7.5m", "productCode": ""}, {"code": "AST-052", "name": "멀티탭 3구 (3M)", "vendor": "쿠팡", "productName": "써지오 3구 개별 안전커버 멀티탭 DH-2039-RT + 안전커버", "productCode": ""}, {"code": "AST-117", "name": "멀티탭 3구 (1.5M)", "vendor": "쿠팡", "productName": "써지오 3구 개별 안전커버 멀티탭 DH-2039-RT + 안전커버", "productCode": ""}, {"code": "AST-053", "name": "멀티탭 5구 (1.5M)", "vendor": "쿠팡", "productName": "써지오 스위치 개별 멀티탭 5구 DH-1658-MT + 안전커버 2p", "productCode": ""}, {"code": "AST-054", "name": "멀티탭 5구 (3M)", "vendor": "쿠팡", "productName": "써지오 스위치 개별 멀티탭 5구 DH-1658-MT + 안전커버 2p", "productCode": ""}, {"code": "AST-055", "name": "바코드스캐너", "vendor": "네이버", "productName": "모토로라 지브라 심볼 DS-2208 바코드 스캐너 블랙", "productCode": ""}, {"code": "AST-098", "name": "일반 전화기 + AA건전지 2", "vendor": "쿠팡", "productName": "iTEK 발신자 표시 유선 전화기", "productCode": ""}, {"code": "AST-057", "name": "온습도계", "vendor": "네이버", "productName": "디지털 온도계 미니 탁상 자석 온습도계 LT-20", "productCode": ""}, {"code": "AST-058", "name": "방독면", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-059", "name": "장갑", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-060", "name": "보호의", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-061", "name": "방독면 필터", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-062", "name": "장화", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-063", "name": "흡착포", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-064", "name": "키즈락", "vendor": "네이버", "productName": "링크", "productCode": ""}, {"code": "AST-065", "name": "안전보호구 스티커", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-067", "name": "소화기 + 소화기 받침대 (각 1개)", "vendor": "쿠팡", "productName": "국가검정품 분말소화기 세트, 3.3kg, 1세트", "productCode": ""}, {"code": "AST-068", "name": "소화기점검표", "vendor": "", "productName": "", "productCode": ""}, {"code": "AST-069", "name": "접이식 책상", "vendor": "네이버", "productName": "접이식 사각 테이블 소 컴퓨터 책상 원목 탁자 식탁 다용도", "productCode": ""}, {"code": "AST-070", "name": "밀대", "vendor": "쿠팡", "productName": "캐치맙 밀대", "productCode": ""}, {"code": "AST-071", "name": "우산꽂이", "vendor": "다이소", "productName": "라탄무늬 우산꽂이", "productCode": "1011713"}, {"code": "AST-072", "name": "빗자루세트", "vendor": "다이소", "productName": "접이식 빗자루 세트", "productCode": "57634"}, {"code": "AST-073", "name": "간이 의자", "vendor": "다이소", "productName": "라탄무늬 원형 회전 의자", "productCode": "1019623"}, {"code": "AST-074", "name": "휴지 (30개입)", "vendor": "대량 주문", "productName": "", "productCode": ""}, {"code": "AST-075", "name": "락스2L", "vendor": "쿠팡", "productName": "탐사 락스, 2L", "productCode": ""}, {"code": "AST-076", "name": "손세정제 본품", "vendor": "다이소", "productName": "세꼼마 버블 항균 핸드워시 파우더 250ml", "productCode": "1034032"}, {"code": "AST-077", "name": "손 세정제 리필대용량", "vendor": "쿠팡", "productName": "비앙카 거품비누 핸드워시 손세정제 대용량 리필, 4L", "productCode": ""}, {"code": "AST-078", "name": "세숫대야", "vendor": "다이소", "productName": "SKY 타원형 대야", "productCode": "47517"}, {"code": "AST-133", "name": "펜꽂이", "vendor": "다이소", "productName": "스틸 원형 펜꽂이", "productCode": ""}, {"code": "AST-103", "name": "변기솔", "vendor": "다이소", "productName": "케이스 변기솔", "productCode": "24492"}, {"code": "AST-134", "name": "청소포", "vendor": "다이소", "productName": "정전기 청소포 21X38cm 50매", "productCode": "1033409"}, {"code": "AST-079", "name": "분무기", "vendor": "다이소", "productName": "원통 심플 분무기 500 ml", "productCode": "1060609"}, {"code": "AST-083", "name": "확장 브라캣", "vendor": "쿠팡", "productName": "[NEXI] 넥시 NX-SERIAL-BL1P 시리얼 확장 브라켓 [NX254] [LP 포함] [50CM]", "productCode": ""}, {"code": "AST-088", "name": "문 종", "vendor": "쿠팡", "productName": "데코스토리 미니멀 호박종 현관문종 문종 도어벨 자석식 풍경종 인테리어 벽장식 선물로 좋은", "productCode": "링크"}, {"code": "AST-087", "name": "전기파리채", "vendor": "네이버", "productName": "YP LTD-001A 리티안 전자모기채 모기라켓 모기파리채 캠핑벌레퇴치", "productCode": "링크"}, {"code": "AST-090", "name": "미끄럼주의 표지판", "vendor": "네이버", "productName": "영스토어 미끄럼주의 A형 스탠드 표지판 위험표지판 경고표지 매장표시판 도로표지판", "productCode": "링크"}, {"code": "AST-089", "name": "레인매트", "vendor": "네이버", "productName": "여기로 미끄럼방지매트 패드 수영장 고무 욕실 화장실 발판 4T 90x30cm", "productCode": "링크"}, {"code": "AST-091", "name": "미끄럼방지 테이프", "vendor": "쿠팡", "productName": "뿌푸 미끄럼 방지 논슬립 테이프 검정노랑, 2개", "productCode": "링크"}, {"code": "AST-092", "name": "몬스타겔", "vendor": "쿠팡", "productName": "몬스터클리어겔 다용도 초강력 실리콘 양면테이프 30mm x 1m, 투명, 5개", "productCode": "링크"}, {"code": "AST-056", "name": "구급상자", "vendor": "쿠팡", "productName": "한양 구급함 17종 중형세트 구급상자 구급용품", "productCode": "링크"}, {"code": "AST-093", "name": "일반 바구니", "vendor": "다이소", "productName": "리빙메쉬바구니7호(화이트)", "productCode": "36084"}, {"code": "AST-039", "name": "알콜", "vendor": "쿠팡", "productName": "삼현제약 청솔 소독용 에탄올, 8개, 250ml", "productCode": ""}, {"code": "AST-084", "name": "3칸 수납 바구니", "vendor": "다이소", "productName": "칸막이정리함(낮은형)", "productCode": "58371"}, {"code": "AST-094", "name": "문풍지", "vendor": "다이소", "productName": "4계절용 투명 문풍지", "productCode": "24694"}];
 
@@ -3502,6 +3598,358 @@ function updateOrderBadge() {
   if(b){b.textContent=n; b.style.display=n?'inline-block':'none';}
 }
 
+
+// ═══════════════════════════════════════════════════════
+// 쇼핑백/무지봉투 출고 관리
+// ═══════════════════════════════════════════════════════
+
+// 주소에서 지역명 추출
+function getBagRegion(storeName, address) {
+  const src = address || storeName || '';
+  const regions = ['서울','부산','대구','인천','광주','대전','울산','세종','경기','강원','충북','충남','전북','전남','경북','경남','제주'];
+  for (const r of regions) if (src.includes(r)) return r;
+  return src.slice(0,2);
+}
+
+// 주차 라벨 계산
+function getBagWeekLabel(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const day = d.getDay();
+  const mon = new Date(d); mon.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+  const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+  return `${mon.toLocaleDateString('ko-KR',{month:'2-digit',day:'2-digit'})} ~ ${sun.toLocaleDateString('ko-KR',{month:'2-digit',day:'2-digit'})}`;
+}
+
+// XLSX 로드 후 콜백 실행
+function withXLSX(fn) {
+  if (typeof XLSX !== 'undefined') { fn(); return; }
+  const sc = document.createElement('script');
+  sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+  sc.onload = fn;
+  document.head.appendChild(sc);
+}
+
+// ── 업로드 탭 ──
+function renderBagUpload() { /* 정적 HTML, 재렌더 불필요 */ }
+
+// 양식 다운로드
+function downloadBagTemplate() {
+  withXLSX(() => {
+    const wb = XLSX.utils.book_new();
+    const stores = ADDR.filter(s => s.name.includes('직영점'));
+    const rows = [['매장명','매장코드','쇼핑백(100매) 현재수량','무지봉투(100매) 현재수량']];
+    stores.forEach(s => rows.push([s.name, s.code||'', '', '']));
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:26},{wch:12},{wch:24},{wch:24}];
+    XLSX.utils.book_append_sheet(wb, ws, '재고현황입력');
+    XLSX.writeFile(wb, `쇼핑백무지봉투_재고현황_양식_${new Date().toISOString().slice(0,10)}.xlsx`);
+    notify('양식 다운로드 완료', 'success');
+  });
+}
+
+// 파일 드롭
+function onBagDrop(e) {
+  e.preventDefault();
+  const dz = document.getElementById('bagDropZone');
+  dz.style.borderColor = 'var(--bd)';
+  dz.style.background = 'var(--sf)';
+  const file = e.dataTransfer.files[0];
+  if (file) processBagFile(file);
+}
+
+// 파일 input 핸들러
+function handleBagFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  processBagFile(file);
+  e.target.value = '';
+}
+
+// 엑셀 파일 파싱
+function processBagFile(file) {
+  withXLSX(() => {
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      try {
+        const data = new Uint8Array(ev.target.result);
+        const wb = XLSX.read(data, {type:'array'});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+        if (!rows || rows.length < 2) { notify('데이터가 없습니다', 'error'); return; }
+        bagUploadRows = rows.slice(1)
+          .filter(r => r[0])
+          .map(r => ({
+            storeName: String(r[0]||'').trim(),
+            storeCode: String(r[1]||'').trim(),
+            shoppingQty: parseInt(r[2]) >= 0 ? parseInt(r[2]) : 0,
+            envelopeQty: parseInt(r[3]) >= 0 ? parseInt(r[3]) : 0,
+          }));
+        showBagPreview();
+      } catch(e) { notify('파일 읽기 실패: '+e.message, 'error'); }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// 미리보기 표시
+function showBagPreview() {
+  document.getElementById('bagRowCount').textContent = `${bagUploadRows.length}개 매장`;
+  document.getElementById('bagPreviewBody').innerHTML = bagUploadRows.map(r => `
+    <tr>
+      <td class="tb2">${r.storeName}</td>
+      <td class="tm">${r.storeCode}</td>
+      <td class="tm">${r.shoppingQty}</td>
+      <td class="tm">${r.envelopeQty}</td>
+    </tr>`).join('');
+  document.getElementById('bagPreviewWrap').style.display = '';
+}
+
+// 미리보기 취소
+function clearBagUpload() {
+  bagUploadRows = [];
+  document.getElementById('bagPreviewWrap').style.display = 'none';
+  document.getElementById('bagFileInput').value = '';
+}
+
+// 출고량 계산 & Supabase 저장
+async function calcBagShipping() {
+  if (!bagUploadRows.length) { notify('업로드된 데이터가 없습니다', 'error'); return; }
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const batchId = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
+  const batchLabel = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())} 등록`;
+  const calcDate = now.toISOString().slice(0,10);
+
+  const insertRows = [];
+  bagUploadRows.forEach(r => {
+    const shopRule = BAG_RULES['ETC-0013'];
+    const needShop = r.shoppingQty <= shopRule.threshold;
+    insertRows.push({batch_id:batchId, batch_label:batchLabel, calc_date:calcDate, store_name:r.storeName, store_code:r.storeCode, product_code:'ETC-0013', product_name:shopRule.name, current_qty:r.shoppingQty, need_ship:needShop, ship_qty:needShop?shopRule.shipQty:0});
+    const envRule = BAG_RULES['ETC-0016-1'];
+    const needEnv = r.envelopeQty <= envRule.threshold;
+    insertRows.push({batch_id:batchId, batch_label:batchLabel, calc_date:calcDate, store_name:r.storeName, store_code:r.storeCode, product_code:'ETC-0016-1', product_name:envRule.name, current_qty:r.envelopeQty, need_ship:needEnv, ship_qty:needEnv?envRule.shipQty:0});
+  });
+
+  showLoading('출고 계산 저장 중...');
+  try {
+    const {data, error} = await db.from('bag_shipping').insert(insertRows).select();
+    if (error) throw error;
+    data.forEach(r => BAG_SHIPPING.unshift(r));
+    const shipCnt = data.filter(r => r.need_ship).length;
+    notify(`출고 계산 완료 — ${shipCnt}건 출고 필요`, 'success');
+    clearBagUpload();
+    showPage('bag-result');
+  } catch(e) {
+    notify('저장 실패: '+e.message, 'error');
+  } finally { hideLoading(); }
+}
+
+// DB에서 bag_shipping 다시 로드
+async function loadBagFromDB() {
+  showLoading('출고 데이터 로딩 중...');
+  try {
+    const {data, error} = await db.from('bag_shipping').select('*').order('created_at', {ascending:false});
+    if (error) throw error;
+    BAG_SHIPPING.length = 0;
+    data.forEach(r => BAG_SHIPPING.push(r));
+    renderBagResult();
+    notify('새로고침 완료', 'success');
+  } catch(e) { notify('로드 실패: '+e.message, 'error'); }
+  finally { hideLoading(); }
+}
+
+// ── 출고 결과 탭 ──
+function renderBagResult() {
+  const filter = document.getElementById('bagResultFilter')?.value || 'all';
+  const search = (document.getElementById('bagResultSearch')?.value || '').toLowerCase();
+
+  // 배치별 그룹화
+  const batches = {};
+  BAG_SHIPPING.forEach(r => {
+    if (!batches[r.batch_id]) batches[r.batch_id] = {label: r.batch_label||r.batch_id, items: []};
+    batches[r.batch_id].items.push(r);
+  });
+
+  const batchIds = Object.keys(batches).sort((a,b) => b.localeCompare(a));
+  if (!batchIds.length) {
+    document.getElementById('bag-result-content').innerHTML = `
+      <div style="text-align:center;padding:48px;color:var(--tx3)">
+        <div style="font-size:32px;margin-bottom:10px">📭</div>
+        <div style="font-size:14px;font-weight:600">출고 계산 데이터가 없습니다</div>
+        <div style="font-size:12px;margin-top:4px">데이터 업로드 탭에서 재고 현황을 업로드해 주세요</div>
+      </div>`;
+    return;
+  }
+
+  let html = '';
+  batchIds.forEach(batchId => {
+    const batch = batches[batchId];
+    let items = batch.items;
+    if (filter === 'ship') items = items.filter(r => r.need_ship);
+    if (filter === 'ok')   items = items.filter(r => !r.need_ship);
+    if (search) items = items.filter(r => r.store_name.toLowerCase().includes(search));
+
+    const shipCount = batch.items.filter(r => r.need_ship).length;
+    const okCount   = batch.items.length - shipCount;
+
+    html += `
+    <div class="tw" style="margin-bottom:20px">
+      <div class="th">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="tt">${batch.label}</span>
+          <span class="badge b-pend">출고필요 ${shipCount}</span>
+          <span class="badge b-ship">충분 ${okCount}</span>
+        </div>
+        <div class="ta">
+          <button class="btn btn-gst btn-sm" onclick="downloadPlayPos('${batchId}')">📋 플레이엠디 포스 등록</button>
+          <button class="btn btn-pri btn-sm" onclick="downloadBagHanjin('${batchId}')">🚚 한진택배 발송목록</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto"><table>
+        <thead><tr><th>매장명</th><th>품목</th><th>현재수량</th><th>출고여부</th><th>출고수량</th></tr></thead>
+        <tbody>${items.map(r => `
+          <tr>
+            <td class="tb2">${r.store_name}</td>
+            <td style="color:var(--tx)">${r.product_name}</td>
+            <td class="tm">${r.current_qty}묶음</td>
+            <td>${r.need_ship ? '<span class="badge b-pend">출고 필요</span>' : '<span class="badge b-ship">충분</span>'}</td>
+            <td class="tm">${r.need_ship ? r.ship_qty+'묶음' : '-'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>
+    </div>`;
+  });
+
+  document.getElementById('bag-result-content').innerHTML = html;
+}
+
+// ── 출고 이력 탭 ──
+function renderBagHistory() {
+  const prodF  = document.getElementById('bagHistProduct')?.value || 'all';
+  const search = (document.getElementById('bagHistSearch')?.value || '').toLowerCase();
+
+  let items = BAG_SHIPPING.filter(r => r.need_ship);
+  if (prodF !== 'all') items = items.filter(r => r.product_code === prodF);
+  if (search) items = items.filter(r => r.store_name.toLowerCase().includes(search));
+
+  if (!items.length) {
+    document.getElementById('bag-history-content').innerHTML = `
+      <div style="text-align:center;padding:48px;color:var(--tx3)">
+        <div style="font-size:32px;margin-bottom:10px">📭</div>
+        <div style="font-size:14px;font-weight:600">출고 이력이 없습니다</div>
+      </div>`;
+    return;
+  }
+
+  // 주차별 그룹화
+  const weeks = {};
+  items.forEach(r => {
+    const wk = getBagWeekLabel(r.calc_date || (r.created_at||'').slice(0,10));
+    if (!weeks[wk]) weeks[wk] = [];
+    weeks[wk].push(r);
+  });
+
+  let html = '';
+  Object.keys(weeks).sort((a,b) => b.localeCompare(a)).forEach(wk => {
+    html += `
+    <div class="tw" style="margin-bottom:16px">
+      <div class="th">
+        <span class="tt">${wk}</span>
+        <span class="badge b-pend">${weeks[wk].length}건</span>
+      </div>
+      <div style="overflow-x:auto"><table>
+        <thead><tr><th>등록일</th><th>매장명</th><th>품목</th><th>현재수량</th><th>출고수량</th><th>배치</th></tr></thead>
+        <tbody>${weeks[wk].map(r => `
+          <tr>
+            <td class="tm">${r.calc_date||''}</td>
+            <td class="tb2">${r.store_name}</td>
+            <td>${r.product_name}</td>
+            <td class="tm">${r.current_qty}묶음</td>
+            <td class="tm">${r.ship_qty}묶음</td>
+            <td class="tm" style="color:var(--tx3)">${r.batch_label||''}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>
+    </div>`;
+  });
+
+  document.getElementById('bag-history-content').innerHTML = html;
+}
+
+// 이력 전체 삭제
+async function clearBagHistory() {
+  if (!confirm('모든 출고 이력을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) return;
+  showLoading('이력 삭제 중...');
+  try {
+    const {error} = await db.from('bag_shipping').delete().gte('id', 0);
+    if (error) throw error;
+    BAG_SHIPPING.length = 0;
+    renderBagHistory();
+    notify('이력이 초기화되었습니다', 'success');
+  } catch(e) { notify('삭제 실패: '+e.message, 'error'); }
+  finally { hideLoading(); }
+}
+
+// ── 엑셀 다운로드: 플레이엠디 포스 등록양식 ──
+function downloadPlayPos(batchId) {
+  withXLSX(() => {
+    const items = BAG_SHIPPING.filter(r => r.batch_id === batchId && r.need_ship);
+    if (!items.length) { notify('출고 필요 항목이 없습니다', 'error'); return; }
+    const today = new Date().toISOString().slice(0,10);
+    const rows = [['지역','매장코드','날짜','상품코드','상품명','수량','비고']];
+    items.forEach(r => {
+      const info = ADDR.find(a => a.name === r.store_name || (r.store_code && a.code === r.store_code)) || {address:''};
+      const region = getBagRegion(r.store_name, info.address);
+      rows.push([region, r.store_code||'', r.dispatch_date||today, r.product_code, r.product_name, r.ship_qty, '']);
+    });
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:8},{wch:12},{wch:12},{wch:14},{wch:24},{wch:8},{wch:10}];
+    XLSX.utils.book_append_sheet(wb, ws, '포스등록');
+    const label = items[0]?.batch_label || batchId;
+    XLSX.writeFile(wb, `플레이엠디포스등록_${label.replace(/[: ]/g,'_')}.xlsx`);
+    notify('플레이엠디 포스 등록 양식 다운로드 완료', 'success');
+  });
+}
+
+// ── 엑셀 다운로드: 한진택배 발송목록 ──
+function downloadBagHanjin(batchId) {
+  withXLSX(() => {
+    const items = BAG_SHIPPING.filter(r => r.batch_id === batchId && r.need_ship);
+    if (!items.length) { notify('출고 필요 항목이 없습니다', 'error'); return; }
+
+    // 매장별 품목 합산
+    const storeMap = {};
+    items.forEach(r => {
+      if (!storeMap[r.store_name]) storeMap[r.store_name] = {storeName:r.store_name, storeCode:r.store_code, shopping:0, envelope:0};
+      if (r.product_code === 'ETC-0013')   storeMap[r.store_name].shopping += r.ship_qty;
+      if (r.product_code === 'ETC-0016-1') storeMap[r.store_name].envelope += r.ship_qty;
+    });
+
+    const makeItem = (s, e) => {
+      if (s > 0 && e > 0) return `쇼핑백${s}묶음/무지봉투${e}묶음`;
+      if (s > 0) return `쇼핑백${s}묶음`;
+      if (e > 0) return `무지봉투${e}묶음`;
+      return '';
+    };
+
+    const rows = [['지역','고객명','전화번호','매장명','핸드폰','우편번호','주소','','품목','','지불조건','송장번호','특기사항']];
+    Object.values(storeMap).forEach(st => {
+      const info = ADDR.find(a => a.name === st.storeName || (st.storeCode && a.code === st.storeCode)) || {address:'',route:''};
+      const region = getBagRegion(st.storeName, info.address);
+      rows.push([region, st.storeName, '', st.storeName, '010-4435-6322', '', info.address, '', makeItem(st.shopping, st.envelope), '', '', '', '']);
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:8},{wch:22},{wch:14},{wch:22},{wch:14},{wch:8},{wch:40},{wch:4},{wch:24},{wch:4},{wch:8},{wch:10},{wch:12}];
+    XLSX.utils.book_append_sheet(wb, ws, '발송목록');
+    const label = items[0]?.batch_label || batchId;
+    XLSX.writeFile(wb, `한진택배_${label.replace(/[: ]/g,'_')}.xlsx`);
+    notify('한진택배 발송 목록 다운로드 완료', 'success');
+  });
+}
 
 // 테마 초기화
 if(localStorage.getItem('ams-theme')==='light'){
