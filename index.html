@@ -216,6 +216,9 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
       <div class="sc sc-gn"><div class="sl">이번달 출고</div><div class="sv sv-gn" id="dShipped">0</div><div class="sc-note">건</div></div>
       <div class="sc sc-pu"><div class="sl">수거 대기</div><div class="sv sv-pu" id="dPickup">0</div><div class="sc-note">수거 확인 필요</div></div>
     </div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+      <button class="btn btn-gst btn-sm" onclick="exportAllTables()">📥 전체 DB 엑셀 내보내기</button>
+    </div>
     <div class="dash-sec">📦 물류 재고 현황 <span style="font-size:11px;color:var(--tx3);font-weight:400">(부족 항목 우선 표시)</span></div>
     <div class="two-col">
       <div class="tw">
@@ -1962,6 +1965,52 @@ function histPush(entry) {
     date_str:   entry.date||null
   }).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
 }
+// ═══ 전체 DB 엑셀 내보내기 ═══
+async function exportAllTables(){
+  showLoading('DB 데이터 내보내는 중...');
+  try {
+    if(typeof XLSX==='undefined'){
+      await new Promise((res,rej)=>{const sc=document.createElement('script');sc.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';sc.onload=res;sc.onerror=rej;document.head.appendChild(sc);});
+    }
+    const wb = XLSX.utils.book_new();
+
+    // 테이블 정의: [테이블명, 시트명, 컬럼 순서]
+    const tables = [
+      {t:'inventory',      s:'물류재고',       cols:['id','code','name','qty','broken_qty']},
+      {t:'stores',         s:'매장정보',       cols:['id','code','name','route','address']},
+      {t:'store_assets',   s:'직영점자산현황', cols:['id','store_name','asset_name','qty']},
+      {t:'requests',       s:'자산신청',       cols:['id','date','manager','team','asset','code','qty','store','route','address','note','status','ship_type','out_date','out_mgr','out_memo','arr_date','created_at']},
+      {t:'pickups',        s:'수거신청',       cols:['id','date','manager','team','store','route','address','asset','code','qty','reason','note','status','pickup_date','conf_mgr','conf_memo','conf_date','created_at']},
+      {t:'store_history',  s:'이력',           cols:['id','date','store','asset','code','qty','type','manager','note','created_at']},
+      {t:'purchase_requests',s:'구매요청서헤더',cols:['id','request_date','manager','status','note','created_at']},
+      {t:'purchase_items', s:'구매요청품목',   cols:['id','request_id','asset_code','asset_name','req_qty','order_qty','received_qty','status','note']},
+      {t:'bag_shipping',   s:'쇼핑백출고',     cols:['id','batch_id','batch_label','calc_date','store_name','store_code','product_code','product_name','current_qty','need_ship','ship_qty','dispatched','created_at']},
+    ];
+
+    for(const {t, s, cols} of tables){
+      const {data, error} = await db.from(t).select('*').order('id');
+      if(error){ console.error(`[${t}]`, error.message); continue; }
+      const rows = data || [];
+      // 헤더 행
+      const sheetData = [cols];
+      rows.forEach(r => sheetData.push(cols.map(c => r[c] !== undefined && r[c] !== null ? r[c] : '')));
+      const ws = XLSX.utils.aoa_to_sheet(sheetData);
+      // 컬럼 너비 자동 조정
+      ws['!cols'] = cols.map(c => ({wch: Math.max(c.length, 12)}));
+      XLSX.utils.book_append_sheet(wb, ws, s);
+    }
+
+    const today = new Date().toISOString().slice(0,10);
+    XLSX.writeFile(wb, `AMS_전체DB_${today}.xlsx`);
+    notify('✓ 엑셀 내보내기 완료', 'success');
+  } catch(e){
+    console.error('[엑셀 내보내기 오류]', e);
+    notify('내보내기 실패: '+e.message, 'error');
+  } finally {
+    hideLoading();
+  }
+}
+
 // ═══ TELEGRAM 알림 ═══
 function sendTelegram(msg){
   const token='7631301557:AAHaX_j_jaqZcozlayCOLQXFjXB9JQhkIRQ';
