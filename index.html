@@ -791,17 +791,18 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
 
 <!-- ══════════════════════════════ 쇼핑백/무지봉투 - 출고 결과 ══════════════════════════════ -->
 <div id="page-bag-result" class="hidden" style="padding:22px 28px">
-  <div class="tw" style="margin-bottom:14px">
-    <div style="padding:12px 16px;display:flex;gap:8px;align-items:center">
-      <select class="fsel" id="bagResultFilter" onchange="renderBagResult()" style="width:130px">
-        <option value="all">전체</option>
-        <option value="ship">출고 필요</option>
-        <option value="ok">재고 충분</option>
-      </select>
-      <input type="text" class="fi" id="bagResultSearch" placeholder="매장명 검색..." oninput="renderBagResult()" style="flex:1">
-      <button class="btn btn-gst btn-sm" onclick="loadBagFromDB()">↺ 새로고침</button>
+  <!-- 필터 + 검색 -->
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+    <div style="display:flex;gap:4px">
+      <button id="brf-all"  class="btn btn-sm" style="background:var(--ac);color:#fff;border:1px solid var(--ac)" onclick="setBagResultFilter('all')">전체</button>
+      <button id="brf-ship" class="btn btn-gst btn-sm" onclick="setBagResultFilter('ship')">출고 필요</button>
+      <button id="brf-ok"   class="btn btn-gst btn-sm" onclick="setBagResultFilter('ok')">재고 충분</button>
     </div>
+    <input type="text" class="fi" id="bagResultSearch" placeholder="매장명 검색..." oninput="renderBagResult()" style="flex:1;min-width:120px">
+    <button class="btn btn-gst btn-sm" onclick="loadBagFromDB()">↺ 새로고침</button>
   </div>
+  <!-- 출고 합계 요약 -->
+  <div id="bagResultSummary" style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap"></div>
   <div id="bag-result-content"></div>
 </div>
 
@@ -3935,8 +3936,19 @@ async function loadBagFromDB() {
 }
 
 // ── 출고 결과 탭 ──
+let bagResultFilter = 'all';
+function setBagResultFilter(val) {
+  bagResultFilter = val;
+  ['all','ship','ok'].forEach(v => {
+    const btn = document.getElementById('brf-'+v);
+    if (!btn) return;
+    if (v === val) { btn.style.background='var(--ac)'; btn.style.color='#fff'; btn.style.borderColor='var(--ac)'; }
+    else { btn.style.background=''; btn.style.color=''; btn.style.borderColor=''; btn.className='btn btn-gst btn-sm'; }
+  });
+  renderBagResult();
+}
 function renderBagResult() {
-  const filter = document.getElementById('bagResultFilter')?.value || 'all';
+  const filter = bagResultFilter || 'all';
   const search = (document.getElementById('bagResultSearch')?.value || '').toLowerCase();
 
   // 배치별 그룹화
@@ -3948,6 +3960,7 @@ function renderBagResult() {
 
   const batchIds = Object.keys(batches).sort((a,b) => b.localeCompare(a));
   if (!batchIds.length) {
+    document.getElementById('bagResultSummary').innerHTML = '';
     document.getElementById('bag-result-content').innerHTML = `
       <div style="text-align:center;padding:48px;color:var(--tx3)">
         <div style="font-size:32px;margin-bottom:10px">📭</div>
@@ -3955,6 +3968,32 @@ function renderBagResult() {
         <div style="font-size:12px;margin-top:4px">데이터 업로드 탭에서 재고 현황을 업로드해 주세요</div>
       </div>`;
     return;
+  }
+
+  // 출고 합계 (need_ship 항목 기준, 필터/검색 적용)
+  let totalShop = 0, totalEnv = 0;
+  BAG_SHIPPING.forEach(r => {
+    if (!r.need_ship) return;
+    if (filter === 'ok') return;
+    if (search && !r.store_name.toLowerCase().includes(search)) return;
+    if (r.product_code === 'ETC-0013')   totalShop += (r.ship_qty || 0);
+    if (r.product_code === 'ETC-0016-1') totalEnv  += (r.ship_qty || 0);
+  });
+  const sumEl = document.getElementById('bagResultSummary');
+  if (sumEl && filter !== 'ok') {
+    sumEl.innerHTML = `
+      <div style="background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:12px 20px;display:flex;align-items:center;gap:6px">
+        <span class="badge b-pend" style="font-size:12px">쇼핑백</span>
+        <span style="font-size:14px;font-weight:700;color:var(--tx)">${totalShop}묶음</span>
+        <span style="font-size:12px;color:var(--tx3)">(${(totalShop*100).toLocaleString()}개)</span>
+      </div>
+      <div style="background:var(--sf);border:1px solid var(--bd);border-radius:10px;padding:12px 20px;display:flex;align-items:center;gap:6px">
+        <span class="badge b-appr" style="font-size:12px">무지봉투</span>
+        <span style="font-size:14px;font-weight:700;color:var(--tx)">${totalEnv}묶음</span>
+        <span style="font-size:12px;color:var(--tx3)">(${(totalEnv*100).toLocaleString()}개)</span>
+      </div>`;
+  } else if (sumEl) {
+    sumEl.innerHTML = '';
   }
 
   let html = '';
