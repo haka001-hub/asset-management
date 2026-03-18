@@ -274,17 +274,16 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
         <div class="tt">등록 매장 목록 <span id="storeMgmtCount" style="font-size:13px;font-weight:400;color:var(--tx3)"></span></div>
         <div class="sw"><span class="sic">⌕</span><input class="si" id="storeMgmtSrch" placeholder="매장명·코드·코스 검색..." oninput="renderStoreMgmt()"></div>
       </div>
-      <table class="ta" style="width:100%">
-        <colgroup>
-          <col style="width:100px"><col style="width:240px"><col style="width:80px"><col><col style="width:60px">
-        </colgroup>
-        <thead><tr>
-          <th style="text-align:center;padding:8px 12px">매장코드</th>
-          <th style="padding:8px 12px">매장명</th>
-          <th style="text-align:center;padding:8px 12px">배송코스</th>
-          <th style="padding:8px 12px">주소</th>
-          <th style="text-align:center;padding:8px 12px">관리</th>
-        </tr></thead>
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="border-bottom:1px solid var(--bd);background:var(--sf2)">
+            <th style="width:100px;padding:9px 14px;text-align:center;font-size:12px;font-weight:600;color:var(--tx3)">매장코드</th>
+            <th style="width:220px;padding:9px 14px;text-align:left;font-size:12px;font-weight:600;color:var(--tx3)">매장명</th>
+            <th style="width:80px;padding:9px 14px;text-align:center;font-size:12px;font-weight:600;color:var(--tx3)">배송코스</th>
+            <th style="padding:9px 14px;text-align:left;font-size:12px;font-weight:600;color:var(--tx3)">주소</th>
+            <th style="width:100px;padding:9px 14px;text-align:center;font-size:12px;font-weight:600;color:var(--tx3)">관리</th>
+          </tr>
+        </thead>
         <tbody id="storeMgmtBody"></tbody>
       </table>
     </div>
@@ -1718,14 +1717,14 @@ function renderStoreMgmt(){
   const list=q?all.filter(s=>s.name.toLowerCase().includes(q)||(s.code||'').toLowerCase().includes(q)||(s.route||'').toLowerCase().includes(q)):all;
   document.getElementById('storeMgmtCount').textContent=`(${list.length}개)`;
   document.getElementById('storeMgmtBody').innerHTML=list.map(s=>`
-    <tr style="height:36px">
-      <td style="text-align:center;padding:6px 10px;font-size:12px;color:var(--tx3);white-space:nowrap">${s.code||'-'}</td>
-      <td style="padding:6px 10px;font-size:13px;font-weight:500;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px">${s.name}</td>
-      <td style="text-align:center;padding:6px 10px;font-size:12px;white-space:nowrap"><span class="rt">${s.route||'-'}</span></td>
-      <td style="padding:6px 10px;font-size:12px;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:400px">${s.address||'-'}</td>
-      <td style="text-align:center;padding:4px 8px;white-space:nowrap">
+    <tr style="border-bottom:1px solid var(--bd)">
+      <td style="width:100px;padding:8px 14px;text-align:center;font-size:12px;color:var(--tx3)">${s.code||'-'}</td>
+      <td style="width:220px;padding:8px 14px;font-size:13px;font-weight:500;color:var(--tx)">${s.name}</td>
+      <td style="width:80px;padding:8px 14px;text-align:center;font-size:12px"><span class="rt">${s.route||'-'}</span></td>
+      <td style="padding:8px 14px;font-size:12px;color:var(--tx2)">${s.address||'-'}</td>
+      <td style="width:100px;padding:6px 14px;text-align:center;white-space:nowrap">
         <button class="btn btn-gst btn-sm" style="padding:3px 10px;font-size:11px" onclick="openEditStore(${s.id})">수정</button>
-        <button class="btn btn-sm" style="padding:3px 10px;font-size:11px;background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.3);border-radius:5px;cursor:pointer;margin-left:4px" onclick="deleteStore(${s.id},'${s.name.replace(/'/g,'\\\'')}')">삭제</button>
+        <button style="padding:3px 10px;font-size:11px;background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.3);border-radius:5px;cursor:pointer;margin-left:4px" onclick="deleteStore(${s.id},'${s.name.replace(/'/g,'\\\'')}')">삭제</button>
       </td>
     </tr>`).join('')||'<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--tx3)">등록된 매장 없음</td></tr>';
 }
