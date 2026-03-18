@@ -841,7 +841,9 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
         <div class="fgrp"><label class="flb">직영점명 <span>*</span></label>
           <div class="acw"><input type="text" class="fi" id="urStore" placeholder="매장명 입력..." autocomplete="off" oninput="acUniStore(this.value,'req')" onfocus="acUniStore(this.value,'req')"><div class="acl" id="acUrStList"></div></div>
         </div>
-        <div class="fgrp"><label class="flb">수령 매니저 성함 <span>*</span></label><input type="text" class="fi" id="urRecvMgr" placeholder="매니저명"></div>
+        <div class="fgrp"><label class="flb">수령 매니저 성함 <span>*</span></label>
+          <div class="acw"><input type="text" class="fi" id="urRecvMgr" placeholder="매니저명 검색..." autocomplete="off" oninput="acUniMgr(this,'acUrMgrList')" onfocus="acUniMgr(this,'acUrMgrList')"><div class="acl" id="acUrMgrList"></div></div>
+        </div>
       </div>
       <div class="sdiv">신청 품목</div>
       <div id="uniReqItemsWrap"></div>
@@ -857,7 +859,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
       <div class="tt">유니폼 신청 목록</div>
       <div class="ta"><div class="sw"><span class="sic">⌕</span><input class="si" id="urSrch" placeholder="검색..." oninput="renderUniformReqList()"></div></div>
     </div>
-    <table><thead><tr><th>번호</th><th>작성일자</th><th>신청자</th><th>직영점</th><th>수령매니저</th><th>유니폼</th><th>사이즈</th><th>수량</th><th>사유</th><th>비고</th><th>처리일시</th></tr></thead>
+    <table><thead><tr><th>번호</th><th>작성일자</th><th>신청자</th><th>직영점</th><th>수령매니저</th><th>유니폼</th><th>사이즈</th><th>수량</th><th>사유</th><th>비고</th><th>상태</th><th>출고일자</th><th>도착일자</th><th>출고비고</th><th>액션</th></tr></thead>
     <tbody id="uniReqTable"></tbody></table>
   </div>
 </div>
@@ -876,7 +878,9 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
         <div class="fgrp"><label class="flb">직영점명 <span>*</span></label>
           <div class="acw"><input type="text" class="fi" id="upkStore" placeholder="매장명 입력..." autocomplete="off" oninput="acUniStore(this.value,'pickup')" onfocus="acUniStore(this.value,'pickup')"><div class="acl" id="acUpkStList"></div></div>
         </div>
-        <div class="fgrp"><label class="flb">반환 매니저 성함 <span>*</span></label><input type="text" class="fi" id="upkReturnMgr" placeholder="매니저명"></div>
+        <div class="fgrp"><label class="flb">반환 매니저 성함 <span>*</span></label>
+          <div class="acw"><input type="text" class="fi" id="upkReturnMgr" placeholder="매니저명 검색..." autocomplete="off" oninput="acUniMgr(this,'acUpkMgrList')" onfocus="acUniMgr(this,'acUpkMgrList')"><div class="acl" id="acUpkMgrList"></div></div>
+        </div>
       </div>
       <div class="sdiv">수거 품목</div>
       <div id="uniPkpItemsWrap"></div>
@@ -892,7 +896,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
       <div class="tt">유니폼 수거 목록</div>
       <div class="ta"><div class="sw"><span class="sic">⌕</span><input class="si" id="upkSrch" placeholder="검색..." oninput="renderUniformPkpList()"></div></div>
     </div>
-    <table><thead><tr><th>번호</th><th>작성일자</th><th>신청자</th><th>직영점</th><th>반환매니저</th><th>유니폼</th><th>사이즈</th><th>수량</th><th>사유</th><th>비고</th><th>처리일시</th></tr></thead>
+    <table><thead><tr><th>번호</th><th>작성일자</th><th>신청자</th><th>직영점</th><th>반환매니저</th><th>유니폼</th><th>사이즈</th><th>수량</th><th>사유</th><th>비고</th><th>상태</th><th>수거일자</th><th>수거비고</th><th>액션</th></tr></thead>
     <tbody id="uniPkpTable"></tbody></table>
   </div>
 </div>
@@ -909,7 +913,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
       <button class="tab" onclick="setUniHistFilter('신청',this)">신청(출고)</button>
       <button class="tab" onclick="setUniHistFilter('수거',this)">수거</button>
     </div>
-    <table><thead><tr><th>구분</th><th>작성일자</th><th>신청자</th><th>직영점</th><th>매니저</th><th>유니폼</th><th>사이즈</th><th>수량</th><th>사유</th><th>비고</th><th>처리일시</th></tr></thead>
+    <table><thead><tr><th>구분</th><th>작성일자</th><th>출고/수거일자</th><th>도착일자</th><th>신청자</th><th>직영점</th><th>매니저</th><th>유니폼</th><th>사이즈</th><th>수량</th><th>사유</th><th>비고(신청)</th><th>비고(처리)</th></tr></thead>
     <tbody id="uniHistTable"></tbody></table>
   </div>
 </div>
@@ -930,6 +934,105 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
 </div>
 
 </main>
+
+<!-- ══ MODAL: 유니폼 출고 처리 ══ -->
+<div class="mo" id="moUniShip">
+  <div class="md" style="width:480px">
+    <div class="md-hd">
+      <div><div class="md-ti">유니폼 출고 처리</div><div class="md-su">출고 확정 → 물류재고 자동 차감 · 관리대장 반영</div></div>
+      <button class="md-cl" onclick="closeMo('moUniShip')">✕</button>
+    </div>
+    <div class="md-bd">
+      <input type="hidden" id="uniShipTargetId">
+      <div class="fg">
+        <div class="fgrp s2"><label class="flb">신청 내용</label><div id="uniShipInfo" style="font-size:13px;color:var(--tx2);padding:6px 0"></div></div>
+        <div class="fgrp"><label class="flb">출고일자 <span>*</span></label><input type="date" class="fi" id="uniOutDate"></div>
+        <div class="fgrp"><label class="flb">도착일자</label><input type="date" class="fi" id="uniArrDate"></div>
+        <div class="fgrp s2"><label class="flb">비고</label><input type="text" class="fi" id="uniOutNote" placeholder="출고 메모"></div>
+      </div>
+    </div>
+    <div class="md-ft">
+      <button class="btn btn-gst" onclick="closeMo('moUniShip')">취소</button>
+      <button class="btn btn-suc" onclick="doUniShip()">출고하기 ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: 유니폼 수거 확인 ══ -->
+<div class="mo" id="moUniPickup">
+  <div class="md" style="width:480px">
+    <div class="md-hd">
+      <div><div class="md-ti">유니폼 수거 확인</div><div class="md-su">수거 확정 → 물류재고 자동 증가 · 관리대장 반영</div></div>
+      <button class="md-cl" onclick="closeMo('moUniPickup')">✕</button>
+    </div>
+    <div class="md-bd">
+      <input type="hidden" id="uniPickupTargetId">
+      <div class="fg">
+        <div class="fgrp s2"><label class="flb">수거 신청 내용</label><div id="uniPickupInfo" style="font-size:13px;color:var(--tx2);padding:6px 0"></div></div>
+        <div class="fgrp s2"><label class="flb">수거일자 <span>*</span></label><input type="date" class="fi" id="uniPickupDate"></div>
+        <div class="fgrp s2"><label class="flb">비고</label><input type="text" class="fi" id="uniPickupNote" placeholder="수거 메모"></div>
+      </div>
+    </div>
+    <div class="md-ft">
+      <button class="btn btn-gst" onclick="closeMo('moUniPickup')">취소</button>
+      <button class="btn btn-suc" onclick="doUniPickup()">수거확인 ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: 유니폼 매니저 편집 ══ -->
+<div class="mo" id="moUniMgrEdit">
+  <div class="md" style="width:400px">
+    <div class="md-hd">
+      <div><div class="md-ti">매니저 정보 수정</div></div>
+      <button class="md-cl" onclick="closeMo('moUniMgrEdit')">✕</button>
+    </div>
+    <div class="md-bd">
+      <input type="hidden" id="uniMgrEditId">
+      <div class="fg">
+        <div class="fgrp s2"><label class="flb">매니저명</label><input type="text" class="fi" id="uniMgrEditName" placeholder="이름"></div>
+        <div class="fgrp s2"><label class="flb">재직 상태</label>
+          <select class="fsel" id="uniMgrEditStatus">
+            <option value="재직">재직</option>
+            <option value="휴직">휴직</option>
+            <option value="퇴직">퇴직</option>
+          </select>
+        </div>
+        <div class="fgrp s2"><label class="flb">비고</label><input type="text" class="fi" id="uniMgrEditNote" placeholder="메모"></div>
+      </div>
+    </div>
+    <div class="md-ft">
+      <button class="btn btn-gst" onclick="closeMo('moUniMgrEdit')">취소</button>
+      <button class="btn btn-pri" onclick="saveUniMgrEdit()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: 유니폼 재고 편집 ══ -->
+<div class="mo" id="moUniStockEdit">
+  <div class="md" style="width:420px">
+    <div class="md-hd">
+      <div><div class="md-ti">유니폼 보유현황 수정</div></div>
+      <button class="md-cl" onclick="closeMo('moUniStockEdit')">✕</button>
+    </div>
+    <div class="md-bd">
+      <input type="hidden" id="uniStockEditId">
+      <div class="fg">
+        <div class="fgrp s2"><label class="flb">유니폼</label><input type="text" class="fi" id="uniStockEditItem" placeholder="품목명"></div>
+        <div class="fgrp"><label class="flb">사이즈</label>
+          <select class="fsel" id="uniStockEditSize">
+            <option>XS</option><option>S</option><option>M</option><option>L</option><option>XL</option><option>2XL</option><option>3XL</option>
+          </select>
+        </div>
+        <div class="fgrp"><label class="flb">보유수량</label><input type="number" class="fi" id="uniStockEditQty" min="0" style="text-align:center"></div>
+      </div>
+    </div>
+    <div class="md-ft">
+      <button class="btn btn-gst" onclick="closeMo('moUniStockEdit')">취소</button>
+      <button class="btn btn-pri" onclick="saveUniStockEdit()">저장</button>
+    </div>
+  </div>
+</div>
 
 <!-- ══ MODAL: 출고 처리 ══ -->
 <div class="mo" id="moOut">
@@ -1336,18 +1439,20 @@ async function loadFromDB() {
     console.error('DB load error:', e);
     notify('데이터 로드 실패 — 새로고침 해주세요', 'error');
   }
-  // 유니폼 테이블 별도 로드 (테이블 미생성 시 앱 전체 오류 방지)
+  // 유니폼 테이블 별도 로드
   try {
-    const [uniReqRes, uniPkpRes, uniMgrRes] = await Promise.all([
+    const [uniReqRes, uniPkpRes, uniMgrRes, uniMgrListRes] = await Promise.all([
       db.from('uniform_requests').select('*').order('created_at', {ascending: false}),
       db.from('uniform_pickups').select('*').order('created_at', {ascending: false}),
-      db.from('uniform_manager_stock').select('*').order('store_name')
+      db.from('uniform_manager_stock').select('*').order('store_name'),
+      db.from('uniform_managers').select('*').order('manager_name')
     ]);
     if (uniReqRes.data) { UNIFORM_REQS.length=0; uniReqRes.data.forEach(r=>UNIFORM_REQS.push(r)); }
     if (uniPkpRes.data) { UNIFORM_PKPS.length=0; uniPkpRes.data.forEach(r=>UNIFORM_PKPS.push(r)); }
     if (uniMgrRes.data) { UNIFORM_MGRSTK.length=0; uniMgrRes.data.forEach(r=>UNIFORM_MGRSTK.push(r)); }
+    if (uniMgrListRes.data) { UNIFORM_MANAGERS.length=0; uniMgrListRes.data.forEach(r=>UNIFORM_MANAGERS.push(r)); }
   } catch(ue) {
-    console.warn('유니폼 테이블 미생성 상태:', ue.message);
+    console.warn('유니폼 테이블 로드 오류:', ue.message);
   }
   hideLoading();
 }
@@ -3308,6 +3413,7 @@ let BAG_SHIPPING = [];
 let UNIFORM_REQS = [];
 let UNIFORM_PKPS = [];
 let UNIFORM_MGRSTK = [];
+let UNIFORM_MANAGERS = [];
 let uniReqRows = [];
 let uniPkpRows = [];
 let bagUploadRows = []; // 업로드 후 계산 전 임시 데이터
@@ -4325,6 +4431,7 @@ function getUniformItems() {
   return u.length ? u : INV;
 }
 
+// ─── 매장 자동완성 ───
 function acUniStore(val, mode) {
   const listId = mode === 'req' ? 'acUrStList' : 'acUpkStList';
   const inputId = mode === 'req' ? 'urStore' : 'upkStore';
@@ -4332,8 +4439,7 @@ function acUniStore(val, mode) {
   const input = document.getElementById(inputId);
   const q = val.trim();
   if (!q) { list.classList.remove('show'); return; }
-  const all = getAllStores();
-  const m = all.filter(s => s.name.includes(q) || (s.code && s.code.includes(q))).slice(0, 12);
+  const m = getAllStores().filter(s => s.name.includes(q) || (s.code && s.code.includes(q))).slice(0, 12);
   if (!m.length) { list.classList.remove('show'); return; }
   list.innerHTML = m.map(s => `
     <div class="aci" onclick="selUniStore('${s.name.replace(/'/g,"\\'")}','${mode}')">
@@ -4344,297 +4450,501 @@ function acUniStore(val, mode) {
   positionAcl(list, input);
   list.classList.add('show');
 }
-
 function selUniStore(name, mode) {
   document.getElementById(mode === 'req' ? 'urStore' : 'upkStore').value = name;
   document.getElementById(mode === 'req' ? 'acUrStList' : 'acUpkStList').classList.remove('show');
 }
 
+// ─── 매니저 자동완성 ───
+function acUniMgr(inp, listId) {
+  const list = document.getElementById(listId);
+  if (!list) return;
+  const q = inp.value.trim().toLowerCase();
+  if (!q) { list.classList.remove('show'); return; }
+  const m = UNIFORM_MANAGERS.filter(x => x.manager_name.toLowerCase().includes(q)).slice(0, 12);
+  if (!m.length) { list.classList.remove('show'); return; }
+  list.innerHTML = m.map(x => `
+    <div class="aci" onclick="document.getElementById('${inp.id}').value='${x.manager_name.replace(/'/g,"\\'")}';document.getElementById('${listId}').classList.remove('show')">
+      <span class="aci-nm">${x.manager_name}</span>
+      <span class="badge ${x.employment_status==='재직'?'b-appr':x.employment_status==='휴직'?'b-prog':'b-zero'}" style="margin-left:8px;font-size:10px">${x.employment_status}</span>
+    </div>`).join('');
+  positionAcl(list, inp);
+  list.classList.add('show');
+}
+
+async function checkAndRegisterMgr(name, storeName) {
+  if (!name) return true;
+  const exists = UNIFORM_MANAGERS.find(m => m.manager_name === name);
+  if (exists) return true;
+  const ok = confirm(`"${name}"은 관리대장에 없는 이름입니다.\n신규 입사자인가요? 관리대장에 등록하시겠습니까?`);
+  if (!ok) return false;
+  const {data: ins} = await db.from('uniform_managers').insert({manager_name: name, employment_status: '재직'}).select().single();
+  if (ins) UNIFORM_MANAGERS.push(ins);
+  notify(`"${name}" 신규 매니저로 등록되었습니다`, 'success');
+  return true;
+}
+
+// ─── 폼 토글/초기화 ───
 function toggleUniReqForm(btn) {
   const body = document.getElementById('uniReqFormBody');
   const hidden = body.style.display === 'none';
   body.style.display = hidden ? '' : 'none';
   btn.textContent = hidden ? '접기 ▲' : '펼치기 ▼';
 }
-
 function toggleUniPkpForm(btn) {
   const body = document.getElementById('uniPkpFormBody');
   const hidden = body.style.display === 'none';
   body.style.display = hidden ? '' : 'none';
   btn.textContent = hidden ? '접기 ▲' : '펼치기 ▼';
 }
-
 function clearUniReqForm() {
   const today = new Date().toISOString().split('T')[0];
-  const d = document.getElementById('urDate'); if(d) d.value = today;
-  const m = document.getElementById('urMgr'); if(m) m.value = '';
-  const s = document.getElementById('urStore'); if(s) s.value = '';
-  const r = document.getElementById('urRecvMgr'); if(r) r.value = '';
+  ['urDate','urMgr','urStore','urRecvMgr'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=id==='urDate'?today:'';});
   uniReqRows = [{name:'', code:'', size:'M', qty:1, reason:'입사', note:''}];
   renderUniReqItems();
 }
-
 function clearUniPkpForm() {
   const today = new Date().toISOString().split('T')[0];
-  const d = document.getElementById('upkDate'); if(d) d.value = today;
-  const m = document.getElementById('upkMgr'); if(m) m.value = '';
-  const s = document.getElementById('upkStore'); if(s) s.value = '';
-  const r = document.getElementById('upkReturnMgr'); if(r) r.value = '';
+  ['upkDate','upkMgr','upkStore','upkReturnMgr'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=id==='upkDate'?today:'';});
   uniPkpRows = [{name:'', code:'', size:'M', qty:1, reason:'퇴사', note:''}];
   renderUniPkpItems();
 }
 
-function addUniReqItem() {
-  uniReqRows.push({name:'', code:'', size:'M', qty:1, reason:'입사', note:''});
-  renderUniReqItems();
-}
-function removeUrItem(i) {
-  if (uniReqRows.length <= 1) { notify('품목은 1개 이상이어야 합니다', 'error'); return; }
-  uniReqRows.splice(i, 1); renderUniReqItems();
-}
-function addUniPkpItem() {
-  uniPkpRows.push({name:'', code:'', size:'M', qty:1, reason:'퇴사', note:''});
-  renderUniPkpItems();
-}
-function removeUpkItem(i) {
-  if (uniPkpRows.length <= 1) { notify('품목은 1개 이상이어야 합니다', 'error'); return; }
-  uniPkpRows.splice(i, 1); renderUniPkpItems();
-}
+// ─── 품목 행 관리 ───
+function addUniReqItem() { uniReqRows.push({name:'', code:'', size:'M', qty:1, reason:'입사', note:''}); renderUniReqItems(); }
+function removeUrItem(i) { if (uniReqRows.length<=1){notify('품목은 1개 이상','error');return;} uniReqRows.splice(i,1); renderUniReqItems(); }
+function addUniPkpItem() { uniPkpRows.push({name:'', code:'', size:'M', qty:1, reason:'퇴사', note:''}); renderUniPkpItems(); }
+function removeUpkItem(i) { if (uniPkpRows.length<=1){notify('품목은 1개 이상','error');return;} uniPkpRows.splice(i,1); renderUniPkpItems(); }
 
 function _uniItemRowHtml(prefix, row, i, uniformOpts) {
-  const sizeOpts = ['XS','S','M','L','XL','2XL','3XL'].map(s => `<option value="${s}"${row.size===s?' selected':''}>${s}</option>`).join('');
-  const rsnOpts = ['입사','퇴사','사이즈교환','오염','기타'].map(r => `<option value="${r}"${row.reason===r?' selected':''}>${r}</option>`).join('');
-  const rows = prefix === 'ur' ? 'uniReqRows' : 'uniPkpRows';
-  const removeFn = prefix === 'ur' ? `removeUrItem(${i})` : `removeUpkItem(${i})`;
+  const sizeOpts = ['XS','S','M','L','XL','2XL','3XL'].map(s=>`<option value="${s}"${row.size===s?' selected':''}>${s}</option>`).join('');
+  const rsnOpts = ['입사','퇴사','사이즈교환','오염','기타'].map(r=>`<option value="${r}"${row.reason===r?' selected':''}>${r}</option>`).join('');
+  const rowsVar = prefix==='ur'?'uniReqRows':'uniPkpRows';
+  const removeFn = prefix==='ur'?`removeUrItem(${i})`:`removeUpkItem(${i})`;
   return `<div style="display:grid;grid-template-columns:2fr 90px 70px 130px 1fr 34px;gap:8px;align-items:end;margin-bottom:8px">
     <div class="fgrp" style="margin:0"><label class="flb" style="font-size:11px">유니폼 <span>*</span></label>
-      <select class="fsel" id="${prefix}ItemNm_${i}" onchange="${rows}[${i}].code=this.value;${rows}[${i}].name=this.options[this.selectedIndex]?.dataset?.name||''">
-        <option value="">-- 선택 --</option>${uniformOpts}
-      </select></div>
+      <select class="fsel" id="${prefix}ItemNm_${i}" onchange="${rowsVar}[${i}].code=this.value;${rowsVar}[${i}].name=this.options[this.selectedIndex]?.dataset?.name||''">
+        <option value="">-- 선택 --</option>${uniformOpts}</select></div>
     <div class="fgrp" style="margin:0"><label class="flb" style="font-size:11px">사이즈</label>
-      <select class="fsel" id="${prefix}ItemSz_${i}" onchange="${rows}[${i}].size=this.value">${sizeOpts}</select></div>
+      <select class="fsel" id="${prefix}ItemSz_${i}" onchange="${rowsVar}[${i}].size=this.value">${sizeOpts}</select></div>
     <div class="fgrp" style="margin:0"><label class="flb" style="font-size:11px">수량 <span>*</span></label>
-      <input type="number" class="fi" id="${prefix}ItemQty_${i}" value="${row.qty}" min="1" style="text-align:center" oninput="${rows}[${i}].qty=parseInt(this.value)||1"></div>
+      <input type="number" class="fi" id="${prefix}ItemQty_${i}" value="${row.qty}" min="1" style="text-align:center" oninput="${rowsVar}[${i}].qty=parseInt(this.value)||1"></div>
     <div class="fgrp" style="margin:0"><label class="flb" style="font-size:11px">사유 <span>*</span></label>
-      <select class="fsel" id="${prefix}ItemRsn_${i}" onchange="${rows}[${i}].reason=this.value">${rsnOpts}</select></div>
+      <select class="fsel" id="${prefix}ItemRsn_${i}" onchange="${rowsVar}[${i}].reason=this.value">${rsnOpts}</select></div>
     <div class="fgrp" style="margin:0"><label class="flb" style="font-size:11px">비고</label>
-      <input type="text" class="fi" id="${prefix}ItemNote_${i}" value="${(row.note||'').replace(/"/g,'&quot;')}" placeholder="메모" oninput="${rows}[${i}].note=this.value"></div>
+      <input type="text" class="fi" id="${prefix}ItemNote_${i}" value="${(row.note||'').replace(/"/g,'&quot;')}" placeholder="메모" oninput="${rowsVar}[${i}].note=this.value"></div>
     <button class="btn btn-dan btn-sm" onclick="${removeFn}" style="padding:0;width:34px;height:38px;align-self:end">✕</button>
   </div>`;
 }
-
 function renderUniReqItems() {
-  const wrap = document.getElementById('uniReqItemsWrap');
-  if (!wrap) return;
-  if (!uniReqRows.length) { wrap.innerHTML='<div style="font-size:12px;color:var(--tx3);padding:6px 0">품목을 추가해주세요</div>'; return; }
+  const wrap = document.getElementById('uniReqItemsWrap'); if(!wrap) return;
+  if(!uniReqRows.length){wrap.innerHTML='<div style="font-size:12px;color:var(--tx3);padding:6px 0">품목을 추가해주세요</div>';return;}
   const uOpts = getUniformItems().map(x=>`<option value="${x.code}" data-name="${x.name.replace(/"/g,'&quot;')}">${x.name} (재고: ${x.total-x.out})</option>`).join('');
-  wrap.innerHTML = uniReqRows.map((row,i) => _uniItemRowHtml('ur', row, i, uOpts)).join('');
-  uniReqRows.forEach((row,i) => { const s=document.getElementById(`urItemNm_${i}`); if(s&&row.code) s.value=row.code; });
+  wrap.innerHTML = uniReqRows.map((row,i)=>_uniItemRowHtml('ur',row,i,uOpts)).join('');
+  uniReqRows.forEach((row,i)=>{const s=document.getElementById(`urItemNm_${i}`);if(s&&row.code)s.value=row.code;});
 }
-
 function renderUniPkpItems() {
-  const wrap = document.getElementById('uniPkpItemsWrap');
-  if (!wrap) return;
-  if (!uniPkpRows.length) { wrap.innerHTML='<div style="font-size:12px;color:var(--tx3);padding:6px 0">품목을 추가해주세요</div>'; return; }
+  const wrap = document.getElementById('uniPkpItemsWrap'); if(!wrap) return;
+  if(!uniPkpRows.length){wrap.innerHTML='<div style="font-size:12px;color:var(--tx3);padding:6px 0">품목을 추가해주세요</div>';return;}
   const uOpts = getUniformItems().map(x=>`<option value="${x.code}" data-name="${x.name.replace(/"/g,'&quot;')}">${x.name} (재고: ${x.total-x.out})</option>`).join('');
-  wrap.innerHTML = uniPkpRows.map((row,i) => _uniItemRowHtml('upk', row, i, uOpts)).join('');
-  uniPkpRows.forEach((row,i) => { const s=document.getElementById(`upkItemNm_${i}`); if(s&&row.code) s.value=row.code; });
+  wrap.innerHTML = uniPkpRows.map((row,i)=>_uniItemRowHtml('upk',row,i,uOpts)).join('');
+  uniPkpRows.forEach((row,i)=>{const s=document.getElementById(`upkItemNm_${i}`);if(s&&row.code)s.value=row.code;});
 }
 
 function _collectUniItems(prefix, rows) {
-  return rows.map((row, i) => {
-    const sel = document.getElementById(`${prefix}ItemNm_${i}`);
-    const code = sel?.value || row.code;
-    const name = sel?.options[sel?.selectedIndex]?.dataset?.name || row.name;
-    const size = document.getElementById(`${prefix}ItemSz_${i}`)?.value || row.size;
-    const qty = parseInt(document.getElementById(`${prefix}ItemQty_${i}`)?.value) || row.qty;
-    const reason = document.getElementById(`${prefix}ItemRsn_${i}`)?.value || row.reason;
-    const note = document.getElementById(`${prefix}ItemNote_${i}`)?.value || row.note;
-    return {code, name, size, qty, reason, note};
+  return rows.map((row,i)=>{
+    const sel=document.getElementById(`${prefix}ItemNm_${i}`);
+    return {
+      code: sel?.value||row.code,
+      name: sel?.options[sel?.selectedIndex]?.dataset?.name||row.name,
+      size: document.getElementById(`${prefix}ItemSz_${i}`)?.value||row.size,
+      qty: parseInt(document.getElementById(`${prefix}ItemQty_${i}`)?.value)||row.qty,
+      reason: document.getElementById(`${prefix}ItemRsn_${i}`)?.value||row.reason,
+      note: document.getElementById(`${prefix}ItemNote_${i}`)?.value||row.note
+    };
   });
 }
 
-async function _updateUniMgrStock(store, mgrName, item, delta) {
-  const existing = UNIFORM_MGRSTK.find(m =>
-    m.store_name === store && m.manager_name === mgrName &&
-    m.item_name === item.name && m.size === item.size
-  );
-  if (existing) {
-    const newQty = Math.max(0, existing.qty + delta);
-    await db.from('uniform_manager_stock').update({qty: newQty, updated_at: new Date().toISOString()}).eq('id', existing.id);
-    existing.qty = newQty;
-  } else {
-    const {data: ins} = await db.from('uniform_manager_stock').insert({
-      store_name: store, manager_name: mgrName,
-      item_name: item.name, item_code: item.code,
-      size: item.size, qty: Math.max(0, delta)
-    }).select().single();
-    if (ins) UNIFORM_MGRSTK.push(ins);
-  }
-}
-
+// ─── 신청 제출 (pending 상태만 생성, 재고 미반영) ───
 async function submitUniformReq() {
-  const date = document.getElementById('urDate').value;
-  const manager = document.getElementById('urMgr').value.trim();
-  const store = document.getElementById('urStore').value.trim();
-  const recvMgr = document.getElementById('urRecvMgr').value.trim();
-  if (!date || !manager || !store || !recvMgr) { notify('필수 항목(작성일자/신청자/직영점명/수령매니저)을 입력해주세요','error'); return; }
-  const items = _collectUniItems('ur', uniReqRows);
-  if (!items.length || items.some(it => !it.code)) { notify('모든 품목의 유니폼을 선택해주세요','error'); return; }
+  const date=document.getElementById('urDate').value;
+  const manager=document.getElementById('urMgr').value.trim();
+  const store=document.getElementById('urStore').value.trim();
+  const recvMgr=document.getElementById('urRecvMgr').value.trim();
+  if(!date||!manager||!store||!recvMgr){notify('필수 항목(작성일자/신청자/직영점명/수령매니저)을 입력해주세요','error');return;}
+  const items=_collectUniItems('ur',uniReqRows);
+  if(!items.length||items.some(it=>!it.code)){notify('모든 품목의 유니폼을 선택해주세요','error');return;}
   showLoading();
   try {
-    const {data: inserted, error} = await db.from('uniform_requests').insert(
-      items.map(it => ({req_date:date, manager, store_name:store, recv_manager:recvMgr,
-        item_name:it.name, item_code:it.code, size:it.size, qty:it.qty, reason:it.reason, note:it.note, status:'completed'}))
+    const ok = await checkAndRegisterMgr(recvMgr, store);
+    if (!ok) { hideLoading(); return; }
+    const {data:inserted,error}=await db.from('uniform_requests').insert(
+      items.map(it=>({req_date:date,manager,store_name:store,recv_manager:recvMgr,
+        item_name:it.name,item_code:it.code,size:it.size,qty:it.qty,reason:it.reason,note:it.note,status:'pending'}))
     ).select();
-    if (error) throw error;
-    for (const it of items) {
-      const l = LOGI.find(x => x.code === it.code);
-      if (l) { const nq = Math.max(0, l.qty - it.qty); await db.from('inventory').update({qty:nq}).eq('code',it.code); l.qty=nq; const iv=INV.find(x=>x.code===it.code); if(iv) iv.total=nq; }
-      await _updateUniMgrStock(store, recvMgr, it, it.qty);
-      histPush({date, store, col:it.name, before:'', after:it.qty, type:'유니폼신청', memo:`${recvMgr} / ${it.size} / ${it.reason}${it.note?' / '+it.note:''}`});
-    }
-    if (inserted) inserted.forEach(r => UNIFORM_REQS.unshift(r));
-    notify('유니폼 신청이 완료되었습니다 ✓', 'success');
+    if(error)throw error;
+    if(inserted)inserted.forEach(r=>UNIFORM_REQS.unshift(r));
+    notify('유니폼 신청이 접수되었습니다. 물류팀 출고 처리 후 재고에 반영됩니다 ✓','success');
     clearUniReqForm();
     renderUniformReqList();
   } catch(e) {
     console.error(e);
-    const msg = e.message?.includes('schema cache') ? 'Supabase에서 uniform_requests 테이블을 먼저 생성해주세요' : '오류: '+e.message;
-    notify(msg, 'error');
+    notify('오류: '+e.message,'error');
   }
   hideLoading();
 }
 
+// ─── 수거 신청 제출 (pending 상태만 생성, 재고 미반영) ───
 async function submitUniformPkp() {
-  const date = document.getElementById('upkDate').value;
-  const manager = document.getElementById('upkMgr').value.trim();
-  const store = document.getElementById('upkStore').value.trim();
-  const returnMgr = document.getElementById('upkReturnMgr').value.trim();
-  if (!date || !manager || !store || !returnMgr) { notify('필수 항목(작성일자/신청자/직영점명/반환매니저)을 입력해주세요','error'); return; }
-  const items = _collectUniItems('upk', uniPkpRows);
-  if (!items.length || items.some(it => !it.code)) { notify('모든 품목의 유니폼을 선택해주세요','error'); return; }
+  const date=document.getElementById('upkDate').value;
+  const manager=document.getElementById('upkMgr').value.trim();
+  const store=document.getElementById('upkStore').value.trim();
+  const returnMgr=document.getElementById('upkReturnMgr').value.trim();
+  if(!date||!manager||!store||!returnMgr){notify('필수 항목(작성일자/신청자/직영점명/반환매니저)을 입력해주세요','error');return;}
+  const items=_collectUniItems('upk',uniPkpRows);
+  if(!items.length||items.some(it=>!it.code)){notify('모든 품목의 유니폼을 선택해주세요','error');return;}
   showLoading();
   try {
-    const {data: inserted, error} = await db.from('uniform_pickups').insert(
-      items.map(it => ({req_date:date, manager, store_name:store, return_manager:returnMgr,
-        item_name:it.name, item_code:it.code, size:it.size, qty:it.qty, reason:it.reason, note:it.note, status:'completed'}))
+    const ok = await checkAndRegisterMgr(returnMgr, store);
+    if (!ok) { hideLoading(); return; }
+    const {data:inserted,error}=await db.from('uniform_pickups').insert(
+      items.map(it=>({req_date:date,manager,store_name:store,return_manager:returnMgr,
+        item_name:it.name,item_code:it.code,size:it.size,qty:it.qty,reason:it.reason,note:it.note,status:'pending'}))
     ).select();
-    if (error) throw error;
-    for (const it of items) {
-      const l = LOGI.find(x => x.code === it.code);
-      if (l) { const nq = l.qty + it.qty; await db.from('inventory').update({qty:nq}).eq('code',it.code); l.qty=nq; const iv=INV.find(x=>x.code===it.code); if(iv) iv.total=nq; }
-      await _updateUniMgrStock(store, returnMgr, it, -it.qty);
-      histPush({date, store, col:it.name, before:'', after:-it.qty, type:'유니폼수거', memo:`${returnMgr} / ${it.size} / ${it.reason}${it.note?' / '+it.note:''}`});
-    }
-    if (inserted) inserted.forEach(r => UNIFORM_PKPS.unshift(r));
-    notify('유니폼 수거 신청이 완료되었습니다 ✓', 'success');
+    if(error)throw error;
+    if(inserted)inserted.forEach(r=>UNIFORM_PKPS.unshift(r));
+    notify('유니폼 수거 신청이 접수되었습니다. 물류팀 수거 확인 후 재고에 반영됩니다 ✓','success');
     clearUniPkpForm();
     renderUniformPkpList();
   } catch(e) {
     console.error(e);
-    const msg = e.message?.includes('schema cache') ? 'Supabase에서 uniform_pickups 테이블을 먼저 생성해주세요' : '오류: '+e.message;
-    notify(msg, 'error');
+    notify('오류: '+e.message,'error');
   }
   hideLoading();
 }
 
+// ─── 출고 처리 모달 ───
+function openUniShipModal(id) {
+  const r = UNIFORM_REQS.find(x=>x.id===id); if(!r) return;
+  document.getElementById('uniShipTargetId').value = id;
+  document.getElementById('uniShipInfo').innerHTML = `${r.store_name} / ${r.recv_manager} / ${r.item_name} ${r.size} ${r.qty}벌 / 사유: ${r.reason}`;
+  document.getElementById('uniOutDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('uniArrDate').value = '';
+  document.getElementById('uniOutNote').value = '';
+  document.getElementById('moUniShip').classList.add('open');
+}
+async function doUniShip() {
+  const id = parseInt(document.getElementById('uniShipTargetId').value);
+  const outDate = document.getElementById('uniOutDate').value;
+  const arrDate = document.getElementById('uniArrDate').value;
+  const outNote = document.getElementById('uniOutNote').value.trim();
+  if(!outDate){notify('출고일자를 입력해주세요','error');return;}
+  const r = UNIFORM_REQS.find(x=>x.id===id); if(!r) return;
+  showLoading();
+  try {
+    const {error}=await db.from('uniform_requests').update({status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote}).eq('id',id);
+    if(error)throw error;
+    // 재고 차감
+    const l=LOGI.find(x=>x.code===r.item_code);
+    if(l){const nq=Math.max(0,l.qty-r.qty);await db.from('inventory').update({qty:nq}).eq('code',r.item_code);l.qty=nq;const iv=INV.find(x=>x.code===r.item_code);if(iv)iv.total=nq;}
+    // 매니저 재고 +
+    await _updateUniMgrStock(r.store_name,r.recv_manager,{name:r.item_name,code:r.item_code,size:r.size},r.qty);
+    // 이력
+    histPush({date:outDate,store:r.store_name,col:r.item_name,before:'',after:r.qty,type:'유니폼출고',memo:`${r.recv_manager} / ${r.size} / ${r.reason}${outNote?' / '+outNote:''}`});
+    // 로컬 업데이트
+    Object.assign(r,{status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote});
+    closeMo('moUniShip');
+    notify('출고 처리 완료 ✓','success');
+    renderUniformReqList();
+  } catch(e){console.error(e);notify('오류: '+e.message,'error');}
+  hideLoading();
+}
+
+// ─── 수거 확인 모달 ───
+function openUniPickupModal(id) {
+  const r = UNIFORM_PKPS.find(x=>x.id===id); if(!r) return;
+  document.getElementById('uniPickupTargetId').value = id;
+  document.getElementById('uniPickupInfo').innerHTML = `${r.store_name} / ${r.return_manager} / ${r.item_name} ${r.size} ${r.qty}벌 / 사유: ${r.reason}`;
+  document.getElementById('uniPickupDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('uniPickupNote').value = '';
+  document.getElementById('moUniPickup').classList.add('open');
+}
+async function doUniPickup() {
+  const id = parseInt(document.getElementById('uniPickupTargetId').value);
+  const pickupDate = document.getElementById('uniPickupDate').value;
+  const pickupNote = document.getElementById('uniPickupNote').value.trim();
+  if(!pickupDate){notify('수거일자를 입력해주세요','error');return;}
+  const r = UNIFORM_PKPS.find(x=>x.id===id); if(!r) return;
+  showLoading();
+  try {
+    const {error}=await db.from('uniform_pickups').update({status:'confirmed',pickup_date:pickupDate,pickup_note:pickupNote}).eq('id',id);
+    if(error)throw error;
+    // 재고 증가
+    const l=LOGI.find(x=>x.code===r.item_code);
+    if(l){const nq=l.qty+r.qty;await db.from('inventory').update({qty:nq}).eq('code',r.item_code);l.qty=nq;const iv=INV.find(x=>x.code===r.item_code);if(iv)iv.total=nq;}
+    // 매니저 재고 -
+    await _updateUniMgrStock(r.store_name,r.return_manager,{name:r.item_name,code:r.item_code,size:r.size},-r.qty);
+    // 이력
+    histPush({date:pickupDate,store:r.store_name,col:r.item_name,before:'',after:-r.qty,type:'유니폼수거',memo:`${r.return_manager} / ${r.size} / ${r.reason}${pickupNote?' / '+pickupNote:''}`});
+    // 로컬 업데이트
+    Object.assign(r,{status:'confirmed',pickup_date:pickupDate,pickup_note:pickupNote});
+    closeMo('moUniPickup');
+    notify('수거 확인 처리 완료 ✓','success');
+    renderUniformPkpList();
+  } catch(e){console.error(e);notify('오류: '+e.message,'error');}
+  hideLoading();
+}
+
+// ─── 매니저 재고 업데이트 헬퍼 ───
+async function _updateUniMgrStock(store, mgrName, item, delta) {
+  const existing=UNIFORM_MGRSTK.find(m=>m.store_name===store&&m.manager_name===mgrName&&m.item_name===item.name&&m.size===item.size);
+  if(existing){
+    const nq=Math.max(0,existing.qty+delta);
+    await db.from('uniform_manager_stock').update({qty:nq,updated_at:new Date().toISOString()}).eq('id',existing.id);
+    existing.qty=nq;
+  } else {
+    const {data:ins}=await db.from('uniform_manager_stock').insert({store_name:store,manager_name:mgrName,item_name:item.name,item_code:item.code,size:item.size,qty:Math.max(0,delta)}).select().single();
+    if(ins)UNIFORM_MGRSTK.push(ins);
+  }
+}
+
+// ─── 목록 렌더 ───
+function _uniStatusBadge(s){
+  if(s==='pending') return '<span class="badge b-pend">대기중</span>';
+  if(s==='shipped') return '<span class="badge b-ship">출고완료</span>';
+  if(s==='confirmed') return '<span class="badge b-ship">수거완료</span>';
+  return `<span class="badge">${s}</span>`;
+}
+
 function renderUniformReqList() {
-  const srch = (document.getElementById('urSrch')?.value||'').trim().toLowerCase();
-  const tbody = document.getElementById('uniReqTable');
-  if (!tbody) return;
-  const f = UNIFORM_REQS.filter(r => !srch||[r.store_name,r.item_name,r.recv_manager,r.manager].some(v=>v?.toLowerCase().includes(srch)));
-  tbody.innerHTML = f.length ? f.map(r=>`<tr>
+  const srch=(document.getElementById('urSrch')?.value||'').trim().toLowerCase();
+  const tbody=document.getElementById('uniReqTable'); if(!tbody) return;
+  const f=UNIFORM_REQS.filter(r=>!srch||[r.store_name,r.item_name,r.recv_manager,r.manager].some(v=>v?.toLowerCase().includes(srch)));
+  tbody.innerHTML=f.length?f.map(r=>`<tr>
     <td class="tm">${r.id}</td><td>${r.req_date||''}</td><td>${r.manager||''}</td><td>${r.store_name||''}</td>
     <td>${r.recv_manager||''}</td><td>${r.item_name||''}</td><td>${r.size||''}</td><td>${r.qty||0}벌</td>
     <td>${r.reason||''}</td><td>${r.note||''}</td>
-    <td class="tm">${r.created_at?new Date(r.created_at).toLocaleString('ko-KR'):''}</td></tr>`).join('')
-    : '<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--tx3)">신청 내역 없음</td></tr>';
+    <td>${_uniStatusBadge(r.status)}</td>
+    <td>${r.out_date||''}</td><td>${r.arr_date||''}</td><td>${r.out_note||''}</td>
+    <td>${r.status==='pending'?`<button class="btn btn-suc btn-sm" onclick="openUniShipModal(${r.id})">출고하기</button>`:'—'}</td>
+    </tr>`).join('')
+    :'<tr><td colspan="15" style="text-align:center;padding:20px;color:var(--tx3)">신청 내역 없음</td></tr>';
 }
 
 function renderUniformPkpList() {
-  const srch = (document.getElementById('upkSrch')?.value||'').trim().toLowerCase();
-  const tbody = document.getElementById('uniPkpTable');
-  if (!tbody) return;
-  const f = UNIFORM_PKPS.filter(r => !srch||[r.store_name,r.item_name,r.return_manager,r.manager].some(v=>v?.toLowerCase().includes(srch)));
-  tbody.innerHTML = f.length ? f.map(r=>`<tr>
+  const srch=(document.getElementById('upkSrch')?.value||'').trim().toLowerCase();
+  const tbody=document.getElementById('uniPkpTable'); if(!tbody) return;
+  const f=UNIFORM_PKPS.filter(r=>!srch||[r.store_name,r.item_name,r.return_manager,r.manager].some(v=>v?.toLowerCase().includes(srch)));
+  tbody.innerHTML=f.length?f.map(r=>`<tr>
     <td class="tm">${r.id}</td><td>${r.req_date||''}</td><td>${r.manager||''}</td><td>${r.store_name||''}</td>
     <td>${r.return_manager||''}</td><td>${r.item_name||''}</td><td>${r.size||''}</td><td>${r.qty||0}벌</td>
     <td>${r.reason||''}</td><td>${r.note||''}</td>
-    <td class="tm">${r.created_at?new Date(r.created_at).toLocaleString('ko-KR'):''}</td></tr>`).join('')
-    : '<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--tx3)">수거 내역 없음</td></tr>';
+    <td>${_uniStatusBadge(r.status)}</td>
+    <td>${r.pickup_date||''}</td><td>${r.pickup_note||''}</td>
+    <td>${r.status==='pending'?`<button class="btn btn-pri btn-sm" onclick="openUniPickupModal(${r.id})">수거확인</button>`:'—'}</td>
+    </tr>`).join('')
+    :'<tr><td colspan="14" style="text-align:center;padding:20px;color:var(--tx3)">수거 내역 없음</td></tr>';
 }
 
+// ─── 수불 이력 ───
 let uniHistFilter = 'all';
 function setUniHistFilter(f, el) {
-  uniHistFilter = f;
-  document.querySelectorAll('#page-uniform-hist .tab').forEach(b => b.classList.remove('active'));
+  uniHistFilter=f;
+  document.querySelectorAll('#page-uniform-hist .tab').forEach(b=>b.classList.remove('active'));
   el.classList.add('active');
   renderUniformHist();
 }
-
 function renderUniformHist() {
-  const srch = (document.getElementById('uhSrch')?.value||'').trim().toLowerCase();
-  const tbody = document.getElementById('uniHistTable');
-  if (!tbody) return;
-  const reqs = UNIFORM_REQS.map(r=>({...r,_type:'신청',_mgr:r.recv_manager}));
-  const pkps = UNIFORM_PKPS.map(r=>({...r,_type:'수거',_mgr:r.return_manager}));
-  let all = [...reqs,...pkps].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
-  if (uniHistFilter!=='all') all=all.filter(r=>r._type===uniHistFilter);
-  const f = all.filter(r=>!srch||[r.store_name,r.item_name,r._mgr,r.manager].some(v=>v?.toLowerCase().includes(srch)));
-  tbody.innerHTML = f.length ? f.map(r=>`<tr>
+  const srch=(document.getElementById('uhSrch')?.value||'').trim().toLowerCase();
+  const tbody=document.getElementById('uniHistTable'); if(!tbody) return;
+  const reqs=UNIFORM_REQS.filter(r=>r.status==='shipped').map(r=>({...r,_type:'신청',_mgr:r.recv_manager,_date2:r.out_date,_date3:r.arr_date,_note2:r.out_note}));
+  const pkps=UNIFORM_PKPS.filter(r=>r.status==='confirmed').map(r=>({...r,_type:'수거',_mgr:r.return_manager,_date2:r.pickup_date,_date3:'',_note2:r.pickup_note}));
+  let all=[...reqs,...pkps].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  if(uniHistFilter!=='all') all=all.filter(r=>r._type===uniHistFilter);
+  const f=all.filter(r=>!srch||[r.store_name,r.item_name,r._mgr,r.manager].some(v=>v?.toLowerCase().includes(srch)));
+  tbody.innerHTML=f.length?f.map(r=>`<tr>
     <td><span class="badge ${r._type==='신청'?'b-appr':'b-pend'}">${r._type}</span></td>
-    <td>${r.req_date||''}</td><td>${r.manager||''}</td><td>${r.store_name||''}</td><td>${r._mgr||''}</td>
+    <td>${r.req_date||''}</td><td>${r._date2||''}</td><td>${r._date3||''}</td>
+    <td>${r.manager||''}</td><td>${r.store_name||''}</td><td>${r._mgr||''}</td>
     <td>${r.item_name||''}</td><td>${r.size||''}</td><td>${r.qty||0}벌</td>
-    <td>${r.reason||''}</td><td>${r.note||''}</td>
-    <td class="tm">${r.created_at?new Date(r.created_at).toLocaleString('ko-KR'):''}</td></tr>`).join('')
-    : '<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--tx3)">이력 없음</td></tr>';
+    <td>${r.reason||''}</td><td>${r.note||''}</td><td>${r._note2||''}</td></tr>`).join('')
+    :'<tr><td colspan="13" style="text-align:center;padding:20px;color:var(--tx3)">이력 없음</td></tr>';
 }
 
+// ─── 관리대장 ───
 function renderUniformMgmt() {
-  const srch = (document.getElementById('umSrch')?.value||'').trim().toLowerCase();
-  const container = document.getElementById('uniformMgmtContent');
-  if (!container) return;
-  const storeMap = {};
-  UNIFORM_MGRSTK.filter(s=>s.qty>0).forEach(s=>{
-    if (srch && !s.store_name.toLowerCase().includes(srch) && !s.manager_name.toLowerCase().includes(srch)) return;
-    if (!storeMap[s.store_name]) storeMap[s.store_name]={};
-    if (!storeMap[s.store_name][s.manager_name]) storeMap[s.store_name][s.manager_name]=[];
-    storeMap[s.store_name][s.manager_name].push(s);
-  });
-  const stores = Object.keys(storeMap).sort();
-  if (!stores.length) {
-    container.innerHTML='<div class="tw"><div style="padding:40px;text-align:center;color:var(--tx3)">등록된 유니폼 보유현황이 없습니다<br><span style="font-size:12px">유니폼 신청/수거 처리 후 자동 반영됩니다</span></div></div>';
+  const srch=(document.getElementById('umSrch')?.value||'').trim().toLowerCase();
+  const container=document.getElementById('uniformMgmtContent'); if(!container) return;
+
+  // 매니저 목록 기준 렌더 (uniform_managers)
+  let mgrs = UNIFORM_MANAGERS.filter(m=>!srch||m.manager_name.toLowerCase().includes(srch)||(m.employment_status||'').includes(srch));
+  if(!mgrs.length){
+    container.innerHTML='<div class="tw"><div style="padding:40px;text-align:center;color:var(--tx3)">검색 결과 없음</div></div>';
     return;
   }
-  container.innerHTML = stores.map(store=>{
-    const managers = Object.keys(storeMap[store]).sort();
-    const rows = managers.flatMap(mgr=>{
-      const items = storeMap[store][mgr];
-      return items.map((item,i)=>`<tr>
-        ${i===0?`<td rowspan="${items.length}" style="font-weight:600;vertical-align:middle;border-right:1px solid var(--bd)">${mgr}</td>`:''}
-        <td>${item.item_name}</td><td>${item.size}</td>
-        <td><span class="badge b-appr">${item.qty}벌</span></td></tr>`);
-    });
-    return `<div class="tw" style="margin-bottom:14px">
-      <div class="th"><div class="tt">${store}</div><div style="font-size:12px;color:var(--tx3)">${managers.length}명</div></div>
-      <table><thead><tr><th>매니저</th><th>유니폼</th><th>사이즈</th><th>보유수량</th></tr></thead>
-      <tbody>${rows.join('')}</tbody></table></div>`;
+
+  // 상태별 탭 카운트
+  const total=UNIFORM_MANAGERS.length;
+  const active=UNIFORM_MANAGERS.filter(m=>m.employment_status==='재직').length;
+  const leave=UNIFORM_MANAGERS.filter(m=>m.employment_status==='휴직').length;
+  const quit=UNIFORM_MANAGERS.filter(m=>m.employment_status==='퇴직').length;
+
+  const statusBadge=(s)=>{
+    if(s==='재직') return '<span class="badge b-appr">재직</span>';
+    if(s==='휴직') return '<span class="badge b-prog">휴직</span>';
+    if(s==='퇴직') return '<span class="badge b-zero">퇴직</span>';
+    return `<span class="badge">${s||'재직'}</span>`;
+  };
+
+  const rows = mgrs.map(m => {
+    const stocks = UNIFORM_MGRSTK.filter(s=>s.manager_name===m.manager_name && s.qty>0);
+    const stockRows = stocks.length
+      ? stocks.map(s=>`
+        <tr style="background:var(--bg)">
+          <td style="padding-left:32px;color:var(--tx3);font-size:12px">└</td>
+          <td>${s.item_name}</td><td>${s.size}</td>
+          <td><span class="badge b-appr">${s.qty}벌</span></td>
+          <td colspan="2">
+            <button class="btn btn-gst btn-sm" onclick="openUniStockEdit(${s.id})">수정</button>
+            <button class="btn btn-dan btn-sm" onclick="deleteUniStock(${s.id})">삭제</button>
+          </td>
+        </tr>`).join('')
+      : `<tr style="background:var(--bg)"><td style="padding-left:32px;color:var(--tx3);font-size:12px" colspan="6">└ 보유 유니폼 없음</td></tr>`;
+    return `
+      <tr>
+        <td style="font-weight:600">${m.manager_name}</td>
+        <td>${statusBadge(m.employment_status)}</td>
+        <td>${m.note||''}</td>
+        <td>${new Date(m.created_at).toLocaleDateString('ko-KR')}</td>
+        <td colspan="2">
+          <button class="btn btn-gst btn-sm" onclick="openUniMgrEdit(${m.id})">수정</button>
+          <button class="btn btn-dan btn-sm" onclick="deleteUniMgr(${m.id})">삭제</button>
+        </td>
+      </tr>${stockRows}`;
   }).join('');
+
+  container.innerHTML = `
+    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <div class="sc" style="flex:1;min-width:100px;text-align:center"><div style="font-size:22px;font-weight:700">${total}</div><div style="font-size:12px;color:var(--tx3)">전체</div></div>
+      <div class="sc" style="flex:1;min-width:100px;text-align:center"><div style="font-size:22px;font-weight:700;color:var(--ac2)">${active}</div><div style="font-size:12px;color:var(--tx3)">재직</div></div>
+      <div class="sc" style="flex:1;min-width:100px;text-align:center"><div style="font-size:22px;font-weight:700;color:#818cf8">${leave}</div><div style="font-size:12px;color:var(--tx3)">휴직</div></div>
+      <div class="sc" style="flex:1;min-width:100px;text-align:center"><div style="font-size:22px;font-weight:700;color:var(--rd)">${quit}</div><div style="font-size:12px;color:var(--tx3)">퇴직</div></div>
+    </div>
+    <div class="tw">
+      <div class="th"><div class="tt">매니저 목록 (${mgrs.length}명)</div>
+        <button class="btn btn-gst btn-sm" onclick="openAddUniMgr()">+ 신규 추가</button>
+      </div>
+      <table><thead><tr><th>매니저명</th><th>재직상태</th><th>비고</th><th>등록일</th><th colspan="2">관리</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+    </div>`;
 }
 
+// ─── 매니저 추가/수정/삭제 ───
+function openAddUniMgr() {
+  document.getElementById('uniMgrEditId').value='';
+  document.getElementById('uniMgrEditName').value='';
+  document.getElementById('uniMgrEditStatus').value='재직';
+  document.getElementById('uniMgrEditNote').value='';
+  document.getElementById('moUniMgrEdit').classList.add('open');
+}
+function openUniMgrEdit(id) {
+  const m=UNIFORM_MANAGERS.find(x=>x.id===id); if(!m) return;
+  document.getElementById('uniMgrEditId').value=id;
+  document.getElementById('uniMgrEditName').value=m.manager_name;
+  document.getElementById('uniMgrEditStatus').value=m.employment_status||'재직';
+  document.getElementById('uniMgrEditNote').value=m.note||'';
+  document.getElementById('moUniMgrEdit').classList.add('open');
+}
+async function saveUniMgrEdit() {
+  const id=document.getElementById('uniMgrEditId').value;
+  const name=document.getElementById('uniMgrEditName').value.trim();
+  const status=document.getElementById('uniMgrEditStatus').value;
+  const note=document.getElementById('uniMgrEditNote').value.trim();
+  if(!name){notify('매니저명을 입력해주세요','error');return;}
+  showLoading();
+  try {
+    if(id) {
+      await db.from('uniform_managers').update({manager_name:name,employment_status:status,note,updated_at:new Date().toISOString()}).eq('id',parseInt(id));
+      const m=UNIFORM_MANAGERS.find(x=>x.id===parseInt(id));
+      if(m){m.manager_name=name;m.employment_status=status;m.note=note;}
+    } else {
+      const {data:ins}=await db.from('uniform_managers').insert({manager_name:name,employment_status:status,note}).select().single();
+      if(ins)UNIFORM_MANAGERS.push(ins);
+    }
+    closeMo('moUniMgrEdit');
+    notify(id?'수정 완료':'신규 추가 완료','success');
+    renderUniformMgmt();
+  } catch(e){console.error(e);notify('오류: '+e.message,'error');}
+  hideLoading();
+}
+async function deleteUniMgr(id) {
+  const m=UNIFORM_MANAGERS.find(x=>x.id===id); if(!m) return;
+  if(!confirm(`"${m.manager_name}" 매니저를 삭제하시겠습니까?\n보유 유니폼 현황도 함께 삭제됩니다.`)) return;
+  showLoading();
+  try {
+    await db.from('uniform_manager_stock').delete().eq('manager_name',m.manager_name);
+    await db.from('uniform_managers').delete().eq('id',id);
+    const idx=UNIFORM_MANAGERS.findIndex(x=>x.id===id); if(idx>-1)UNIFORM_MANAGERS.splice(idx,1);
+    UNIFORM_MGRSTK=UNIFORM_MGRSTK.filter(s=>s.manager_name!==m.manager_name);
+    notify('삭제 완료','success');
+    renderUniformMgmt();
+  } catch(e){console.error(e);notify('오류: '+e.message,'error');}
+  hideLoading();
+}
+
+// ─── 재고 수정/삭제 ───
+function openUniStockEdit(id) {
+  const s=UNIFORM_MGRSTK.find(x=>x.id===id); if(!s) return;
+  document.getElementById('uniStockEditId').value=id;
+  document.getElementById('uniStockEditItem').value=s.item_name;
+  document.getElementById('uniStockEditSize').value=s.size;
+  document.getElementById('uniStockEditQty').value=s.qty;
+  document.getElementById('moUniStockEdit').classList.add('open');
+}
+async function saveUniStockEdit() {
+  const id=parseInt(document.getElementById('uniStockEditId').value);
+  const itemName=document.getElementById('uniStockEditItem').value.trim();
+  const size=document.getElementById('uniStockEditSize').value;
+  const qty=parseInt(document.getElementById('uniStockEditQty').value)||0;
+  showLoading();
+  try {
+    await db.from('uniform_manager_stock').update({item_name:itemName,size,qty,updated_at:new Date().toISOString()}).eq('id',id);
+    const s=UNIFORM_MGRSTK.find(x=>x.id===id);
+    if(s){s.item_name=itemName;s.size=size;s.qty=qty;}
+    closeMo('moUniStockEdit');
+    notify('수정 완료','success');
+    renderUniformMgmt();
+  } catch(e){console.error(e);notify('오류: '+e.message,'error');}
+  hideLoading();
+}
+async function deleteUniStock(id) {
+  if(!confirm('이 유니폼 보유 내역을 삭제하시겠습니까?')) return;
+  showLoading();
+  try {
+    await db.from('uniform_manager_stock').delete().eq('id',id);
+    UNIFORM_MGRSTK=UNIFORM_MGRSTK.filter(x=>x.id!==id);
+    notify('삭제 완료','success');
+    renderUniformMgmt();
+  } catch(e){console.error(e);notify('오류: '+e.message,'error');}
+  hideLoading();
+}
+
+// ─── 엑셀 내보내기 ───
 function exportUniformMgmt() {
-  const loadAndExport = () => {
-    const wb = XLSX.utils.book_new();
-    const rData=[['번호','작성일자','신청자','직영점','수령매니저','유니폼','사이즈','수량','사유','비고','처리일시']];
-    UNIFORM_REQS.forEach(r=>rData.push([r.id,r.req_date,r.manager,r.store_name,r.recv_manager,r.item_name,r.size,r.qty,r.reason,r.note,r.created_at?new Date(r.created_at).toLocaleString('ko-KR'):'']));
+  const loadAndExport=()=>{
+    const wb=XLSX.utils.book_new();
+    const rData=[['번호','작성일자','출고일자','도착일자','신청자','직영점','수령매니저','유니폼','사이즈','수량','사유','비고(신청)','비고(출고)','상태']];
+    UNIFORM_REQS.forEach(r=>rData.push([r.id,r.req_date,r.out_date,r.arr_date,r.manager,r.store_name,r.recv_manager,r.item_name,r.size,r.qty,r.reason,r.note,r.out_note,r.status]));
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rData),'유니폼신청');
-    const pData=[['번호','작성일자','신청자','직영점','반환매니저','유니폼','사이즈','수량','사유','비고','처리일시']];
-    UNIFORM_PKPS.forEach(r=>pData.push([r.id,r.req_date,r.manager,r.store_name,r.return_manager,r.item_name,r.size,r.qty,r.reason,r.note,r.created_at?new Date(r.created_at).toLocaleString('ko-KR'):'']));
+    const pData=[['번호','작성일자','수거일자','신청자','직영점','반환매니저','유니폼','사이즈','수량','사유','비고(신청)','비고(수거)','상태']];
+    UNIFORM_PKPS.forEach(r=>pData.push([r.id,r.req_date,r.pickup_date,r.manager,r.store_name,r.return_manager,r.item_name,r.size,r.qty,r.reason,r.note,r.pickup_note,r.status]));
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(pData),'유니폼수거');
-    const sData=[['직영점','매니저','유니폼','사이즈','보유수량']];
-    UNIFORM_MGRSTK.filter(s=>s.qty>0).sort((a,b)=>a.store_name.localeCompare(b.store_name)).forEach(s=>sData.push([s.store_name,s.manager_name,s.item_name,s.size,s.qty]));
-    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sData),'매니저보유현황');
+    const mData=[['매니저명','재직상태','비고','등록일']];
+    UNIFORM_MANAGERS.forEach(m=>mData.push([m.manager_name,m.employment_status,m.note,m.created_at?new Date(m.created_at).toLocaleDateString('ko-KR'):'']));
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(mData),'매니저목록');
+    const sData=[['매니저','유니폼','사이즈','보유수량','직영점']];
+    UNIFORM_MGRSTK.filter(s=>s.qty>0).sort((a,b)=>a.manager_name.localeCompare(b.manager_name)).forEach(s=>sData.push([s.manager_name,s.item_name,s.size,s.qty,s.store_name]));
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sData),'유니폼보유현황');
     XLSX.writeFile(wb,`유니폼관리대장_${new Date().toISOString().slice(0,10)}.xlsx`);
     notify('엑셀 다운로드 완료','success');
   };
