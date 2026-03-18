@@ -4969,13 +4969,13 @@ function renderUniformMgmt() {
   };
 
   const rows = mgrs.map(m => {
-    const stocks = UNIFORM_MGRSTK.filter(s=>s.manager_name===m.manager_name && s.qty>0);
+    const stocks = UNIFORM_MGRSTK.filter(s=>s.manager_name===m.manager_name);
     const stockRows = stocks.length
       ? stocks.map(s=>`
         <tr style="background:var(--bg)">
           <td style="padding-left:32px;color:var(--tx3);font-size:12px">└</td>
           <td>${s.item_name}</td><td>${s.size}</td>
-          <td><span class="badge b-appr">${s.qty}벌</span></td>
+          <td><span class="badge ${s.qty>0?'b-appr':'b-zero'}">${s.qty}벌</span></td>
           <td colspan="2">
             <button class="btn btn-gst btn-sm" onclick="openUniStockEdit(${s.id})">수정</button>
             <button class="btn btn-dan btn-sm" onclick="deleteUniStock(${s.id})">삭제</button>
