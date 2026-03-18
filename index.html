@@ -438,6 +438,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
       <div class="lg-sc"><div class="lg-sl">부족 (10↓)</div><div class="lg-sv" id="lsLow" style="color:var(--yw)">0</div></div>
       <div class="lg-sc"><div class="lg-sl">고정출고 품목</div><div class="lg-sv" id="lsFix" style="color:#a78bfa">0</div></div>
       <div class="lg-sc" style="border-color:rgba(248,113,113,.3);background:rgba(248,113,113,.04)"><div class="lg-sl" style="color:#f87171">🔧 고장 보유</div><div class="lg-sv" id="lsBroken" style="color:#f87171">0</div></div>
+      <div class="lg-sc" style="border-color:rgba(251,191,36,.3);background:rgba(251,191,36,.04)"><div class="lg-sl" style="color:#fbbf24">📦 반납재고</div><div class="lg-sv" id="lsReturn" style="color:#fbbf24">0</div></div>
     </div>
     <div class="lg-fb">
       <div class="sw"><span class="sic">⌕</span><input class="si" id="logiSrch" placeholder="품목 검색..." oninput="renderLogi()" style="width:200px"></div>
@@ -447,6 +448,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
       <button class="lf p" onclick="setLF('fix',this)">고정출고</button>
       <button class="lf" onclick="setLF('ok',this)">정상</button>
       <button class="lf" style="color:#f87171;border-color:rgba(248,113,113,.3)" onclick="setLF('broken',this)">🔧고장있음</button>
+      <button class="lf" style="color:#fbbf24;border-color:rgba(251,191,36,.3)" onclick="setLF('return',this)">📦반납재고</button>
       <span style="width:1px;height:18px;background:var(--bd);display:inline-block;margin:0 4px"></span>
       <button class="lf" style="color:#10b981;border-color:rgba(16,185,129,.3)" onclick="setLF('cat-소모품',this)">소모품</button>
       <button class="lf" style="color:#60a5fa;border-color:rgba(96,165,250,.3)" onclick="setLF('cat-비품',this)">비품</button>
@@ -1259,6 +1261,59 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
   </div>
 </div>
 
+<!-- ══ MODAL: 유니폼 반납재고 귀속 ══ -->
+<div class="mo" id="moUniReturn">
+  <div class="md" style="width:440px">
+    <div class="md-hd">
+      <div>
+        <div class="md-ti">📦 반납재고 귀속</div>
+        <div class="md-su" id="uniReturnSub">반납재고를 사용가능으로 전환합니다</div>
+      </div>
+      <button class="md-cl" onclick="closeMo('moUniReturn')">✕</button>
+    </div>
+    <div class="md-bd">
+      <div style="background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);border-radius:10px;padding:14px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:12px;color:var(--tx3);margin-bottom:2px">현재 반납재고</div>
+            <div style="font-size:24px;font-weight:700;color:#fbbf24" id="uniReturnCur">0</div>
+          </div>
+          <div style="font-size:20px;color:var(--tx3)">→</div>
+          <div>
+            <div style="font-size:12px;color:var(--tx3);margin-bottom:2px">현재 사용가능</div>
+            <div style="font-size:24px;font-weight:700;color:var(--gn)" id="uniReturnOkCur">0</div>
+          </div>
+        </div>
+      </div>
+      <div class="fg" style="grid-template-columns:1fr 1fr;gap:12px">
+        <div class="fgrp s2">
+          <label class="flb">귀속 수량 <span>*</span></label>
+          <input type="number" class="fi" id="uniReturnQty" min="1" placeholder="0" oninput="updateUniReturnPreview()">
+        </div>
+        <div class="fgrp s2">
+          <label class="flb">처리 담당자 <span>*</span></label>
+          <input type="text" class="fi" id="uniReturnMgr" placeholder="이름">
+        </div>
+        <div class="fgrp s2">
+          <label class="flb">비고</label>
+          <input type="text" class="fi" id="uniReturnNote" placeholder="특이사항 등">
+        </div>
+      </div>
+      <div id="uniReturnPreview" style="display:none;margin-top:12px;padding:10px 14px;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);border-radius:8px;font-size:12px">
+        <div style="color:var(--tx2);margin-bottom:6px;font-weight:600">전환 후 재고 미리보기</div>
+        <div style="display:flex;gap:20px">
+          <div><span style="color:var(--tx3)">반납 </span><span id="uniPrvReturn" style="color:#fbbf24;font-weight:700"></span></div>
+          <div><span style="color:var(--tx3)">사용가능 </span><span id="uniPrvOk" style="color:var(--gn);font-weight:700"></span></div>
+        </div>
+      </div>
+    </div>
+    <div class="md-ft">
+      <button class="btn btn-gst" onclick="closeMo('moUniReturn')">취소</button>
+      <button class="btn btn-suc" onclick="confirmUniReturn()">귀속 확인</button>
+    </div>
+  </div>
+</div>
+
 <!-- 수거 신청 모달 제거됨 — 인라인 폼으로 대체 (page-pickup 섹션 참조) -->
 
 <!-- ══ MODAL: 수거 확인 ══ -->
@@ -1386,7 +1441,7 @@ async function loadFromDB() {
     ]);
     if (invRes.data && invRes.data.length > 0) {
       LOGI.length = 0;
-      invRes.data.forEach(r => LOGI.push({code:r.code, name:r.name, qty:r.qty, broken:r.broken_qty||0}));
+      invRes.data.forEach(r => LOGI.push({code:r.code, name:r.name, qty:r.qty, broken:r.broken_qty||0, returnQty:r.return_qty||0}));
       INV.length = 0;
       LOGI.forEach(l => INV.push({
         code:l.code, name:l.name, cat:guessCategory(l.name),
@@ -1701,6 +1756,7 @@ function renderLogi(){
     if(logiFilter==='fix')  return ms&&FIXED_CODES.has(l.code);
     if(logiFilter==='ok')   return ms&&l.qty>10&&!FIXED_CODES.has(l.code);
     if(logiFilter==='broken') return ms&&(l.broken||0)>0;
+    if(logiFilter==='return') return ms&&(l.returnQty||0)>0;
     if(logiFilter.startsWith('cat-')) return ms&&guessCategory(l.name)===logiFilter.slice(4);
     return ms;
   });
@@ -1710,28 +1766,43 @@ function renderLogi(){
   document.getElementById('lsLow').textContent=LOGI.filter(l=>l.qty>0&&l.qty<=10).length;
   document.getElementById('lsFix').textContent=FIXED_CODES.size;
   document.getElementById('lsBroken').textContent=LOGI.filter(l=>(l.broken||0)>0).length;
+  document.getElementById('lsReturn').textContent=LOGI.filter(l=>(l.returnQty||0)>0).length;
 
   document.getElementById('logiGrid').innerHTML=data.length?data.map(l=>{
     const c=lcC(l.qty);
     const broken=l.broken||0;
+    const returnQty=l.returnQty||0;
     const fixTag=FIXED_CODES.has(l.code)?'<span style="font-size:9px;background:rgba(139,92,246,.2);color:#a78bfa;padding:1px 5px;border-radius:3px;margin-left:4px">고정</span>':'';
-    // 사용가능 / 고장 나란히 표시
-    const qtyRow = broken>0
-      ? `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:6px">
-           <div style="display:flex;align-items:baseline;gap:3px">
-             <span class="lcq ${c}">${l.qty}</span><span class="lcu">사용가능</span>
-           </div>
-           <div style="width:1px;height:18px;background:var(--br)"></div>
-           <div style="display:flex;align-items:baseline;gap:3px">
-             <span style="font-size:20px;font-weight:700;color:#f87171;line-height:1">${broken}</span>
-             <span style="font-size:11px;color:#f87171">고장</span>
-           </div>
-           <button onclick="openRepairModal('${l.code}')" style="margin-left:auto;font-size:10px;padding:2px 8px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:var(--gn);border-radius:4px;cursor:pointer;white-space:nowrap">🔧 수리완료</button>
-         </div>`
-      : `<div style="display:flex;align-items:baseline;gap:4px;margin-top:6px">
-           <span class="lcq ${c}">${l.qty}</span><span class="lcu">사용가능</span>
-         </div>`;
-    return`<div class="lg-card ${lcCard(l.qty)}" style="${broken>0?'border-color:rgba(248,113,113,.35);':''}">
+    const hasExtra = broken>0 || returnQty>0;
+    let qtyRow;
+    if(hasExtra){
+      qtyRow=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px">
+        <div style="display:flex;align-items:baseline;gap:3px">
+          <span class="lcq ${c}">${l.qty}</span><span class="lcu">사용가능</span>
+        </div>`;
+      if(broken>0) qtyRow+=`
+        <div style="width:1px;height:18px;background:var(--br)"></div>
+        <div style="display:flex;align-items:baseline;gap:3px">
+          <span style="font-size:20px;font-weight:700;color:#f87171;line-height:1">${broken}</span>
+          <span style="font-size:11px;color:#f87171">고장</span>
+        </div>`;
+      if(returnQty>0) qtyRow+=`
+        <div style="width:1px;height:18px;background:var(--br)"></div>
+        <div style="display:flex;align-items:baseline;gap:3px">
+          <span style="font-size:20px;font-weight:700;color:#fbbf24;line-height:1">${returnQty}</span>
+          <span style="font-size:11px;color:#fbbf24">반납</span>
+        </div>`;
+      qtyRow+=`<div style="display:flex;gap:4px;margin-left:auto">`;
+      if(broken>0) qtyRow+=`<button onclick="openRepairModal('${l.code}')" style="font-size:10px;padding:2px 8px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:var(--gn);border-radius:4px;cursor:pointer;white-space:nowrap">🔧 수리완료</button>`;
+      if(returnQty>0) qtyRow+=`<button onclick="openUniReturnModal('${l.code}')" style="font-size:10px;padding:2px 8px;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);color:#fbbf24;border-radius:4px;cursor:pointer;white-space:nowrap">📦 귀속</button>`;
+      qtyRow+=`</div></div>`;
+    } else {
+      qtyRow=`<div style="display:flex;align-items:baseline;gap:4px;margin-top:6px">
+        <span class="lcq ${c}">${l.qty}</span><span class="lcu">사용가능</span>
+      </div>`;
+    }
+    const borderStyle=broken>0?'border-color:rgba(248,113,113,.35);':returnQty>0?'border-color:rgba(251,191,36,.35);':'';
+    return`<div class="lg-card ${lcCard(l.qty)}" style="${borderStyle}">
       <div class="lcc">${l.code}</div>
       <div class="lcn">${l.name}${fixTag}</div>
       ${qtyRow}
@@ -1792,6 +1863,62 @@ function confirmRepair(){
   closeMo('moRepair');
   notify(`✅ 수리완료 처리 — ${l.name} ${actual}개 사용가능으로 전환 (담당: ${mgr})`,'success');
   renderLogi(); renderInv();
+}
+
+// ═══ 유니폼 반납재고 귀속 ═══
+let uniReturnCode = null;
+function openUniReturnModal(code){
+  const l=LOGI.find(x=>x.code===code);
+  if(!l||!(l.returnQty>0)){notify('반납재고가 없습니다','error');return;}
+  uniReturnCode=code;
+  document.getElementById('uniReturnSub').textContent=`${l.name} (${l.code})`;
+  document.getElementById('uniReturnCur').textContent=l.returnQty;
+  document.getElementById('uniReturnOkCur').textContent=l.qty;
+  document.getElementById('uniReturnQty').value='';
+  document.getElementById('uniReturnMgr').value='';
+  document.getElementById('uniReturnNote').value='';
+  document.getElementById('uniReturnPreview').style.display='none';
+  openMo('moUniReturn');
+}
+function updateUniReturnPreview(){
+  const l=LOGI.find(x=>x.code===uniReturnCode);
+  if(!l) return;
+  const qty=parseInt(document.getElementById('uniReturnQty').value)||0;
+  if(qty<=0){document.getElementById('uniReturnPreview').style.display='none';return;}
+  const newReturn=Math.max(0,(l.returnQty||0)-qty);
+  const newOk=l.qty+Math.min(qty,l.returnQty||0);
+  document.getElementById('uniReturnPreview').style.display='';
+  document.getElementById('uniPrvReturn').textContent=`${l.returnQty||0}개 → ${newReturn}개`;
+  document.getElementById('uniPrvOk').textContent=`${l.qty}개 → ${newOk}개`;
+}
+async function confirmUniReturn(){
+  const l=LOGI.find(x=>x.code===uniReturnCode);
+  if(!l) return;
+  const qty=parseInt(document.getElementById('uniReturnQty').value)||0;
+  const mgr=document.getElementById('uniReturnMgr').value.trim();
+  const note=document.getElementById('uniReturnNote').value.trim();
+  if(!qty||qty<=0){notify('귀속 수량을 입력해주세요','error');return;}
+  if(!mgr){notify('처리 담당자를 입력해주세요','error');return;}
+  const actual=Math.min(qty,l.returnQty||0);
+  if(actual<=0){notify('반납재고가 부족합니다','error');return;}
+  showLoading();
+  try {
+    l.returnQty=(l.returnQty||0)-actual;
+    l.qty+=actual;
+    await db.from('inventory').update({qty:l.qty,return_qty:l.returnQty}).eq('code',uniReturnCode);
+    const inv=INV.find(i=>i.code===uniReturnCode);
+    if(inv) inv.total+=actual;
+    histPush({
+      date:new Date().toLocaleString('ko-KR'),
+      store:'물류창고', col:l.name,
+      before:`반납${l.returnQty+actual}`, after:`반납${l.returnQty}`,
+      type:'유니폼귀속', memo:`${mgr}${note?' / '+note:''}`
+    });
+    closeMo('moUniReturn');
+    notify(`✅ 귀속 처리 완료 — ${l.name} ${actual}개 사용가능으로 전환 (담당: ${mgr})`,'success');
+    renderLogi(); renderInv();
+  } catch(e){console.error(e);notify('오류: '+e.message,'error');}
+  hideLoading();
 }
 
 // ═══ STORE OUTGOING (직영점 출고 현황) ═══
@@ -4679,13 +4806,13 @@ async function doUniPickup() {
   try {
     const {error}=await db.from('uniform_pickups').update({status:'confirmed',pickup_date:pickupDate,pickup_note:pickupNote}).eq('id',id);
     if(error)throw error;
-    // 재고 증가
+    // 반납재고 증가 (사용가능 재고가 아닌 반납재고로 귀속 대기)
     const l=LOGI.find(x=>x.code===r.item_code);
-    if(l){const nq=l.qty+r.qty;await db.from('inventory').update({qty:nq}).eq('code',r.item_code);l.qty=nq;const iv=INV.find(x=>x.code===r.item_code);if(iv)iv.total=nq;}
+    if(l){const nrq=(l.returnQty||0)+r.qty;await db.from('inventory').update({return_qty:nrq}).eq('code',r.item_code);l.returnQty=nrq;}
     // 매니저 재고 -
     await _updateUniMgrStock(r.store_name,r.return_manager,{name:r.item_name,code:r.item_code,size:r.size},-r.qty);
     // 이력
-    histPush({date:pickupDate,store:r.store_name,col:r.item_name,before:'',after:-r.qty,type:'유니폼수거',memo:`${r.return_manager} / ${r.size} / ${r.reason}${pickupNote?' / '+pickupNote:''}`});
+    histPush({date:pickupDate,store:r.store_name,col:r.item_name,before:'',after:-r.qty,type:'유니폼수거(반납대기)',memo:`${r.return_manager} / ${r.size} / ${r.reason}${pickupNote?' / '+pickupNote:''}`});
     // 로컬 업데이트
     Object.assign(r,{status:'confirmed',pickup_date:pickupDate,pickup_note:pickupNote});
     closeMo('moUniPickup');
