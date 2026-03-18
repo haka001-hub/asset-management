@@ -274,16 +274,16 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
         <div class="tt">등록 매장 목록 <span id="storeMgmtCount" style="font-size:13px;font-weight:400;color:var(--tx3)"></span></div>
         <div class="sw"><span class="sic">⌕</span><input class="si" id="storeMgmtSrch" placeholder="매장명·코드·코스 검색..." oninput="renderStoreMgmt()"></div>
       </div>
-      <table class="ta" style="table-layout:fixed">
+      <table class="ta" style="width:100%">
         <colgroup>
-          <col style="width:110px"><col style="width:220px"><col style="width:90px"><col><col style="width:80px">
+          <col style="width:100px"><col style="width:240px"><col style="width:80px"><col><col style="width:60px">
         </colgroup>
         <thead><tr>
-          <th style="text-align:center">매장코드</th>
-          <th>매장명</th>
-          <th style="text-align:center">배송코스</th>
-          <th>주소</th>
-          <th style="text-align:center">관리</th>
+          <th style="text-align:center;padding:8px 12px">매장코드</th>
+          <th style="padding:8px 12px">매장명</th>
+          <th style="text-align:center;padding:8px 12px">배송코스</th>
+          <th style="padding:8px 12px">주소</th>
+          <th style="text-align:center;padding:8px 12px">관리</th>
         </tr></thead>
         <tbody id="storeMgmtBody"></tbody>
       </table>
@@ -1714,18 +1714,17 @@ function showPage(id,btn){
 // ═══ STORE MGMT ═══
 function renderStoreMgmt(){
   const q=(document.getElementById('storeMgmtSrch')?.value||'').trim().toLowerCase();
-  const list=q
-    ?ADDR.filter(s=>s.name.toLowerCase().includes(q)||(s.code||'').toLowerCase().includes(q)||(s.route||'').toLowerCase().includes(q))
-    :ADDR;
+  const all=[...ADDR].sort((a,b)=>(a.code||'').localeCompare(b.code||''));
+  const list=q?all.filter(s=>s.name.toLowerCase().includes(q)||(s.code||'').toLowerCase().includes(q)||(s.route||'').toLowerCase().includes(q)):all;
   document.getElementById('storeMgmtCount').textContent=`(${list.length}개)`;
   document.getElementById('storeMgmtBody').innerHTML=list.map(s=>`
-    <tr>
-      <td class="tm" style="text-align:center">${s.code||'-'}</td>
-      <td class="tb2">${s.name}</td>
-      <td class="tm" style="text-align:center">${s.route||'-'}</td>
-      <td style="font-size:12px;color:var(--tx2)">${s.address||'-'}</td>
-      <td style="text-align:center">
-        <button class="btn btn-gst btn-sm" onclick="openEditStore(${s.id})">수정</button>
+    <tr style="height:36px">
+      <td style="text-align:center;padding:6px 10px;font-size:12px;color:var(--tx3);white-space:nowrap">${s.code||'-'}</td>
+      <td style="padding:6px 10px;font-size:13px;font-weight:500;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px">${s.name}</td>
+      <td style="text-align:center;padding:6px 10px;font-size:12px;white-space:nowrap"><span class="rt">${s.route||'-'}</span></td>
+      <td style="padding:6px 10px;font-size:12px;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:400px">${s.address||'-'}</td>
+      <td style="text-align:center;padding:4px 8px">
+        <button class="btn btn-gst btn-sm" style="padding:3px 10px;font-size:11px" onclick="openEditStore(${s.id})">수정</button>
       </td>
     </tr>`).join('')||'<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--tx3)">등록된 매장 없음</td></tr>';
 }
