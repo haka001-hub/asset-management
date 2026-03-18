@@ -4655,7 +4655,7 @@ function _uniItemRowHtml(prefix, row, i, uniformOpts) {
   const removeFn = prefix==='ur'?`removeUrItem(${i})`:`removeUpkItem(${i})`;
   return `<div style="display:grid;grid-template-columns:2fr 90px 70px 130px 1fr 34px;gap:8px;align-items:end;margin-bottom:8px">
     <div class="fgrp" style="margin:0"><label class="flb" style="font-size:11px">유니폼 <span>*</span></label>
-      <select class="fsel" id="${prefix}ItemNm_${i}" onchange="${rowsVar}[${i}].code=this.value;${rowsVar}[${i}].name=this.options[this.selectedIndex]?.dataset?.name||''">
+      <select class="fsel" id="${prefix}ItemNm_${i}" onchange="(function(sel){const nm=sel.options[sel.selectedIndex]?.dataset?.name||'';${rowsVar}[${i}].code=sel.value;${rowsVar}[${i}].name=nm;const szm=nm.match(/(유니폼\([^)]+\))\s*(\S+)/);if(szm){${rowsVar}[${i}].size=szm[2];const szEl=document.getElementById('${prefix}ItemSz_${i}');if(szEl){const match=[...szEl.options].find(o=>o.value.startsWith(szm[2]));if(match)szEl.value=match.value;}}})(this)">
         <option value="">-- 선택 --</option>${uniformOpts}</select></div>
     <div class="fgrp" style="margin:0"><label class="flb" style="font-size:11px">사이즈</label>
       <select class="fsel" id="${prefix}ItemSz_${i}" onchange="${rowsVar}[${i}].size=this.value">${sizeOpts}</select></div>
@@ -4829,17 +4829,33 @@ async function doUniPickup() {
 
 // ─── 매니저 재고 업데이트 헬퍼 ───
 async function _updateUniMgrStock(store, mgrName, item, delta) {
-  // 사이즈 정규화: L(95) → L, XL(100) → XL 등 괄호 이전 문자만 비교
-  const normSz = s => (s||'').replace(/\(.*\)/,'').trim().toUpperCase();
-  const existing=UNIFORM_MGRSTK.find(m=>m.manager_name===mgrName&&m.item_name===item.name&&normSz(m.size)===normSz(item.size));
+  // 인벤토리 품목명이 '유니폼(하계) 2XL' 형식 → 시즌명과 사이즈 분리
+  const normSz = s => (s||'').replace(/\([^)]*\)/g,'').trim().toUpperCase();
+  const seasonMatch = (item.name||'').match(/(유니폼\([^)]+\))/);
+  const season = seasonMatch ? seasonMatch[1] : item.name; // '유니폼(하계)'
+  const sizeInName = (item.name||'').replace(season,'').trim(); // '2XL'
+  const effectiveSize = sizeInName || item.size; // 사이즈가 품목명에 있으면 그걸 사용
+
+  // 매칭: item_name=시즌명, size는 normSz로 숫자 제거 후 비교
+  const existing = UNIFORM_MGRSTK.find(m =>
+    m.manager_name === mgrName &&
+    m.item_name === season &&
+    normSz(m.size) === normSz(effectiveSize)
+  );
   if(existing){
-    const nq=Math.max(0,existing.qty+delta);
-    await db.from('uniform_manager_stock').update({qty:nq,store_name:store,updated_at:new Date().toISOString()}).eq('id',existing.id);
-    existing.qty=nq;
-    existing.store_name=store;
+    const nq = Math.max(0, existing.qty + delta);
+    await db.from('uniform_manager_stock').update({qty:nq, store_name:store, updated_at:new Date().toISOString()}).eq('id',existing.id);
+    existing.qty = nq;
+    existing.store_name = store;
   } else {
-    const {data:ins}=await db.from('uniform_manager_stock').insert({store_name:store,manager_name:mgrName,item_name:item.name,item_code:item.code,size:item.size,qty:Math.max(0,delta)}).select().single();
-    if(ins)UNIFORM_MGRSTK.push(ins);
+    // 신규: 시즌명만 저장, 사이즈는 업로드 데이터 형식(숫자 포함)으로 저장
+    const sizeForInsert = UNIFORM_MGRSTK.find(m=>m.manager_name===mgrName&&m.item_name===season)?.size || effectiveSize;
+    const {data:ins} = await db.from('uniform_manager_stock').insert({
+      store_name:store, manager_name:mgrName,
+      item_name:season, item_code:item.code,
+      size:sizeForInsert, qty:Math.max(0,delta)
+    }).select().single();
+    if(ins) UNIFORM_MGRSTK.push(ins);
   }
 }
 
