@@ -1723,8 +1723,9 @@ function renderStoreMgmt(){
       <td style="padding:6px 10px;font-size:13px;font-weight:500;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px">${s.name}</td>
       <td style="text-align:center;padding:6px 10px;font-size:12px;white-space:nowrap"><span class="rt">${s.route||'-'}</span></td>
       <td style="padding:6px 10px;font-size:12px;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:400px">${s.address||'-'}</td>
-      <td style="text-align:center;padding:4px 8px">
+      <td style="text-align:center;padding:4px 8px;white-space:nowrap">
         <button class="btn btn-gst btn-sm" style="padding:3px 10px;font-size:11px" onclick="openEditStore(${s.id})">수정</button>
+        <button class="btn btn-sm" style="padding:3px 10px;font-size:11px;background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.3);border-radius:5px;cursor:pointer;margin-left:4px" onclick="deleteStore(${s.id},'${s.name.replace(/'/g,'\\\'')}')">삭제</button>
       </td>
     </tr>`).join('')||'<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--tx3)">등록된 매장 없음</td></tr>';
 }
@@ -1755,6 +1756,27 @@ function openEditStore(id){
   document.getElementById('editStRoute').value=s.route||'';
   document.getElementById('editStAddr').value=s.address||'';
   document.getElementById('stEditModal').style.display='flex';
+}
+
+async function deleteStore(id, name){
+  if(!confirm(`"${name}"\n\n이 매장을 삭제하면 관련된 자산신청·수거신청·이력·자산현황 데이터도 모두 삭제됩니다.\n정말 삭제하시겠습니까?`))return;
+  const s=ADDR.find(a=>a.id===id);
+  const storeName=s?s.name:name;
+  // 관련 테이블 삭제
+  await db.from('requests').delete().eq('store',storeName);
+  await db.from('pickups').delete().eq('store',storeName);
+  await db.from('store_history').delete().eq('store_name',storeName);
+  await db.from('store_assets').delete().eq('store_name',storeName);
+  const {error}=await db.from('stores').delete().eq('id',id);
+  if(error){notify('삭제 실패: '+error.message,'error');return;}
+  // 메모리 갱신
+  const idx=ADDR.findIndex(a=>a.id===id);
+  if(idx>-1)ADDR.splice(idx,1);
+  REQS=REQS.filter(r=>r.store!==storeName);
+  PICKUPS=PICKUPS.filter(p=>p.store!==storeName);
+  SA_HIST=SA_HIST.filter(h=>h.store_name!==storeName);
+  notify(`"${storeName}" 삭제 완료`,'success');
+  renderStoreMgmt();
 }
 
 async function saveEditStore(){
