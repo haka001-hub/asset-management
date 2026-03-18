@@ -5176,8 +5176,16 @@ function exportUniformMgmt() {
     const mData=[['매니저명','재직상태','비고','등록일']];
     UNIFORM_MANAGERS.forEach(m=>mData.push([m.manager_name,m.employment_status,m.note,m.created_at?new Date(m.created_at).toLocaleDateString('ko-KR'):'']));
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(mData),'매니저목록');
-    const sData=[['매니저','유니폼','사이즈','보유수량','직영점']];
-    UNIFORM_MGRSTK.filter(s=>s.qty>0).sort((a,b)=>a.manager_name.localeCompare(b.manager_name)).forEach(s=>sData.push([s.manager_name,s.item_name,s.size,s.qty,s.store_name]));
+    // 유니폼 보유현황: 매니저+품목+사이즈 기준 중복 제거 (id 높은 것 우선), 0개 포함
+    const sMap = new Map();
+    [...UNIFORM_MGRSTK].sort((a,b)=>a.id-b.id).forEach(s=>{
+      const key=`${s.manager_name}|${s.item_name}|${s.size}`;
+      sMap.set(key, s);
+    });
+    const sData=[['매니저','유니폼','사이즈','보유수량']];
+    [...sMap.values()]
+      .sort((a,b)=>a.manager_name.localeCompare(b.manager_name,undefined,{sensitivity:'base'}) || a.item_name.localeCompare(b.item_name))
+      .forEach(s=>sData.push([s.manager_name, s.item_name, s.size, s.qty]));
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sData),'유니폼보유현황');
     XLSX.writeFile(wb,`유니폼관리대장_${new Date().toISOString().slice(0,10)}.xlsx`);
     notify('엑셀 다운로드 완료','success');
