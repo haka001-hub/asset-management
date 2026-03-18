@@ -4992,16 +4992,16 @@ function renderUniformMgmt() {
     const sp=getStock(m.manager_name,'유니폼(춘추)');
     const sw=getStock(m.manager_name,'유니폼(동계)');
     return `<tr>
-      <td style="font-weight:600;white-space:nowrap">${m.manager_name}</td>
-      <td>${statusBadge(m.employment_status)}</td>
+      <td style="font-weight:600;text-align:center;white-space:nowrap">${m.manager_name}</td>
+      <td style="text-align:center">${statusBadge(m.employment_status)}</td>
       <td style="text-align:center">${qtyCell(ss)}</td>
       <td style="text-align:center;padding:2px">${editBtn(ss)}</td>
       <td style="text-align:center">${qtyCell(sp)}</td>
       <td style="text-align:center;padding:2px">${editBtn(sp)}</td>
       <td style="text-align:center">${qtyCell(sw)}</td>
       <td style="text-align:center;padding:2px">${editBtn(sw)}</td>
-      <td style="font-size:12px;color:var(--tx3)">${m.note||''}</td>
-      <td style="white-space:nowrap">
+      <td style="font-size:12px;color:var(--tx3);text-align:center">${m.note||''}</td>
+      <td style="text-align:center;white-space:nowrap">
         <button class="btn btn-gst btn-sm" onclick="openUniMgrEdit(${m.id})">수정</button>
         <button class="btn btn-dan btn-sm" onclick="deleteUniMgr(${m.id})">삭제</button>
       </td>
@@ -5020,19 +5020,26 @@ function renderUniformMgmt() {
       <div class="th"><div class="tt">매니저 목록 (${mgrs.length}명)</div>
         <button class="btn btn-gst btn-sm" onclick="openAddUniMgr()">+ 신규 추가</button>
       </div>
-      <table>
+      <table style="table-layout:fixed;width:100%">
+        <colgroup>
+          <col style="width:90px"><col style="width:70px">
+          <col style="width:80px"><col style="width:36px">
+          <col style="width:80px"><col style="width:36px">
+          <col style="width:80px"><col style="width:36px">
+          <col style="width:auto"><col style="width:130px">
+        </colgroup>
         <thead><tr>
-          <th rowspan="2" style="vertical-align:middle">매니저명</th>
-          <th rowspan="2" style="vertical-align:middle">재직상태</th>
+          <th rowspan="2" style="vertical-align:middle;text-align:center">매니저명</th>
+          <th rowspan="2" style="vertical-align:middle;text-align:center">재직상태</th>
           <th colspan="2" style="text-align:center;background:rgba(59,130,246,.08);color:#60a5fa">🌤 하계</th>
           <th colspan="2" style="text-align:center;background:rgba(16,185,129,.08);color:#34d399">🌿 춘추</th>
           <th colspan="2" style="text-align:center;background:rgba(139,92,246,.08);color:#a78bfa">❄ 동계</th>
-          <th rowspan="2" style="vertical-align:middle">비고</th>
-          <th rowspan="2" style="vertical-align:middle">관리</th>
+          <th rowspan="2" style="vertical-align:middle;text-align:center">비고</th>
+          <th rowspan="2" style="vertical-align:middle;text-align:center">관리</th>
         </tr><tr>
-          <th style="background:rgba(59,130,246,.05);font-weight:400;font-size:11px;color:#60a5fa">수량</th><th style="background:rgba(59,130,246,.05);font-size:10px;color:var(--tx3)">수정</th>
-          <th style="background:rgba(16,185,129,.05);font-weight:400;font-size:11px;color:#34d399">수량</th><th style="background:rgba(16,185,129,.05);font-size:10px;color:var(--tx3)">수정</th>
-          <th style="background:rgba(139,92,246,.05);font-weight:400;font-size:11px;color:#a78bfa">수량</th><th style="background:rgba(139,92,246,.05);font-size:10px;color:var(--tx3)">수정</th>
+          <th style="background:rgba(59,130,246,.05);font-weight:400;font-size:11px;color:#60a5fa;text-align:center">수량</th><th style="background:rgba(59,130,246,.05);font-size:10px;color:var(--tx3);text-align:center">수정</th>
+          <th style="background:rgba(16,185,129,.05);font-weight:400;font-size:11px;color:#34d399;text-align:center">수량</th><th style="background:rgba(16,185,129,.05);font-size:10px;color:var(--tx3);text-align:center">수정</th>
+          <th style="background:rgba(139,92,246,.05);font-weight:400;font-size:11px;color:#a78bfa;text-align:center">수량</th><th style="background:rgba(139,92,246,.05);font-size:10px;color:var(--tx3);text-align:center">수정</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
