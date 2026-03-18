@@ -303,8 +303,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
         <button class="tab" onclick="setReqFilter('shipped',this)">출고완료</button>
         <button class="tab" onclick="setReqFilter('rejected',this)">반려</button>
       </div>
-      <table><thead><tr><th>신청번호</th><th>신청일자</th><th>담당자</th><th>자산명</th><th>수량</th><th>매장명</th><th>배송코스</th><th>비고</th><th>상태</th><th>액션</th><th></th></tr></thead>
-      <tbody id="reqTable"></tbody></table>
+      <div id="reqTable" style="padding:4px 0"></div>
     </div>
   </div>
 
@@ -1695,23 +1694,72 @@ function renderReqs(){
     const ms=r.store.toLowerCase().includes(q)||r.asset.toLowerCase().includes(q)||r.manager.toLowerCase().includes(q);
     return mf&&ms;
   });
-  document.getElementById('reqTable').innerHTML=[...data].reverse().map(r=>{
-    const act=(r.status==='pending'||r.status==='approved')
-      ?`<button class="btn btn-suc btn-sm" onclick="openOutModal('${r.id}')">출고처리</button>`
-      :'<span style="color:var(--tx3);font-size:12px">-</span>';
-    const delBtn=r.status==='pending'
-      ?`<button class="btn btn-dan btn-sm" onclick="deleteReq('${r.id}')" style="padding:4px 8px" title="삭제">🗑</button>`:'';
-    return`<tr>
-      <td class="tm">${r.id}</td><td class="tm">${fd(r.date)}</td>
-      <td>${r.manager}<span style="font-size:11px;color:var(--tx3)"> (${r.team})</span></td>
-      <td class="tb2">${r.asset}${FIXED_CODES.has(r.code)?'<span class="fix-dot"></span>':''}</td>
-      <td class="tm">${r.qty}개</td><td>${r.store}</td><td>${stag(r)}</td>
-      <td style="font-size:12px;color:var(--tx3)">${r.note||'-'}</td>
-      <td>${sbadge(r.status)}</td><td>${act}</td><td>${delBtn}</td>
-    </tr>`;
-  }).join('')||`<tr><td colspan="11" style="text-align:center;padding:28px;color:var(--tx3)">해당 내역 없음</td></tr>`;
+  const container=document.getElementById('reqTable');
+  if(!data.length){container.innerHTML='<div style="text-align:center;padding:32px;color:var(--tx3)">해당 내역 없음</div>';return;}
+
+  // date+manager+store 기준으로 그룹화 (최신순)
+  const groups=new Map();
+  [...data].reverse().forEach(r=>{
+    const key=`${r.date}||${r.manager}||${r.store}`;
+    if(!groups.has(key)) groups.set(key,[]);
+    groups.get(key).push(r);
+  });
+
+  container.innerHTML=[...groups.values()].map(items=>{
+    const f=items[0];
+    const allShipped=items.every(r=>r.status==='shipped');
+    const hasPending=items.some(r=>r.status==='pending'||r.status==='approved');
+    const headerBg=allShipped?'rgba(16,185,129,.06)':hasPending?'rgba(59,130,246,.06)':'var(--sf)';
+    const borderClr=allShipped?'rgba(16,185,129,.3)':hasPending?'rgba(59,130,246,.3)':'var(--br)';
+
+    const rows=items.map(r=>{
+      const act=(r.status==='pending'||r.status==='approved')
+        ?`<button class="btn btn-suc btn-sm" onclick="openOutModal('${r.id}')">출고처리</button>`
+        :'<span style="color:var(--tx3);font-size:12px">-</span>';
+      const delBtn=r.status==='pending'
+        ?`<button class="btn btn-dan btn-sm" onclick="deleteReq('${r.id}')" style="padding:4px 8px" title="삭제">🗑</button>`:'';
+      return`<tr>
+        <td class="tb2">${r.asset}${FIXED_CODES.has(r.code)?'<span class="fix-dot"></span>':''}</td>
+        <td class="tm">${r.qty}개</td>
+        <td style="font-size:12px;color:var(--tx3)">${r.note||'-'}</td>
+        <td>${sbadge(r.status)}</td>
+        <td>${act}</td><td>${delBtn}</td>
+      </tr>`;
+    }).join('');
+
+    const gk=encodeURIComponent(`${f.date}||${f.manager}||${f.store}`);
+    return`<div style="margin-bottom:12px;border:1px solid ${borderClr};border-radius:10px;overflow:hidden">
+      <div style="background:${headerBg};padding:10px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid ${borderClr}">
+        <span style="font-weight:700;color:var(--tx);font-size:13px">${fd(f.date)}</span>
+        <span style="font-size:13px;color:var(--tx2)">${f.manager}<span style="font-size:11px;color:var(--tx3)"> (${f.team})</span></span>
+        <span style="font-weight:600;color:var(--ac2);font-size:13px">${f.store}</span>
+        <span style="font-size:12px;color:var(--tx3)">${f.route||''}</span>
+        <span style="font-size:11px;color:var(--tx3);flex:1;min-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.address||''}</span>
+        <button onclick="exportReqGroup('${gk}')" style="font-size:11px;padding:3px 10px;border-radius:5px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:var(--gn);cursor:pointer;white-space:nowrap;flex-shrink:0">📥 엑셀</button>
+      </div>
+      <table style="margin:0">
+        <thead><tr><th>자산명</th><th>수량</th><th>비고</th><th>상태</th><th>액션</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  }).join('');
 }
 function setReqFilter(t,el){reqFilter=t;document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));el.classList.add('active');renderReqs();}
+
+function exportReqGroup(encodedKey){
+  const key=decodeURIComponent(encodedKey);
+  const [date,manager,store]=key.split('||');
+  const items=REQS.filter(r=>r.date===date&&r.manager===manager&&r.store===store);
+  const go=()=>{
+    const wb=XLSX.utils.book_new();
+    const rows=[['자산명','수량','매장명','배송코스','주소']];
+    items.forEach(r=>rows.push([r.asset,r.qty,r.store,r.route||'',r.address||'']));
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows),'자산신청');
+    XLSX.writeFile(wb,`자산신청_${store}_${date}.xlsx`);
+    notify('엑셀 다운로드 완료','success');
+  };
+  if(typeof XLSX==='undefined'){const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=go;document.head.appendChild(s);}else{go();}
+}
 
 // ═══ OUTGOING ═══
 function renderOut(){
