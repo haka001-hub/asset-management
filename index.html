@@ -88,7 +88,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
 .fsel{appearance:none;cursor:pointer}.fta{resize:vertical;min-height:64px}
 .autofill{border-color:var(--gn)!important;background:rgba(16,185,129,.05)!important}
 .acw{position:relative}
-.acl{position:absolute;top:100%;left:0;right:0;background:var(--sf);border:1px solid var(--ac);border-top:none;border-radius:0 0 7px 7px;z-index:600;max-height:210px;overflow-y:auto;display:none}
+.acl{position:fixed;background:var(--sf);border:1px solid var(--ac);border-top:none;border-radius:0 0 7px 7px;z-index:9000;max-height:220px;overflow-y:auto;display:none}
 .acl.show{display:block}
 .aci{padding:8px 12px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--bd)}
 .aci:last-child{border-bottom:none}.aci:hover,.aci.sel{background:rgba(59,130,246,.15);color:var(--ac2)}
@@ -2056,6 +2056,7 @@ function getAllStores(){
 }
 function acStore(val){
   const list=document.getElementById('acStList');
+  const input=document.getElementById('rStore');
   const q=val.trim();
   if(!q){list.classList.remove('show');return}
   const all=getAllStores();
@@ -2068,6 +2069,7 @@ function acStore(val){
       ${s.code?`<span style="font-size:11px;color:var(--tx3);margin-left:4px">[${s.code}]</span>`:''}
       <div class="aci-sb">${s.address||''}</div>
     </div>`).join('');
+  positionAcl(list, input);
   list.classList.add('show');
 }
 function selStoreByName(name,addr,route){
@@ -2084,6 +2086,7 @@ function selStore(idx){
 
 function acRoute(val,listId,inputId){
   const list=document.getElementById(listId);
+  const input=document.getElementById(inputId);
   const q=val.trim().toUpperCase();
   const m=ALL_RT.filter(r=>r.toUpperCase().includes(q)||!q).slice(0,36);
   list.innerHTML=m.map(r=>`
@@ -2091,7 +2094,14 @@ function acRoute(val,listId,inputId){
       <span class="rt${r==='선박'?' rt-sb':''}">${r}</span>
       <span style="font-size:12px;color:var(--tx3);margin-left:8px">${ADDR.filter(s=>s.route===r).length}개 매장</span>
     </div>`).join('');
+  if(m.length>0) positionAcl(list, input);
   list.classList.toggle('show',m.length>0);
+}
+function positionAcl(list, input) {
+  const r = input.getBoundingClientRect();
+  list.style.top = r.bottom + 'px';
+  list.style.left = r.left + 'px';
+  list.style.width = r.width + 'px';
 }
 document.addEventListener('click',e=>{
   if(!e.target.closest('.acw'))document.querySelectorAll('.acl').forEach(l=>l.classList.remove('show'));
@@ -2144,7 +2154,8 @@ function renderReqItems(){
 }
 function acInlineReqAsset(val,i){
   const list=document.getElementById(`acReqRow_${i}`);
-  if(!list)return;
+  const input=document.getElementById(`rItemNm_${i}`);
+  if(!list||!input)return;
   const q=val.trim().toLowerCase();
   const m=INV.filter(x=>!q||x.name.toLowerCase().includes(q)||x.code.toLowerCase().includes(q)).slice(0,12);
   if(!m.length){list.classList.remove('show');return}
@@ -2155,6 +2166,7 @@ function acInlineReqAsset(val,i){
       ${FIXED_CODES.has(x.code)?'<span class="badge b-fix" style="font-size:9px;padding:1px 5px;margin-left:4px">고정</span>':''}
       <span style="float:right;font-size:11px;color:${(x.total-x.out)<=10?'var(--yw)':'var(--tx3)'}">재고 ${x.total-x.out}개</span>
     </div>`).join('');
+  positionAcl(list, input);
   list.classList.add('show');
 }
 function selInlineReqAsset(i,code,name){
@@ -2625,6 +2637,7 @@ function renderPickupHist(){
 // ═══ PICKUP: 수거 신청 모달 ═══
 function acStorePk(val){
   const list=document.getElementById('acPkStList');
+  const input=document.getElementById('pkStore');
   const q=val.trim();
   if(!q){list.classList.remove('show');return}
   const all=getAllStores();
@@ -2637,6 +2650,7 @@ function acStorePk(val){
       ${s.code?`<span style="font-size:11px;color:var(--tx3);margin-left:4px">[${s.code}]</span>`:''}
       <div class="aci-sb">${s.address||''}</div>
     </div>`).join('');
+  positionAcl(list, input);
   list.classList.add('show');
 }
 function selStorePkByName(name,addr,route){
@@ -2714,7 +2728,8 @@ function renderPkItems(){
 }
 function acInlinePkAsset(val,i){
   const list=document.getElementById(`acPkRow_${i}`);
-  if(!list)return;
+  const input=document.getElementById(`pkItemNm_${i}`);
+  if(!list||!input)return;
   const q=val.trim().toLowerCase();
   const m=INV.filter(x=>!q||x.name.toLowerCase().includes(q)||x.code.toLowerCase().includes(q)).slice(0,12);
   if(!m.length){list.classList.remove('show');return}
@@ -2724,6 +2739,7 @@ function acInlinePkAsset(val,i){
       <span class="aci-nm" style="margin-left:8px">${x.name}</span>
       <span style="float:right;font-size:11px;color:var(--tx3)">재고 ${x.total}개</span>
     </div>`).join('');
+  positionAcl(list, input);
   list.classList.add('show');
 }
 function selInlinePkAsset(i,code,name){
@@ -3205,6 +3221,7 @@ function acPurchaseItem(inp) {
       <div class="aci-nm">${p.name}</div>
       <div class="aci-sb">${p.code}</div>
     </div>`).join('');
+  positionAcl(list, inp);
   list.classList.add('show');
 }
 
