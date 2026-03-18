@@ -1687,6 +1687,14 @@ function renderInv(){
 }
 
 // ═══ REQUEST ═══
+function toggleReqGroup(card){
+  const body=card.querySelector('.req-card-body');
+  const icon=card.querySelector('.req-toggle-icon');
+  const open=body.style.display!=='none';
+  body.style.display=open?'none':'';
+  if(icon) icon.textContent=open?'▼':'▲';
+}
+
 function renderReqs(){
   const q=(document.getElementById('reqSrch')?.value||'').toLowerCase();
   const data=REQS.filter(r=>{
@@ -1697,9 +1705,10 @@ function renderReqs(){
   const container=document.getElementById('reqTable');
   if(!data.length){container.innerHTML='<div style="text-align:center;padding:32px;color:var(--tx3)">해당 내역 없음</div>';return;}
 
-  // date+manager+store 기준으로 그룹화 (최신순)
+  // 최신순 정렬 후 그룹화 (date 내림차순 → id 내림차순)
+  const sorted=[...data].sort((a,b)=>b.date.localeCompare(a.date)||(b.id>a.id?1:-1));
   const groups=new Map();
-  [...data].reverse().forEach(r=>{
+  sorted.forEach(r=>{
     const key=`${r.date}||${r.manager}||${r.store}`;
     if(!groups.has(key)) groups.set(key,[]);
     groups.get(key).push(r);
@@ -1712,12 +1721,18 @@ function renderReqs(){
     const headerBg=allShipped?'rgba(16,185,129,.06)':hasPending?'rgba(59,130,246,.06)':'var(--sf)';
     const borderClr=allShipped?'rgba(16,185,129,.3)':hasPending?'rgba(59,130,246,.3)':'var(--br)';
 
+    // 출고일/출고자 (shipped 항목에서 추출)
+    const shipped=items.find(r=>r.status==='shipped'&&r.outDate);
+    const outInfo=shipped
+      ?`<span style="font-size:11px;color:var(--tx3)">│</span><span style="font-size:11px;color:var(--tx3)">출고일</span><span style="font-size:12px;font-weight:600;color:var(--gn)">${fd(shipped.outDate)}</span><span style="font-size:11px;color:var(--tx3)">출고자</span><span style="font-size:12px;color:var(--tx2)">${shipped.outMgr||'-'}</span>`
+      :'';
+
     const rows=items.map(r=>{
       const act=(r.status==='pending'||r.status==='approved')
-        ?`<button class="btn btn-suc btn-sm" onclick="openOutModal('${r.id}')">출고처리</button>`
+        ?`<button class="btn btn-suc btn-sm" onclick="event.stopPropagation();openOutModal('${r.id}')">출고처리</button>`
         :'<span style="color:var(--tx3);font-size:12px">-</span>';
       const delBtn=r.status==='pending'
-        ?`<button class="btn btn-dan btn-sm" onclick="deleteReq('${r.id}')" style="padding:4px 8px" title="삭제">🗑</button>`:'';
+        ?`<button class="btn btn-dan btn-sm" onclick="event.stopPropagation();deleteReq('${r.id}')" style="padding:4px 8px" title="삭제">🗑</button>`:'';
       return`<tr>
         <td class="tb2">${r.asset}${FIXED_CODES.has(r.code)?'<span class="fix-dot"></span>':''}</td>
         <td class="tm">${r.qty}개</td>
@@ -1728,19 +1743,27 @@ function renderReqs(){
     }).join('');
 
     const gk=encodeURIComponent(`${f.date}||${f.manager}||${f.store}`);
-    return`<div style="margin-bottom:12px;border:1px solid ${borderClr};border-radius:10px;overflow:hidden">
-      <div style="background:${headerBg};padding:10px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid ${borderClr}">
-        <span style="font-weight:700;color:var(--tx);font-size:13px">${fd(f.date)}</span>
-        <span style="font-size:13px;color:var(--tx2)">${f.manager}<span style="font-size:11px;color:var(--tx3)"> (${f.team})</span></span>
+    return`<div style="margin-bottom:12px;border:1px solid ${borderClr};border-radius:10px;overflow:hidden" ondblclick="toggleReqGroup(this)">
+      <div style="background:${headerBg};padding:10px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-bottom:1px solid ${borderClr};cursor:pointer;user-select:none">
+        <span style="font-size:11px;color:var(--tx3)">신청일</span><span style="font-weight:700;color:var(--tx);font-size:13px">${fd(f.date)}</span>
+        <span style="font-size:11px;color:var(--tx3)">│</span>
+        <span style="font-size:11px;color:var(--tx3)">신청자</span><span style="font-size:13px;color:var(--tx2)">${f.manager}<span style="font-size:11px;color:var(--tx3)"> (${f.team})</span></span>
+        <span style="font-size:11px;color:var(--tx3)">│</span>
         <span style="font-weight:600;color:var(--ac2);font-size:13px">${f.store}</span>
         <span style="font-size:12px;color:var(--tx3)">${f.route||''}</span>
-        <span style="font-size:11px;color:var(--tx3);flex:1;min-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.address||''}</span>
-        <button onclick="exportReqGroup('${gk}')" style="font-size:11px;padding:3px 10px;border-radius:5px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:var(--gn);cursor:pointer;white-space:nowrap;flex-shrink:0">📥 엑셀</button>
+        <span style="font-size:11px;color:var(--tx3);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.address||''}</span>
+        ${outInfo}
+        <div style="margin-left:auto;display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <button onclick="event.stopPropagation();exportReqGroup('${gk}')" style="font-size:11px;padding:3px 10px;border-radius:5px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:var(--gn);cursor:pointer;white-space:nowrap">📥 엑셀</button>
+          <span class="req-toggle-icon" style="font-size:11px;color:var(--tx3)">▲</span>
+        </div>
       </div>
-      <table style="margin:0">
-        <thead><tr><th>자산명</th><th>수량</th><th>비고</th><th>상태</th><th>액션</th><th></th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
+      <div class="req-card-body">
+        <table style="margin:0">
+          <thead><tr><th>자산명</th><th>수량</th><th>비고</th><th>상태</th><th>액션</th><th></th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
     </div>`;
   }).join('');
 }
