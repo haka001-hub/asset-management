@@ -165,6 +165,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
   <div class="nav">
     <div class="nav-sec">메인</div>
     <button class="ni active" onclick="showPage('dashboard',this)"><span class="ic">⊞</span>대시보드</button>
+    <button class="ni" onclick="showPage('store-mgmt',this)"><span class="ic">🏪</span>매장 관리</button>
     <div class="nav-sec">자산 관리</div>
     <button class="ni" onclick="showPage('inventory',this)"><span class="ic">◫</span>자산 현황</button>
     <button class="ni" onclick="showPage('request',this)"><span class="ic">↗</span>자산 신청<span class="nbadge" id="pendingBadge">0</span></button>
@@ -235,6 +236,72 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
         <div class="th"><div class="tt">물류재고 부족 알림</div><button class="btn btn-gst btn-sm" onclick="showPage('logistics')">전체 →</button></div>
         <table><thead><tr><th>코드</th><th>품목명</th><th>재고</th><th>상태</th></tr></thead>
         <tbody id="dashLogiWarn"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STORE MGMT ── -->
+  <div id="page-store-mgmt" class="hidden">
+    <!-- 신규 매장 등록 카드 -->
+    <div class="tw" style="margin-bottom:16px">
+      <div class="th"><div class="tt">신규 매장 등록</div></div>
+      <div style="padding:16px 18px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 2fr auto;gap:10px;align-items:flex-end">
+          <div class="fgrp" style="margin:0">
+            <label class="flb">매장코드</label>
+            <input type="text" class="fi" id="newStCode" placeholder="예) 10001">
+          </div>
+          <div class="fgrp" style="margin:0">
+            <label class="flb">매장명 <span>*</span></label>
+            <input type="text" class="fi" id="newStName" placeholder="매장명 입력">
+          </div>
+          <div class="fgrp" style="margin:0">
+            <label class="flb">배송코스</label>
+            <input type="text" class="fi" id="newStRoute" placeholder="예) A1, 없음">
+          </div>
+          <div class="fgrp" style="margin:0">
+            <label class="flb">주소</label>
+            <input type="text" class="fi" id="newStAddr" placeholder="도로명 주소">
+          </div>
+          <button class="btn btn-pri" onclick="addNewStore()" style="white-space:nowrap;height:36px">+ 등록</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 매장 목록 -->
+    <div class="tw">
+      <div class="th">
+        <div class="tt">등록 매장 목록 <span id="storeMgmtCount" style="font-size:13px;font-weight:400;color:var(--tx3)"></span></div>
+        <div class="sw"><span class="sic">⌕</span><input class="si" id="storeMgmtSrch" placeholder="매장명·코드·코스 검색..." oninput="renderStoreMgmt()"></div>
+      </div>
+      <table class="ta" style="table-layout:fixed">
+        <colgroup>
+          <col style="width:110px"><col style="width:220px"><col style="width:90px"><col><col style="width:80px">
+        </colgroup>
+        <thead><tr>
+          <th style="text-align:center">매장코드</th>
+          <th>매장명</th>
+          <th style="text-align:center">배송코스</th>
+          <th>주소</th>
+          <th style="text-align:center">관리</th>
+        </tr></thead>
+        <tbody id="storeMgmtBody"></tbody>
+      </table>
+    </div>
+
+    <!-- 수정 모달 -->
+    <div id="stEditModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:900;align-items:center;justify-content:center">
+      <div style="background:var(--sf);border-radius:12px;padding:24px;width:480px;max-width:95vw;box-shadow:0 8px 32px rgba(0,0,0,.3)">
+        <div style="font-size:15px;font-weight:700;color:var(--tx);margin-bottom:16px">매장 정보 수정</div>
+        <input type="hidden" id="editStId">
+        <div class="fgrp"><label class="flb">매장코드</label><input type="text" class="fi" id="editStCode" placeholder="매장코드"></div>
+        <div class="fgrp"><label class="flb">매장명 <span>*</span></label><input type="text" class="fi" id="editStName" placeholder="매장명"></div>
+        <div class="fgrp"><label class="flb">배송코스</label><input type="text" class="fi" id="editStRoute" placeholder="배송코스"></div>
+        <div class="fgrp"><label class="flb">주소</label><input type="text" class="fi" id="editStAddr" placeholder="주소"></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
+          <button class="btn btn-gst" onclick="document.getElementById('stEditModal').style.display='none'">취소</button>
+          <button class="btn btn-pri" onclick="saveEditStore()">저장</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1629,6 +1696,7 @@ const META={
   'uniform-pickup':['유니폼 수거','직영점 유니폼 수거 신청 (인사팀 작성)'],
   'uniform-hist':['유니폼 수불 이력','유니폼 신청·수거 전체 이력'],
   'uniform-mgmt':['직영점 유니폼 관리대장','매니저별 유니폼 보유 현황'],
+  'store-mgmt':['매장 관리','등록 매장 조회 · 신규 등록 · 정보 수정'],
 };
 function showPage(id,btn){
   document.querySelectorAll('[id^="page-"]').forEach(e=>e.classList.add('hidden'));
@@ -1639,8 +1707,71 @@ function showPage(id,btn){
   const[t,s]=META[id]||['',''];
   document.getElementById('pgTitle').textContent=t;
   document.getElementById('pgSub').textContent=s;
-  ({dashboard:renderDash,inventory:renderInv,request:renderReqs,outgoing:renderOut,history:renderHist,logistics:renderLogi,storeout:renderStoreOut,storeasset:renderSA,pickup:renderPickup,pickupmgmt:renderPickupMgmt,pickuphist:renderPickupHist,bulkorder:renderBulkHist,'purchase-req':renderPurchaseHist,'order-mgmt':renderOrderMgmt,'bag-upload':renderBagUpload,'bag-result':renderBagResult,'bag-history':renderBagHistory,'uniform-req':renderUniformReqList,'uniform-pickup':renderUniformPkpList,'uniform-hist':renderUniformHist,'uniform-mgmt':renderUniformMgmt})[id]?.();
+  ({dashboard:renderDash,inventory:renderInv,request:renderReqs,outgoing:renderOut,history:renderHist,logistics:renderLogi,storeout:renderStoreOut,storeasset:renderSA,pickup:renderPickup,pickupmgmt:renderPickupMgmt,pickuphist:renderPickupHist,bulkorder:renderBulkHist,'purchase-req':renderPurchaseHist,'order-mgmt':renderOrderMgmt,'bag-upload':renderBagUpload,'bag-result':renderBagResult,'bag-history':renderBagHistory,'uniform-req':renderUniformReqList,'uniform-pickup':renderUniformPkpList,'uniform-hist':renderUniformHist,'uniform-mgmt':renderUniformMgmt,'store-mgmt':renderStoreMgmt})[id]?.();
   updateBadge();
+}
+
+// ═══ STORE MGMT ═══
+function renderStoreMgmt(){
+  const q=(document.getElementById('storeMgmtSrch')?.value||'').trim().toLowerCase();
+  const list=q
+    ?ADDR.filter(s=>s.name.toLowerCase().includes(q)||(s.code||'').toLowerCase().includes(q)||(s.route||'').toLowerCase().includes(q))
+    :ADDR;
+  document.getElementById('storeMgmtCount').textContent=`(${list.length}개)`;
+  document.getElementById('storeMgmtBody').innerHTML=list.map(s=>`
+    <tr>
+      <td class="tm" style="text-align:center">${s.code||'-'}</td>
+      <td class="tb2">${s.name}</td>
+      <td class="tm" style="text-align:center">${s.route||'-'}</td>
+      <td style="font-size:12px;color:var(--tx2)">${s.address||'-'}</td>
+      <td style="text-align:center">
+        <button class="btn btn-gst btn-sm" onclick="openEditStore(${s.id})">수정</button>
+      </td>
+    </tr>`).join('')||'<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--tx3)">등록된 매장 없음</td></tr>';
+}
+
+async function addNewStore(){
+  const code=document.getElementById('newStCode').value.trim();
+  const name=document.getElementById('newStName').value.trim();
+  const route=document.getElementById('newStRoute').value.trim();
+  const address=document.getElementById('newStAddr').value.trim();
+  if(!name){notify('매장명은 필수입니다','error');return;}
+  const {data,error}=await db.from('stores').insert({code:code||null,name,route:route||null,address:address||null}).select().single();
+  if(error){notify('등록 실패: '+error.message,'error');return;}
+  ADDR.push({id:data.id,code:data.code||'',name:data.name,route:data.route||'',address:data.address||''});
+  document.getElementById('newStCode').value='';
+  document.getElementById('newStName').value='';
+  document.getElementById('newStRoute').value='';
+  document.getElementById('newStAddr').value='';
+  notify(`"${name}" 등록 완료`,'success');
+  renderStoreMgmt();
+}
+
+function openEditStore(id){
+  const s=ADDR.find(a=>a.id===id);
+  if(!s)return;
+  document.getElementById('editStId').value=id;
+  document.getElementById('editStCode').value=s.code||'';
+  document.getElementById('editStName').value=s.name||'';
+  document.getElementById('editStRoute').value=s.route||'';
+  document.getElementById('editStAddr').value=s.address||'';
+  document.getElementById('stEditModal').style.display='flex';
+}
+
+async function saveEditStore(){
+  const id=parseInt(document.getElementById('editStId').value);
+  const code=document.getElementById('editStCode').value.trim();
+  const name=document.getElementById('editStName').value.trim();
+  const route=document.getElementById('editStRoute').value.trim();
+  const address=document.getElementById('editStAddr').value.trim();
+  if(!name){notify('매장명은 필수입니다','error');return;}
+  const {error}=await db.from('stores').update({code:code||null,name,route:route||null,address:address||null}).eq('id',id);
+  if(error){notify('수정 실패: '+error.message,'error');return;}
+  const s=ADDR.find(a=>a.id===id);
+  if(s){s.code=code;s.name=name;s.route=route;s.address=address;}
+  document.getElementById('stEditModal').style.display='none';
+  notify(`"${name}" 수정 완료`,'success');
+  renderStoreMgmt();
 }
 
 // ═══ DASHBOARD ═══
