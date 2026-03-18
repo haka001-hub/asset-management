@@ -927,9 +927,13 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
       <div class="tt">직영점 유니폼 관리대장</div>
       <button class="btn btn-gst btn-sm" onclick="exportUniformMgmt()">📥 엑셀 내보내기</button>
     </div>
-    <div style="padding:12px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <div class="sw" style="max-width:280px"><span class="sic">⌕</span><input class="si" id="umSrch" placeholder="매장명 또는 매니저명 검색..." oninput="renderUniformMgmt()"></div>
-      <div style="font-size:12px;color:var(--tx3)">💡 보유현황은 유니폼 신청/수거 처리 시 자동 반영됩니다</div>
+    <div style="padding:12px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div class="sw" style="max-width:240px"><span class="sic">⌕</span><input class="si" id="umSrch" placeholder="매니저명 검색..." oninput="renderUniformMgmt()"></div>
+      <button class="tab active um-filter" onclick="setUmFilter('all',this)">전체</button>
+      <button class="tab um-filter" onclick="setUmFilter('zero',this)">0개 있음</button>
+      <button class="tab um-filter" onclick="setUmFilter('summer',this)">하계 0개</button>
+      <button class="tab um-filter" onclick="setUmFilter('spring',this)">춘추 0개</button>
+      <button class="tab um-filter" onclick="setUmFilter('winter',this)">동계 0개</button>
     </div>
   </div>
   <div id="uniformMgmtContent"></div>
@@ -4944,22 +4948,17 @@ function renderUniformHist() {
 }
 
 // ─── 관리대장 ───
+let umFilter = 'all';
+function setUmFilter(f, el) {
+  umFilter = f;
+  document.querySelectorAll('.um-filter').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  renderUniformMgmt();
+}
+
 function renderUniformMgmt() {
   const srch=(document.getElementById('umSrch')?.value||'').trim().toLowerCase();
   const container=document.getElementById('uniformMgmtContent'); if(!container) return;
-
-  // 매니저 목록 기준 렌더 (uniform_managers)
-  let mgrs = UNIFORM_MANAGERS.filter(m=>!srch||m.manager_name.toLowerCase().includes(srch)||(m.employment_status||'').includes(srch));
-  if(!mgrs.length){
-    container.innerHTML='<div class="tw"><div style="padding:40px;text-align:center;color:var(--tx3)">검색 결과 없음</div></div>';
-    return;
-  }
-
-  // 상태별 탭 카운트
-  const total=UNIFORM_MANAGERS.length;
-  const active=UNIFORM_MANAGERS.filter(m=>m.employment_status==='재직').length;
-  const leave=UNIFORM_MANAGERS.filter(m=>m.employment_status==='휴직').length;
-  const quit=UNIFORM_MANAGERS.filter(m=>m.employment_status==='퇴직').length;
 
   const statusBadge=(s)=>{
     if(s==='재직') return '<span class="badge b-appr">재직</span>';
@@ -4968,46 +4967,75 @@ function renderUniformMgmt() {
     return `<span class="badge">${s||'재직'}</span>`;
   };
 
-  const rows = mgrs.map(m => {
-    const stocks = UNIFORM_MGRSTK.filter(s=>s.manager_name===m.manager_name);
-    const stockRows = stocks.length
-      ? stocks.map(s=>`
-        <tr style="background:var(--bg)">
-          <td style="padding-left:32px;color:var(--tx3);font-size:12px">└</td>
-          <td>${s.item_name}</td><td>${s.size}</td>
-          <td><span class="badge ${s.qty>0?'b-appr':'b-zero'}">${s.qty}벌</span></td>
-          <td colspan="2">
-            <button class="btn btn-gst btn-sm" onclick="openUniStockEdit(${s.id})">수정</button>
-            <button class="btn btn-dan btn-sm" onclick="deleteUniStock(${s.id})">삭제</button>
-          </td>
-        </tr>`).join('')
-      : `<tr style="background:var(--bg)"><td style="padding-left:32px;color:var(--tx3);font-size:12px" colspan="6">└ 보유 유니폼 없음</td></tr>`;
-    return `
-      <tr>
-        <td style="font-weight:600">${m.manager_name}</td>
-        <td>${statusBadge(m.employment_status)}</td>
-        <td>${m.note||''}</td>
-        <td>${new Date(m.created_at).toLocaleDateString('ko-KR')}</td>
-        <td colspan="2">
-          <button class="btn btn-gst btn-sm" onclick="openUniMgrEdit(${m.id})">수정</button>
-          <button class="btn btn-dan btn-sm" onclick="deleteUniMgr(${m.id})">삭제</button>
-        </td>
-      </tr>${stockRows}`;
-  }).join('');
+  const getStock=(name,item)=>UNIFORM_MGRSTK.find(s=>s.manager_name===name&&s.item_name===item);
+  const qtyCell=(s)=>{
+    if(!s) return '<span style="color:var(--tx3)">-</span>';
+    const clr=s.qty===0?'#f87171':s.qty<=1?'#fbbf24':'var(--gn)';
+    return `<div style="font-size:13px;font-weight:600;color:${clr}">${s.qty}벌</div><div style="font-size:11px;color:var(--tx3);margin-top:1px">${s.size||''}</div>`;
+  };
+  const editBtn=(s)=>s?`<button onclick="openUniStockEdit(${s.id})" style="font-size:10px;padding:1px 5px;border-radius:3px;border:1px solid var(--br);background:var(--sf);cursor:pointer;color:var(--tx2)">✎</button>`:'';
+
+  // 필터
+  let mgrs = UNIFORM_MANAGERS.filter(m=>!srch||m.manager_name.toLowerCase().includes(srch)||(m.employment_status||'').includes(srch));
+  if(umFilter==='zero') mgrs=mgrs.filter(m=>UNIFORM_MGRSTK.filter(s=>s.manager_name===m.manager_name).some(s=>s.qty===0));
+  if(umFilter==='summer') mgrs=mgrs.filter(m=>{const s=getStock(m.manager_name,'유니폼(하계)');return s&&s.qty===0;});
+  if(umFilter==='spring') mgrs=mgrs.filter(m=>{const s=getStock(m.manager_name,'유니폼(춘추)');return s&&s.qty===0;});
+  if(umFilter==='winter') mgrs=mgrs.filter(m=>{const s=getStock(m.manager_name,'유니폼(동계)');return s&&s.qty===0;});
+
+  const total=UNIFORM_MANAGERS.length;
+  const active=UNIFORM_MANAGERS.filter(m=>m.employment_status==='재직').length;
+  const leave=UNIFORM_MANAGERS.filter(m=>m.employment_status==='휴직').length;
+  const quit=UNIFORM_MANAGERS.filter(m=>m.employment_status==='퇴직').length;
+
+  const rows = mgrs.length ? mgrs.map(m=>{
+    const ss=getStock(m.manager_name,'유니폼(하계)');
+    const sp=getStock(m.manager_name,'유니폼(춘추)');
+    const sw=getStock(m.manager_name,'유니폼(동계)');
+    return `<tr>
+      <td style="font-weight:600;white-space:nowrap">${m.manager_name}</td>
+      <td>${statusBadge(m.employment_status)}</td>
+      <td style="text-align:center">${qtyCell(ss)}</td>
+      <td style="text-align:center;padding:2px">${editBtn(ss)}</td>
+      <td style="text-align:center">${qtyCell(sp)}</td>
+      <td style="text-align:center;padding:2px">${editBtn(sp)}</td>
+      <td style="text-align:center">${qtyCell(sw)}</td>
+      <td style="text-align:center;padding:2px">${editBtn(sw)}</td>
+      <td style="font-size:12px;color:var(--tx3)">${m.note||''}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-gst btn-sm" onclick="openUniMgrEdit(${m.id})">수정</button>
+        <button class="btn btn-dan btn-sm" onclick="deleteUniMgr(${m.id})">삭제</button>
+      </td>
+    </tr>`;
+  }).join('')
+  : `<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--tx3)">검색 결과 없음</td></tr>`;
 
   container.innerHTML = `
     <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-      <div class="sc" style="flex:1;min-width:100px;text-align:center"><div style="font-size:22px;font-weight:700">${total}</div><div style="font-size:12px;color:var(--tx3)">전체</div></div>
-      <div class="sc" style="flex:1;min-width:100px;text-align:center"><div style="font-size:22px;font-weight:700;color:var(--ac2)">${active}</div><div style="font-size:12px;color:var(--tx3)">재직</div></div>
-      <div class="sc" style="flex:1;min-width:100px;text-align:center"><div style="font-size:22px;font-weight:700;color:#818cf8">${leave}</div><div style="font-size:12px;color:var(--tx3)">휴직</div></div>
-      <div class="sc" style="flex:1;min-width:100px;text-align:center"><div style="font-size:22px;font-weight:700;color:var(--rd)">${quit}</div><div style="font-size:12px;color:var(--tx3)">퇴직</div></div>
+      <div class="sc" style="flex:1;min-width:90px;text-align:center"><div style="font-size:22px;font-weight:700">${total}</div><div style="font-size:12px;color:var(--tx3)">전체</div></div>
+      <div class="sc" style="flex:1;min-width:90px;text-align:center"><div style="font-size:22px;font-weight:700;color:var(--ac2)">${active}</div><div style="font-size:12px;color:var(--tx3)">재직</div></div>
+      <div class="sc" style="flex:1;min-width:90px;text-align:center"><div style="font-size:22px;font-weight:700;color:#818cf8">${leave}</div><div style="font-size:12px;color:var(--tx3)">휴직</div></div>
+      <div class="sc" style="flex:1;min-width:90px;text-align:center"><div style="font-size:22px;font-weight:700;color:var(--rd)">${quit}</div><div style="font-size:12px;color:var(--tx3)">퇴직</div></div>
     </div>
     <div class="tw">
       <div class="th"><div class="tt">매니저 목록 (${mgrs.length}명)</div>
         <button class="btn btn-gst btn-sm" onclick="openAddUniMgr()">+ 신규 추가</button>
       </div>
-      <table><thead><tr><th>매니저명</th><th>재직상태</th><th>비고</th><th>등록일</th><th colspan="2">관리</th></tr></thead>
-      <tbody>${rows}</tbody></table>
+      <table>
+        <thead><tr>
+          <th rowspan="2" style="vertical-align:middle">매니저명</th>
+          <th rowspan="2" style="vertical-align:middle">재직상태</th>
+          <th colspan="2" style="text-align:center;background:rgba(59,130,246,.08);color:#60a5fa">🌤 하계</th>
+          <th colspan="2" style="text-align:center;background:rgba(16,185,129,.08);color:#34d399">🌿 춘추</th>
+          <th colspan="2" style="text-align:center;background:rgba(139,92,246,.08);color:#a78bfa">❄ 동계</th>
+          <th rowspan="2" style="vertical-align:middle">비고</th>
+          <th rowspan="2" style="vertical-align:middle">관리</th>
+        </tr><tr>
+          <th style="background:rgba(59,130,246,.05);font-weight:400;font-size:11px;color:#60a5fa">수량</th><th style="background:rgba(59,130,246,.05);font-size:10px;color:var(--tx3)">수정</th>
+          <th style="background:rgba(16,185,129,.05);font-weight:400;font-size:11px;color:#34d399">수량</th><th style="background:rgba(16,185,129,.05);font-size:10px;color:var(--tx3)">수정</th>
+          <th style="background:rgba(139,92,246,.05);font-weight:400;font-size:11px;color:#a78bfa">수량</th><th style="background:rgba(139,92,246,.05);font-size:10px;color:var(--tx3)">수정</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
     </div>`;
 }
 
