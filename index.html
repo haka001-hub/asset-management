@@ -4648,7 +4648,8 @@ function addUniPkpItem() { uniPkpRows.push({name:'', code:'', size:'M', qty:1, r
 function removeUpkItem(i) { if (uniPkpRows.length<=1){notify('품목은 1개 이상','error');return;} uniPkpRows.splice(i,1); renderUniPkpItems(); }
 
 function _uniItemRowHtml(prefix, row, i, uniformOpts) {
-  const sizeOpts = ['XS','S','M','L','XL','2XL','3XL'].map(s=>`<option value="${s}"${row.size===s?' selected':''}>${s}</option>`).join('');
+  const SIZES = ['XS(80)','S(85)','M(90)','L(95)','XL(100)','2XL(105)','3XL(110)','4XL(115)'];
+  const sizeOpts = SIZES.map(s=>`<option value="${s}"${row.size===s?' selected':''}>${s}</option>`).join('');
   const rsnOpts = ['입사','퇴사','사이즈교환','오염','기타'].map(r=>`<option value="${r}"${row.reason===r?' selected':''}>${r}</option>`).join('');
   const rowsVar = prefix==='ur'?'uniReqRows':'uniPkpRows';
   const removeFn = prefix==='ur'?`removeUrItem(${i})`:`removeUpkItem(${i})`;
@@ -4828,8 +4829,9 @@ async function doUniPickup() {
 
 // ─── 매니저 재고 업데이트 헬퍼 ───
 async function _updateUniMgrStock(store, mgrName, item, delta) {
-  // store_name 무시하고 매니저명 + 품목명 + 사이즈로만 매칭 (업로드 데이터 store_name='' 대응)
-  const existing=UNIFORM_MGRSTK.find(m=>m.manager_name===mgrName&&m.item_name===item.name&&m.size===item.size);
+  // 사이즈 정규화: L(95) → L, XL(100) → XL 등 괄호 이전 문자만 비교
+  const normSz = s => (s||'').replace(/\(.*\)/,'').trim().toUpperCase();
+  const existing=UNIFORM_MGRSTK.find(m=>m.manager_name===mgrName&&m.item_name===item.name&&normSz(m.size)===normSz(item.size));
   if(existing){
     const nq=Math.max(0,existing.qty+delta);
     await db.from('uniform_manager_stock').update({qty:nq,store_name:store,updated_at:new Date().toISOString()}).eq('id',existing.id);
