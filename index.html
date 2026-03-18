@@ -1271,7 +1271,7 @@ function hideLoading() { const el=document.getElementById('db-loading'); if(el) 
 async function loadFromDB() {
   showLoading();
   try {
-    const [invRes, storeRes, saRes, reqRes, pkRes, purchReqRes, purchItemRes, bagRes, uniReqRes, uniPkpRes, uniMgrRes] = await Promise.all([
+    const [invRes, storeRes, saRes, reqRes, pkRes, purchReqRes, purchItemRes, bagRes] = await Promise.all([
       db.from('inventory').select('*').order('id'),
       db.from('stores').select('*').order('name'),
       db.from('store_assets').select('*'),
@@ -1279,10 +1279,7 @@ async function loadFromDB() {
       db.from('pickups').select('*').order('created_at', {ascending: false}),
       db.from('purchase_requests').select('*').order('created_at', {ascending: false}),
       db.from('purchase_items').select('*').order('id'),
-      db.from('bag_shipping').select('*').order('created_at', {ascending: false}),
-      db.from('uniform_requests').select('*').order('created_at', {ascending: false}),
-      db.from('uniform_pickups').select('*').order('created_at', {ascending: false}),
-      db.from('uniform_manager_stock').select('*').order('store_name')
+      db.from('bag_shipping').select('*').order('created_at', {ascending: false})
     ]);
     if (invRes.data && invRes.data.length > 0) {
       LOGI.length = 0;
@@ -1335,21 +1332,22 @@ async function loadFromDB() {
       BAG_SHIPPING.length = 0;
       bagRes.data.forEach(r => BAG_SHIPPING.push(r));
     }
-    if (uniReqRes.data) {
-      UNIFORM_REQS.length = 0;
-      uniReqRes.data.forEach(r => UNIFORM_REQS.push(r));
-    }
-    if (uniPkpRes.data) {
-      UNIFORM_PKPS.length = 0;
-      uniPkpRes.data.forEach(r => UNIFORM_PKPS.push(r));
-    }
-    if (uniMgrRes.data) {
-      UNIFORM_MGRSTK.length = 0;
-      uniMgrRes.data.forEach(r => UNIFORM_MGRSTK.push(r));
-    }
   } catch(e) {
     console.error('DB load error:', e);
     notify('데이터 로드 실패 — 새로고침 해주세요', 'error');
+  }
+  // 유니폼 테이블 별도 로드 (테이블 미생성 시 앱 전체 오류 방지)
+  try {
+    const [uniReqRes, uniPkpRes, uniMgrRes] = await Promise.all([
+      db.from('uniform_requests').select('*').order('created_at', {ascending: false}),
+      db.from('uniform_pickups').select('*').order('created_at', {ascending: false}),
+      db.from('uniform_manager_stock').select('*').order('store_name')
+    ]);
+    if (uniReqRes.data) { UNIFORM_REQS.length=0; uniReqRes.data.forEach(r=>UNIFORM_REQS.push(r)); }
+    if (uniPkpRes.data) { UNIFORM_PKPS.length=0; uniPkpRes.data.forEach(r=>UNIFORM_PKPS.push(r)); }
+    if (uniMgrRes.data) { UNIFORM_MGRSTK.length=0; uniMgrRes.data.forEach(r=>UNIFORM_MGRSTK.push(r)); }
+  } catch(ue) {
+    console.warn('유니폼 테이블 미생성 상태:', ue.message);
   }
   hideLoading();
 }
@@ -4500,7 +4498,11 @@ async function submitUniformReq() {
     notify('유니폼 신청이 완료되었습니다 ✓', 'success');
     clearUniReqForm();
     renderUniformReqList();
-  } catch(e) { console.error(e); notify('오류: '+e.message,'error'); }
+  } catch(e) {
+    console.error(e);
+    const msg = e.message?.includes('schema cache') ? 'Supabase에서 uniform_requests 테이블을 먼저 생성해주세요' : '오류: '+e.message;
+    notify(msg, 'error');
+  }
   hideLoading();
 }
 
@@ -4529,7 +4531,11 @@ async function submitUniformPkp() {
     notify('유니폼 수거 신청이 완료되었습니다 ✓', 'success');
     clearUniPkpForm();
     renderUniformPkpList();
-  } catch(e) { console.error(e); notify('오류: '+e.message,'error'); }
+  } catch(e) {
+    console.error(e);
+    const msg = e.message?.includes('schema cache') ? 'Supabase에서 uniform_pickups 테이블을 먼저 생성해주세요' : '오류: '+e.message;
+    notify(msg, 'error');
+  }
   hideLoading();
 }
 
