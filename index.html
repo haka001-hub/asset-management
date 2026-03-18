@@ -1027,7 +1027,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
         <div class="fgrp s2"><label class="flb">유니폼</label><input type="text" class="fi" id="uniStockEditItem" placeholder="품목명"></div>
         <div class="fgrp"><label class="flb">사이즈</label>
           <select class="fsel" id="uniStockEditSize">
-            <option>XS</option><option>S</option><option>M</option><option>L</option><option>XL</option><option>2XL</option><option>3XL</option>
+            <option>XS(80)</option><option>S(85)</option><option>M(90)</option><option>L(95)</option><option>XL(100)</option><option>2XL(105)</option><option>3XL(110)</option><option>4XL(115)</option>
           </select>
         </div>
         <div class="fgrp"><label class="flb">보유수량</label><input type="number" class="fi" id="uniStockEditQty" min="0" style="text-align:center"></div>
@@ -5127,7 +5127,11 @@ function openUniStockEdit(id) {
   const s=UNIFORM_MGRSTK.find(x=>x.id===id); if(!s) return;
   document.getElementById('uniStockEditId').value=id;
   document.getElementById('uniStockEditItem').value=s.item_name;
-  document.getElementById('uniStockEditSize').value=s.size;
+  // 사이즈 매칭: '2XL' → '2XL(105)' 자동 선택
+  const sel=document.getElementById('uniStockEditSize');
+  const normSz=v=>(v||'').replace(/\([^)]*\)/g,'').trim().toUpperCase();
+  const match=[...sel.options].find(o=>normSz(o.value)===normSz(s.size));
+  sel.value = match ? match.value : s.size;
   document.getElementById('uniStockEditQty').value=s.qty;
   document.getElementById('moUniStockEdit').classList.add('open');
 }
