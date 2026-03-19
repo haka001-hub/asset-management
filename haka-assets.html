@@ -558,6 +558,7 @@
             <div class="autocomplete-list" id="sticker-search-ac" style="display:none;"></div>
           </div>
           <button class="btn btn-primary" onclick="searchStickers()">&#x1F50D; 검색</button>
+          <button class="btn btn-secondary" onclick="resetStickerSearch()" title="초기화">&#x21BA;</button>
         </div>
         <button class="btn btn-secondary" onclick="openDeptModal()" style="white-space:nowrap;">&#x1F4CB; 부서/직영점별 선택</button>
       </div>
@@ -1468,6 +1469,17 @@ function onStickerSearchInput() {
     hideAC('sticker-search-ac');
     searchStickers();
   });
+}
+
+function resetStickerSearch() {
+  document.getElementById('sticker-search').value = '';
+  hideAC('sticker-search-ac');
+  stickerResults = [];
+  document.getElementById('sticker-result-area').style.display = 'none';
+  document.getElementById('sticker-results').innerHTML = '';
+  document.getElementById('sticker-selected-count').textContent = '';
+  document.getElementById('sticker-select-all').checked = false;
+  updateStickerPrintBtn();
 }
 
 function searchStickers() {
