@@ -165,21 +165,23 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
   <div class="nav">
     <div class="nav-sec">메인</div>
     <button class="ni active" onclick="showPage('dashboard',this)"><span class="ic">⊞</span>대시보드</button>
+    <button class="ni" onclick="showPage('logistics',this)"><span class="ic">▦</span>물류 재고</button>
     <button class="ni" onclick="showPage('store-mgmt',this)"><span class="ic">🏪</span>매장 관리</button>
-    <div class="nav-sec">자산 관리</div>
-    <button class="ni" onclick="showPage('inventory',this)"><span class="ic">◫</span>자산 현황</button>
-    <button class="ni" onclick="showPage('request',this)"><span class="ic">↗</span>자산 신청<span class="nbadge" id="pendingBadge">0</span></button>
-    <button class="ni" onclick="showPage('bulkorder',this)"><span class="ic">⊞</span>일괄 자산 신청</button>
+    <div class="nav-sec">출고 관리</div>
+    <button class="ni" onclick="showPage('inventory',this)"><span class="ic">◫</span>출고 현황</button>
+    <button class="ni" onclick="showPage('request',this)"><span class="ic">↗</span>출고 신청<span class="nbadge" id="pendingBadge">0</span></button>
+    <button class="ni" onclick="showPage('bulkorder',this)"><span class="ic">⊞</span>일괄 출고 신청</button>
     <button class="ni" onclick="showPage('outgoing',this)"><span class="ic">⬡</span>출고 관리</button>
     <button class="ni" onclick="showPage('history',this)"><span class="ic">◎</span>이력 조회</button>
     <div class="nav-sec">수거 관리</div>
     <button class="ni" onclick="showPage('pickup',this)"><span class="ic">↙</span>수거 신청<span class="nbadge" id="pickupBadge">0</span></button>
     <button class="ni" onclick="showPage('pickupmgmt',this)"><span class="ic">✦</span>수거 관리</button>
     <button class="ni" onclick="showPage('pickuphist',this)"><span class="ic">◐</span>수거 이력</button>
-    <div class="nav-sec">재고</div>
-    <button class="ni" onclick="showPage('logistics',this)"><span class="ic">▦</span>물류 재고</button>
-    <button class="ni" onclick="showPage('storeout',this)"><span class="ic">⊛</span>직영점 출고 현황</button>
-    <button class="ni" onclick="showPage('storeasset',this)"><span class="ic">◈</span>직영점 자산 현황</button>
+    <div class="nav-sec">자산 관리</div>
+    <button class="ni" onclick="showQQTab('page-bonsa',this)"><span class="ic">🏢</span>본사 자산현황</button>
+    <button class="ni" onclick="showQQTab('page-jikyoung',this)"><span class="ic">🏪</span>직영점 자산현황</button>
+    <button class="ni" onclick="showQQTab('page-register',this)"><span class="ic">➕</span>자산/직원 등록</button>
+    <button class="ni" onclick="showQQTab('page-sticker',this)"><span class="ic">🏷</span>스티커 출력</button>
     <div class="nav-sec">주문 관리</div>
     <button class="ni" onclick="showPage('purchase-req',this)"><span class="ic">📋</span>구매요청서</button>
     <button class="ni" id="navOrderMgmt" onclick="showPage('order-mgmt',this)"><span class="ic">📦</span>비품주문표<span class="nbadge" id="orderBadge"></span></button>
@@ -739,6 +741,11 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
         <button class="btn btn-pri" onclick="saveNewStore()">등록하기</button>
       </div>
     </div>
+  </div>
+
+  <!-- ── QQ 자산 관리 (iframe) ── -->
+  <div id="page-qq" class="hidden" style="margin:-20px;height:calc(100vh - 58px);overflow:hidden;">
+    <iframe id="qq-iframe" src="./haka-assets.html" style="width:100%;height:100%;border:none;" allowfullscreen></iframe>
   </div>
 
   <!-- ── PURCHASE REQUEST (구매요청서) ── -->
@@ -1675,8 +1682,8 @@ function notify(msg,type='success'){
 // ═══ NAVIGATION ═══
 const META={
   dashboard:['대시보드','전체 자산 현황 요약'],
-  inventory:['자산 현황','물류재고 기준 단일 코드 체계'],
-  request:['자산 신청','신청 목록 및 처리'],
+  inventory:['출고 현황','물류재고 기준 단일 코드 체계'],
+  request:['출고 신청','신청 목록 및 처리'],
   outgoing:['출고 관리','물류팀 출고 처리'],
   history:['이력 조회','전체 출고 이력'],
   logistics:['물류 재고','비품·소모품 현황 (물류재고 기준)'],
@@ -1685,7 +1692,7 @@ const META={
   pickup:['수거 신청','직영점 → 물류 수거 신청 목록'],
   pickupmgmt:['수거 관리','수거 확인 처리 — 확인 시 물류재고 자동 증가'],
   pickuphist:['수거 이력','전체 수거 요청·확인 이력'],
-  bulkorder:['일괄 자산 신청','엑셀 양식으로 여러 매장·품목 한번에 출고 처리'],
+  bulkorder:['일괄 출고 신청','엑셀 양식으로 여러 매장·품목 한번에 출고 처리'],
   'purchase-req':['구매요청서','물류팀 → 구매요청 등록'],
   'order-mgmt':['비품주문표','주문관리팀 승인 · 물류팀 입고확인'],
   'bag-upload':['데이터 업로드','재고 현황 엑셀 업로드 후 출고량 자동 계산'],
@@ -1696,6 +1703,7 @@ const META={
   'uniform-hist':['유니폼 수불 이력','유니폼 신청·수거 전체 이력'],
   'uniform-mgmt':['직영점 유니폼 관리대장','매니저별 유니폼 보유 현황'],
   'store-mgmt':['매장 관리','등록 매장 조회 · 신규 등록 · 정보 수정'],
+  qq:['자산 관리','하카코리아 자산 등록 · 현황 · 스티커 출력'],
 };
 function showPage(id,btn){
   document.querySelectorAll('[id^="page-"]').forEach(e=>e.classList.add('hidden'));
@@ -1708,6 +1716,34 @@ function showPage(id,btn){
   document.getElementById('pgSub').textContent=s;
   ({dashboard:renderDash,inventory:renderInv,request:renderReqs,outgoing:renderOut,history:renderHist,logistics:renderLogi,storeout:renderStoreOut,storeasset:renderSA,pickup:renderPickup,pickupmgmt:renderPickupMgmt,pickuphist:renderPickupHist,bulkorder:renderBulkHist,'purchase-req':renderPurchaseHist,'order-mgmt':renderOrderMgmt,'bag-upload':renderBagUpload,'bag-result':renderBagResult,'bag-history':renderBagHistory,'uniform-req':renderUniformReqList,'uniform-pickup':renderUniformPkpList,'uniform-hist':renderUniformHist,'uniform-mgmt':renderUniformMgmt,'store-mgmt':renderStoreMgmt})[id]?.();
   updateBadge();
+}
+
+// ═══ QQ 자산관리 TAB ═══
+const QQ_TITLES = {
+  'page-bonsa':    '본사 자산현황',
+  'page-jikyoung': '직영점 자산현황',
+  'page-register': '자산/직원 등록',
+  'page-sticker':  '스티커 출력',
+};
+function showQQTab(tabId, btn) {
+  // AMS 페이지 전환
+  document.querySelectorAll('[id^="page-"]').forEach(e => e.classList.add('hidden'));
+  document.getElementById('page-qq').classList.remove('hidden');
+  document.querySelectorAll('.ni').forEach(e => e.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.getElementById('pgTitle').textContent = QQ_TITLES[tabId] || '자산 관리';
+  document.getElementById('pgSub').textContent = '하카코리아 자산 관리';
+
+  // iframe에 탭 전환 메시지 전송
+  const iframe = document.getElementById('qq-iframe');
+  function sendTab() {
+    try { iframe.contentWindow.postMessage({ qqTab: tabId }, '*'); } catch(e) {}
+  }
+  if (iframe.contentDocument && iframe.contentDocument.readyState === 'complete') {
+    sendTab();
+  } else {
+    iframe.addEventListener('load', sendTab, { once: true });
+  }
 }
 
 // ═══ STORE MGMT ═══
