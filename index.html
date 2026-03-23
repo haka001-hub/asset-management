@@ -168,7 +168,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
     <button class="ni" onclick="showPage('logistics',this)"><span class="ic">▦</span>물류 재고</button>
     <button class="ni" onclick="showPage('store-mgmt',this)"><span class="ic">🏪</span>매장 관리</button>
     <div class="nav-sec">출고 관리</div>
-    <button class="ni" onclick="showPage('inventory',this)"><span class="ic">◫</span>출고 현황</button>
+    <button class="ni" onclick="showPage('inventory',this)"><span class="ic">◫</span>자산 현황</button>
     <button class="ni" onclick="showPage('request',this)"><span class="ic">↗</span>출고 신청<span class="nbadge" id="pendingBadge">0</span></button>
     <button class="ni" onclick="showPage('bulkorder',this)"><span class="ic">⊞</span>일괄 출고 신청</button>
     <button class="ni" onclick="showPage('outgoing',this)"><span class="ic">⬡</span>출고 관리</button>
@@ -1057,15 +1057,15 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
 
 <!-- ══ MODAL: 유니폼 매니저 편집 ══ -->
 <div class="mo" id="moUniMgrEdit">
-  <div class="md" style="width:400px">
+  <div class="md" style="width:520px">
     <div class="md-hd">
-      <div><div class="md-ti">매니저 정보 수정</div></div>
+      <div><div class="md-ti" id="uniMgrEditTitle">매니저 정보 수정</div></div>
       <button class="md-cl" onclick="closeMo('moUniMgrEdit')">✕</button>
     </div>
     <div class="md-bd">
       <input type="hidden" id="uniMgrEditId">
       <div class="fg">
-        <div class="fgrp s2"><label class="flb">매니저명</label><input type="text" class="fi" id="uniMgrEditName" placeholder="이름"></div>
+        <div class="fgrp s2"><label class="flb">성함 <span>*</span></label><input type="text" class="fi" id="uniMgrEditName" placeholder="이름"></div>
         <div class="fgrp s2"><label class="flb">재직 상태</label>
           <select class="fsel" id="uniMgrEditStatus">
             <option value="재직">재직</option>
@@ -1073,7 +1073,36 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
             <option value="퇴직">퇴직</option>
           </select>
         </div>
-        <div class="fgrp s2"><label class="flb">비고</label><input type="text" class="fi" id="uniMgrEditNote" placeholder="메모"></div>
+        <div class="fgrp s2" style="border-top:1px solid var(--br);padding-top:10px;margin-top:2px">
+          <label class="flb" style="color:#60a5fa">🌤 하계 유니폼</label>
+        </div>
+        <div class="fgrp"><label class="flb">사이즈</label>
+          <select class="fsel" id="uniMgrEditSzS">
+            <option>XS(80)</option><option>S(85)</option><option>M(90)</option><option>L(95)</option><option>XL(100)</option><option>2XL(105)</option><option>3XL(110)</option><option>4XL(115)</option>
+          </select>
+        </div>
+        <div class="fgrp"><label class="flb">수량</label><input type="number" class="fi" id="uniMgrEditQtS" min="0" value="0" style="text-align:center"></div>
+        <div class="fgrp s2" style="border-top:1px solid var(--br);padding-top:10px;margin-top:2px">
+          <label class="flb" style="color:#34d399">🌿 춘추 유니폼</label>
+        </div>
+        <div class="fgrp"><label class="flb">사이즈</label>
+          <select class="fsel" id="uniMgrEditSzP">
+            <option>XS(80)</option><option>S(85)</option><option>M(90)</option><option>L(95)</option><option>XL(100)</option><option>2XL(105)</option><option>3XL(110)</option><option>4XL(115)</option>
+          </select>
+        </div>
+        <div class="fgrp"><label class="flb">수량</label><input type="number" class="fi" id="uniMgrEditQtP" min="0" value="0" style="text-align:center"></div>
+        <div class="fgrp s2" style="border-top:1px solid var(--br);padding-top:10px;margin-top:2px">
+          <label class="flb" style="color:#a78bfa">❄ 동계 유니폼</label>
+        </div>
+        <div class="fgrp"><label class="flb">사이즈</label>
+          <select class="fsel" id="uniMgrEditSzW">
+            <option>XS(80)</option><option>S(85)</option><option>M(90)</option><option>L(95)</option><option>XL(100)</option><option>2XL(105)</option><option>3XL(110)</option><option>4XL(115)</option>
+          </select>
+        </div>
+        <div class="fgrp"><label class="flb">수량</label><input type="number" class="fi" id="uniMgrEditQtW" min="0" value="0" style="text-align:center"></div>
+        <div class="fgrp s2" style="border-top:1px solid var(--br);padding-top:10px;margin-top:2px">
+          <label class="flb">비고</label><input type="text" class="fi" id="uniMgrEditNote" placeholder="메모">
+        </div>
       </div>
     </div>
     <div class="md-ft">
@@ -1087,7 +1116,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
 <div class="mo" id="moUniStockEdit">
   <div class="md" style="width:420px">
     <div class="md-hd">
-      <div><div class="md-ti">유니폼 보유현황 수정</div></div>
+      <div><div class="md-ti" id="uniStockEditTitle">유니폼 보유현황 수정</div></div>
       <button class="md-cl" onclick="closeMo('moUniStockEdit')">✕</button>
     </div>
     <div class="md-bd">
@@ -5321,7 +5350,10 @@ function renderUniformMgmt() {
     const clr=s.qty===0?'#f87171':s.qty<=1?'#fbbf24':'var(--gn)';
     return `<div style="font-size:13px;font-weight:600;color:${clr}">${s.qty}벌</div><div style="font-size:11px;color:var(--tx3);margin-top:1px">${s.size||''}</div>`;
   };
-  const editBtn=(s)=>s?`<button onclick="openUniStockEdit(${s.id})" style="font-size:10px;padding:1px 5px;border-radius:3px;border:1px solid var(--br);background:var(--sf);cursor:pointer;color:var(--tx2)">✎</button>`:'';
+  const btnStyle='font-size:10px;padding:1px 5px;border-radius:3px;border:1px solid var(--br);background:var(--sf);cursor:pointer;';
+  const editBtn=(s,mgrName,season)=>s
+    ?`<button onclick="openUniStockEdit(${s.id})" style="${btnStyle}color:var(--tx2)">✎</button>`
+    :`<button onclick="openUniStockNew(_umMgrIdx('${mgrName.replace(/'/g,"\\'")}'),'${season}')" style="${btnStyle}color:#60a5fa">+</button>`;
 
   // 필터
   let mgrs = UNIFORM_MANAGERS.filter(m=>!srch||m.manager_name.toLowerCase().includes(srch)||(m.employment_status||'').includes(srch));
@@ -5339,15 +5371,16 @@ function renderUniformMgmt() {
     const ss=getStock(m.manager_name,'유니폼(하계)');
     const sp=getStock(m.manager_name,'유니폼(춘추)');
     const sw=getStock(m.manager_name,'유니폼(동계)');
-    return `<tr>
+    const rowStyle=m.employment_status==='휴직'?'background:rgba(251,191,36,.10);':'';
+    return `<tr style="${rowStyle}">
       <td style="font-weight:600;text-align:center;white-space:nowrap">${m.manager_name}</td>
       <td style="text-align:center">${statusBadge(m.employment_status)}</td>
       <td style="text-align:center">${qtyCell(ss)}</td>
-      <td style="text-align:center;padding:2px">${editBtn(ss)}</td>
+      <td style="text-align:center;padding:2px">${editBtn(ss,m.manager_name,'유니폼(하계)')}</td>
       <td style="text-align:center">${qtyCell(sp)}</td>
-      <td style="text-align:center;padding:2px">${editBtn(sp)}</td>
+      <td style="text-align:center;padding:2px">${editBtn(sp,m.manager_name,'유니폼(춘추)')}</td>
       <td style="text-align:center">${qtyCell(sw)}</td>
-      <td style="text-align:center;padding:2px">${editBtn(sw)}</td>
+      <td style="text-align:center;padding:2px">${editBtn(sw,m.manager_name,'유니폼(동계)')}</td>
       <td style="font-size:12px;color:var(--tx3);text-align:center">${m.note||''}</td>
       <td style="text-align:center;white-space:nowrap">
         <button class="btn btn-gst btn-sm" onclick="openUniMgrEdit(${m.id})">수정</button>
@@ -5388,19 +5421,38 @@ function renderUniformMgmt() {
 }
 
 // ─── 매니저 추가/수정/삭제 ───
+function _setUniMgrSzQt(season, szId, qtId, mgrName) {
+  const normSz=v=>(v||'').replace(/\([^)]*\)/g,'').trim().toUpperCase();
+  const s=UNIFORM_MGRSTK.find(x=>x.manager_name===mgrName&&x.item_name===season);
+  const sel=document.getElementById(szId);
+  if(s&&s.size){const match=[...sel.options].find(o=>normSz(o.value)===normSz(s.size));sel.value=match?match.value:s.size;}
+  else sel.value='M(90)';
+  document.getElementById(qtId).value=s?s.qty:0;
+}
 function openAddUniMgr() {
+  document.getElementById('uniMgrEditTitle').textContent='신규 매니저 추가';
   document.getElementById('uniMgrEditId').value='';
   document.getElementById('uniMgrEditName').value='';
   document.getElementById('uniMgrEditStatus').value='재직';
   document.getElementById('uniMgrEditNote').value='';
+  document.getElementById('uniMgrEditSzS').value='M(90)';
+  document.getElementById('uniMgrEditQtS').value=0;
+  document.getElementById('uniMgrEditSzP').value='M(90)';
+  document.getElementById('uniMgrEditQtP').value=0;
+  document.getElementById('uniMgrEditSzW').value='M(90)';
+  document.getElementById('uniMgrEditQtW').value=0;
   document.getElementById('moUniMgrEdit').classList.add('open');
 }
 function openUniMgrEdit(id) {
   const m=UNIFORM_MANAGERS.find(x=>x.id===id); if(!m) return;
+  document.getElementById('uniMgrEditTitle').textContent='매니저 정보 수정';
   document.getElementById('uniMgrEditId').value=id;
   document.getElementById('uniMgrEditName').value=m.manager_name;
   document.getElementById('uniMgrEditStatus').value=m.employment_status||'재직';
   document.getElementById('uniMgrEditNote').value=m.note||'';
+  _setUniMgrSzQt('유니폼(하계)','uniMgrEditSzS','uniMgrEditQtS',m.manager_name);
+  _setUniMgrSzQt('유니폼(춘추)','uniMgrEditSzP','uniMgrEditQtP',m.manager_name);
+  _setUniMgrSzQt('유니폼(동계)','uniMgrEditSzW','uniMgrEditQtW',m.manager_name);
   document.getElementById('moUniMgrEdit').classList.add('open');
 }
 async function saveUniMgrEdit() {
@@ -5408,16 +5460,41 @@ async function saveUniMgrEdit() {
   const name=document.getElementById('uniMgrEditName').value.trim();
   const status=document.getElementById('uniMgrEditStatus').value;
   const note=document.getElementById('uniMgrEditNote').value.trim();
-  if(!name){notify('매니저명을 입력해주세요','error');return;}
+  if(!name){notify('성함을 입력해주세요','error');return;}
+  const seasons=[
+    {key:'유니폼(하계)',code:'AST-126',szId:'uniMgrEditSzS',qtId:'uniMgrEditQtS'},
+    {key:'유니폼(춘추)',code:'AST-127',szId:'uniMgrEditSzP',qtId:'uniMgrEditQtP'},
+    {key:'유니폼(동계)',code:'AST-128',szId:'uniMgrEditSzW',qtId:'uniMgrEditQtW'},
+  ];
   showLoading();
   try {
+    let mgrName=name;
     if(id) {
+      const oldM=UNIFORM_MANAGERS.find(x=>x.id===parseInt(id));
+      const oldName=oldM?oldM.manager_name:name;
       await db.from('uniform_managers').update({manager_name:name,employment_status:status,note,updated_at:new Date().toISOString()}).eq('id',parseInt(id));
-      const m=UNIFORM_MANAGERS.find(x=>x.id===parseInt(id));
-      if(m){m.manager_name=name;m.employment_status=status;m.note=note;}
+      if(oldM){oldM.manager_name=name;oldM.employment_status=status;oldM.note=note;}
+      // 매니저명 변경 시 stock 테이블도 업데이트
+      if(oldName!==name) await db.from('uniform_manager_stock').update({manager_name:name}).eq('manager_name',oldName);
+      mgrName=name;
     } else {
       const {data:ins}=await db.from('uniform_managers').insert({manager_name:name,employment_status:status,note}).select().single();
       if(ins)UNIFORM_MANAGERS.push(ins);
+    }
+    // 3시즌 재고 upsert
+    for(const s of seasons){
+      const sz=document.getElementById(s.szId).value;
+      const qty=parseInt(document.getElementById(s.qtId).value)||0;
+      const exist=UNIFORM_MGRSTK.find(x=>x.manager_name===mgrName&&x.item_name===s.key);
+      if(exist){
+        await db.from('uniform_manager_stock').update({size:sz,qty,updated_at:new Date().toISOString()}).eq('id',exist.id);
+        exist.size=sz; exist.qty=qty;
+      } else {
+        const existStock=UNIFORM_MGRSTK.find(x=>x.manager_name===mgrName);
+        const storeName=existStock?existStock.store_name:'';
+        const {data:ins}=await db.from('uniform_manager_stock').insert({store_name:storeName,manager_name:mgrName,item_name:s.key,item_code:s.code,size:sz,qty}).select().single();
+        if(ins)UNIFORM_MGRSTK.push(ins);
+      }
     }
     closeMo('moUniMgrEdit');
     notify(id?'수정 완료':'신규 추가 완료','success');
@@ -5441,11 +5518,24 @@ async function deleteUniMgr(id) {
 }
 
 // ─── 재고 수정/삭제 ───
+let _uniNewStkTarget = null; // {mgrName, season} for create mode
+function _umMgrIdx(mgrName) { return mgrName; } // onclick용 pass-through
+function openUniStockNew(mgrName, season) {
+  _uniNewStkTarget = {mgrName, season};
+  const codeMap={'유니폼(하계)':'AST-126','유니폼(춘추)':'AST-127','유니폼(동계)':'AST-128'};
+  document.getElementById('uniStockEditTitle').textContent='유니폼 신규 등록';
+  document.getElementById('uniStockEditId').value='';
+  document.getElementById('uniStockEditItem').value=season;
+  document.getElementById('uniStockEditSize').value='M(90)';
+  document.getElementById('uniStockEditQty').value=0;
+  document.getElementById('moUniStockEdit').classList.add('open');
+}
 function openUniStockEdit(id) {
   const s=UNIFORM_MGRSTK.find(x=>x.id===id); if(!s) return;
+  _uniNewStkTarget = null;
+  document.getElementById('uniStockEditTitle').textContent='유니폼 보유현황 수정';
   document.getElementById('uniStockEditId').value=id;
   document.getElementById('uniStockEditItem').value=s.item_name;
-  // 사이즈 매칭: '2XL' → '2XL(105)' 자동 선택
   const sel=document.getElementById('uniStockEditSize');
   const normSz=v=>(v||'').replace(/\([^)]*\)/g,'').trim().toUpperCase();
   const match=[...sel.options].find(o=>normSz(o.value)===normSz(s.size));
@@ -5454,17 +5544,33 @@ function openUniStockEdit(id) {
   document.getElementById('moUniStockEdit').classList.add('open');
 }
 async function saveUniStockEdit() {
-  const id=parseInt(document.getElementById('uniStockEditId').value);
+  const id=parseInt(document.getElementById('uniStockEditId').value)||0;
   const itemName=document.getElementById('uniStockEditItem').value.trim();
   const size=document.getElementById('uniStockEditSize').value;
   const qty=parseInt(document.getElementById('uniStockEditQty').value)||0;
   showLoading();
   try {
-    await db.from('uniform_manager_stock').update({item_name:itemName,size,qty,updated_at:new Date().toISOString()}).eq('id',id);
-    const s=UNIFORM_MGRSTK.find(x=>x.id===id);
-    if(s){s.item_name=itemName;s.size=size;s.qty=qty;}
+    if(id) {
+      // 기존 레코드 수정
+      await db.from('uniform_manager_stock').update({item_name:itemName,size,qty,updated_at:new Date().toISOString()}).eq('id',id);
+      const s=UNIFORM_MGRSTK.find(x=>x.id===id);
+      if(s){s.item_name=itemName;s.size=size;s.qty=qty;}
+    } else {
+      // 신규 레코드 생성 (-셀)
+      const {mgrName, season} = _uniNewStkTarget||{};
+      if(!mgrName){notify('오류: 매니저 정보 없음','error');hideLoading();return;}
+      const codeMap={'유니폼(하계)':'AST-126','유니폼(춘추)':'AST-127','유니폼(동계)':'AST-128'};
+      const existStk=UNIFORM_MGRSTK.find(x=>x.manager_name===mgrName);
+      const storeName=existStk?existStk.store_name:'';
+      const {data:ins,error:insErr}=await db.from('uniform_manager_stock').insert({
+        store_name:storeName, manager_name:mgrName, item_name:itemName,
+        item_code:codeMap[season]||'', size, qty
+      }).select().single();
+      if(insErr) throw insErr;
+      if(ins) UNIFORM_MGRSTK.push(ins);
+    }
     closeMo('moUniStockEdit');
-    notify('수정 완료','success');
+    notify(id?'수정 완료':'등록 완료','success');
     renderUniformMgmt();
   } catch(e){console.error(e);notify('오류: '+e.message,'error');}
   hideLoading();
