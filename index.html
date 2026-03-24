@@ -1915,7 +1915,7 @@ function renderDash(){
   document.getElementById('dPending').textContent=REQS.filter(r=>r.status==='pending').length;
   document.getElementById('dShipped').textContent=REQS.filter(r=>r.status==='shipped').length;
   document.getElementById('dPickup').textContent=PICKUPS.filter(p=>p.status==='pending').length;
-  document.getElementById('dLogiLow').textContent=LOGI.filter(l=>l.qty<=10).length;
+  const dLogiLowEl=document.getElementById('dLogiLow'); if(dLogiLowEl) dLogiLowEl.textContent=LOGI.filter(l=>l.qty<=10).length;
   document.getElementById('dashReq').innerHTML=[...REQS].reverse().slice(0,5).map(r=>
     `<tr><td class="tb2">${r.asset}</td><td class="tm">${r.qty}개</td><td>${r.store}</td><td>${rtag(r.route)}</td><td>${sbadge(r.status)}</td></tr>`
   ).join('');
