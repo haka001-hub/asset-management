@@ -906,7 +906,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
       <button class="btn btn-gst btn-sm" onclick="toggleUniReqForm(this)">접기 ▲</button>
     </div>
     <div id="uniReqFormBody" style="padding:16px 20px">
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 120px;gap:10px;margin-bottom:10px">
         <div class="fgrp"><label class="flb">작성일자 <span>*</span></label><input type="date" class="fi" id="urDate"></div>
         <div class="fgrp"><label class="flb">신청자 <span>*</span></label><input type="text" class="fi" id="urMgr" placeholder="이름"></div>
         <div class="fgrp"><label class="flb">직영점명 <span>*</span></label>
@@ -914,6 +914,12 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
         </div>
         <div class="fgrp"><label class="flb">수령 매니저 성함 <span>*</span></label>
           <div class="acw"><input type="text" class="fi" id="urRecvMgr" placeholder="매니저명 검색..." autocomplete="off" oninput="acUniMgr(this,'acUrMgrList')" onfocus="acUniMgr(this,'acUrMgrList')"><div class="acl" id="acUrMgrList"></div></div>
+        </div>
+        <div class="fgrp"><label class="flb">구분 <span>*</span></label>
+          <select class="fsel" id="urDelivery">
+            <option value="택배">택배</option>
+            <option value="직납">직납</option>
+          </select>
         </div>
       </div>
       <div class="sdiv">신청 품목</div>
@@ -963,7 +969,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
           </div>
         </div>
         <div style="overflow-x:auto;max-height:320px;overflow-y:auto">
-          <table><thead><tr><th>매장명</th><th>수령매니저</th><th>하계사이즈</th><th>하계수량</th><th>춘추사이즈</th><th>춘추수량</th><th>동계사이즈</th><th>동계수량</th><th>사유</th></tr></thead>
+          <table><thead><tr><th>매장명</th><th>수령매니저</th><th>품목명</th><th>발송수량</th><th>구분</th><th>사유</th><th>오류</th></tr></thead>
           <tbody id="urBulkPreviewBody"></tbody></table>
         </div>
       </div>
@@ -975,7 +981,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
       <div class="tt">유니폼 신청 목록</div>
       <div class="ta"><div class="sw"><span class="sic">⌕</span><input class="si" id="urSrch" placeholder="검색..." oninput="renderUniformReqList()"></div></div>
     </div>
-    <table><thead><tr><th>번호</th><th>작성일자</th><th>신청자</th><th>직영점</th><th>수령매니저</th><th>유니폼</th><th>사이즈</th><th>수량</th><th>사유</th><th>비고</th><th>상태</th><th>출고일자</th><th>도착일자</th><th>출고비고</th><th>액션</th><th>삭제</th></tr></thead>
+    <table><thead><tr><th>번호</th><th>작성일자</th><th>신청자</th><th>직영점</th><th>수령매니저</th><th>유니폼</th><th>사이즈</th><th>수량</th><th>구분</th><th>사유</th><th>비고</th><th>상태</th><th>출고일자</th><th>도착일자</th><th>출고비고</th><th>액션</th><th>삭제</th></tr></thead>
     <tbody id="uniReqTable"></tbody></table>
   </div>
 </div>
@@ -5023,6 +5029,7 @@ function toggleUniPkpForm(btn) {
 function clearUniReqForm() {
   const today = new Date().toISOString().split('T')[0];
   ['urDate','urMgr','urStore','urRecvMgr'].forEach(id=>{const e=document.getElementById(id);if(e)e.value=id==='urDate'?today:'';});
+  const delEl=document.getElementById('urDelivery'); if(delEl) delEl.value='택배';
   uniReqRows = [{name:'', code:'', size:'M', qty:1, reason:'입사', note:''}];
   renderUniReqItems();
 }
@@ -5095,6 +5102,7 @@ async function submitUniformReq() {
   const manager=document.getElementById('urMgr').value.trim();
   const store=document.getElementById('urStore').value.trim();
   const recvMgr=document.getElementById('urRecvMgr').value.trim();
+  const delivery=document.getElementById('urDelivery')?.value||'택배';
   if(!date||!manager||!store||!recvMgr){notify('필수 항목(작성일자/신청자/직영점명/수령매니저)을 입력해주세요','error');return;}
   const items=_collectUniItems('ur',uniReqRows);
   if(!items.length||items.some(it=>!it.code)){notify('모든 품목의 유니폼을 선택해주세요','error');return;}
@@ -5104,7 +5112,8 @@ async function submitUniformReq() {
     if (!ok) { hideLoading(); return; }
     const {data:inserted,error}=await db.from('uniform_requests').insert(
       items.map(it=>({req_date:date,manager,store_name:store,recv_manager:recvMgr,
-        item_name:it.name,item_code:it.code,size:it.size,qty:it.qty,reason:it.reason,note:it.note,status:'pending'}))
+        item_name:it.name,item_code:it.code,size:it.size,qty:it.qty,reason:it.reason,note:it.note,
+        delivery_type:delivery,status:'pending'}))
     ).select();
     if(error)throw error;
     if(inserted)inserted.forEach(r=>UNIFORM_REQS.unshift(r));
@@ -5124,16 +5133,26 @@ let urBulkRows = [];
 function downloadUniReqTemplate() {
   withXLSX(() => {
     const wb = XLSX.utils.book_new();
-    const header = ['매장명','수령매니저','하계사이즈','하계수량','춘추사이즈','춘추수량','동계사이즈','동계수량','사유'];
+    // ── 입력 양식 ──
+    const header = ['매장명','수령매니저','품목명','발송수량','구분','사유'];
+    const uItems = getUniformItems();
+    const sampleItem = uItems.length ? uItems[0].name : '유니폼(춘추) L';
     const sample = [
-      ['인천송도국제도시직영점','강민정','L(95)',2,'L(95)',2,'L(95)',1,'지급'],
-      ['개금직영점','송해나','3XL(110)',0,'3XL(110)',2,'3XL(110)',1,'지급'],
+      [getAllStores()[0]?.name||'인천송도국제도시직영점','강민정',sampleItem,2,'택배','지급'],
     ];
     const ws = XLSX.utils.aoa_to_sheet([header, ...sample]);
-    ws['!cols'] = [22,12,10,8,10,8,10,8,10].map(w=>({wch:w}));
-    XLSX.utils.book_append_sheet(wb, ws, '유니폼신청');
-    const sizeWs = XLSX.utils.aoa_to_sheet([['사이즈 코드'],['XS(80)'],['S(85)'],['M(90)'],['L(95)'],['XL(100)'],['2XL(105)'],['3XL(110)'],['4XL(115)']]);
-    XLSX.utils.book_append_sheet(wb, sizeWs, '사이즈참고');
+    ws['!cols'] = [24,12,18,8,8,10].map(w=>({wch:w}));
+    XLSX.utils.book_append_sheet(wb, ws, '📋 입력양식');
+    // ── 매장명 참고 ──
+    const storeData = [['매장명','매장코드'], ...getAllStores().map(s=>[s.name, s.code||''])];
+    const wsStore = XLSX.utils.aoa_to_sheet(storeData);
+    wsStore['!cols'] = [{wch:24},{wch:10}];
+    XLSX.utils.book_append_sheet(wb, wsStore, '🏪 매장목록');
+    // ── 품목명 참고 ──
+    const itemData = [['품목명','현재재고'], ...uItems.map(x=>[x.name, x.total-x.out])];
+    const wsItem = XLSX.utils.aoa_to_sheet(itemData);
+    wsItem['!cols'] = [{wch:18},{wch:8}];
+    XLSX.utils.book_append_sheet(wb, wsItem, '👕 품목목록');
     XLSX.writeFile(wb, '유니폼신청_일괄등록양식.xlsx');
   });
 }
@@ -5157,34 +5176,22 @@ function processUrBulkFile(file) {
         const ws = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
         if (!rows || rows.length < 2) { notify('데이터가 없습니다','error'); return; }
-        const header = rows[0].map(h => String(h||'').trim());
-        // 설문 형식 감지: 첫 열이 타임스탬프 또는 두 번째 열이 '매장명'
-        const isSurvey = header[0].includes('타임스탬프') || (header[1]&&header[1].includes('매장명'));
         urBulkRows = [];
         rows.slice(1).forEach(r => {
-          let storeName, mgrName, haSz, haQty, chSz, chQty, dkSz, dkQty, reason;
-          if (isSurvey) {
-            storeName = String(r[1]||'').trim();
-            mgrName   = String(r[2]||'').trim();
-            haSz  = String(r[3]||'').trim(); haQty = parseInt(r[4])||0;
-            chSz  = String(r[5]||'').trim(); chQty = parseInt(r[6])||0;
-            dkSz  = String(r[7]||'').trim(); dkQty = parseInt(r[8])||0;
-            reason = '지급';
-          } else {
-            storeName = String(r[0]||'').trim();
-            mgrName   = String(r[1]||'').trim();
-            haSz  = String(r[2]||'').trim(); haQty = parseInt(r[3])||0;
-            chSz  = String(r[4]||'').trim(); chQty = parseInt(r[5])||0;
-            dkSz  = String(r[6]||'').trim(); dkQty = parseInt(r[7])||0;
-            reason = String(r[8]||'지급').trim()||'지급';
-          }
-          if (!storeName || !mgrName) return;
-          urBulkRows.push({storeName, mgrName, haSz, haQty, chSz, chQty, dkSz, dkQty, reason});
+          const storeName    = String(r[0]||'').trim();
+          const mgrName      = String(r[1]||'').trim();
+          const itemName     = String(r[2]||'').trim();
+          const qty          = parseInt(r[3])||0;
+          const deliveryType = String(r[4]||'택배').trim()||'택배';
+          const reason       = String(r[5]||'지급').trim()||'지급';
+          if (!storeName || !mgrName || !itemName) return;
+          urBulkRows.push({storeName, mgrName, itemName, qty, deliveryType, reason});
         });
         if (!urBulkRows.length) { notify('유효한 데이터가 없습니다','error'); return; }
-        // 오늘 날짜 자동 세팅
         const bd = document.getElementById('urBulkDate');
         if (bd && !bd.value) bd.value = new Date().toISOString().split('T')[0];
+        // 매장명·품목명 검증
+        _validateUrBulkRows();
         showUrBulkPreview();
       } catch(err) { notify('파일 읽기 실패: '+err.message,'error'); }
     };
@@ -5192,17 +5199,32 @@ function processUrBulkFile(file) {
   });
 }
 
+function _validateUrBulkRows() {
+  const allStores = getAllStores().map(s=>s.name);
+  const allItems  = getUniformItems().map(x=>x.name);
+  urBulkRows.forEach(r => {
+    r._storeErr = !allStores.includes(r.storeName);
+    r._itemErr  = !allItems.includes(r.itemName);
+  });
+}
+
 function showUrBulkPreview() {
-  document.getElementById('urBulkRowCount').textContent = `${urBulkRows.length}개 행`;
-  document.getElementById('urBulkPreviewBody').innerHTML = urBulkRows.map(r=>`
-    <tr>
-      <td class="tb2">${r.storeName}</td>
+  const errCount = urBulkRows.filter(r=>r._storeErr||r._itemErr).length;
+  document.getElementById('urBulkRowCount').textContent =
+    `${urBulkRows.length}개 행${errCount ? ` / ⚠️ 오류 ${errCount}건` : ' / 오류 없음 ✓'}`;
+  document.getElementById('urBulkPreviewBody').innerHTML = urBulkRows.map(r => {
+    const errTxt = [r._storeErr?'매장명 불일치':'', r._itemErr?'품목명 불일치':''].filter(Boolean).join(', ');
+    const rowStyle = errTxt ? 'background:rgba(248,113,113,.08)' : '';
+    return `<tr style="${rowStyle}">
+      <td class="tb2" style="${r._storeErr?'color:#f87171;font-weight:600':''}">${r.storeName}</td>
       <td class="tb2">${r.mgrName}</td>
-      <td class="tm">${r.haSz||'-'}</td><td class="tm">${r.haQty}</td>
-      <td class="tm">${r.chSz||'-'}</td><td class="tm">${r.chQty}</td>
-      <td class="tm">${r.dkSz||'-'}</td><td class="tm">${r.dkQty}</td>
-      <td class="tm">${r.reason||'지급'}</td>
-    </tr>`).join('');
+      <td class="tm" style="${r._itemErr?'color:#f87171;font-weight:600':''}">${r.itemName}</td>
+      <td class="tm">${r.qty}</td>
+      <td class="tm">${r.deliveryType}</td>
+      <td class="tm">${r.reason}</td>
+      <td class="tm" style="color:${errTxt?'#f87171':'var(--gn)'};">${errTxt||'✓'}</td>
+    </tr>`;
+  }).join('');
   document.getElementById('urBulkPreviewWrap').style.display = '';
 }
 
@@ -5212,16 +5234,6 @@ function clearUrBulkUpload() {
   document.getElementById('urBulkFileInput').value = '';
 }
 
-function _findUniItemBySeason(season, size) {
-  const items = getUniformItems();
-  if (!size) return null;
-  let item = items.find(x => x.name.includes(season) && x.name.includes(size));
-  if (item) return item;
-  const sCode = size.replace(/\([^)]*\)/g,'').trim().toUpperCase();
-  item = items.find(x => x.name.includes(season) && x.name.replace(/\([^)]*\)/g,'').trim().toUpperCase().includes(sCode));
-  return item || {code:'', name:`유니폼(${season}) ${size}`, total:0, out:0};
-}
-
 async function submitUrBulk() {
   if (!urBulkRows.length) { notify('업로드된 데이터가 없습니다','error'); return; }
   const manager = document.getElementById('urBulkMgr').value.trim();
@@ -5229,36 +5241,46 @@ async function submitUrBulk() {
   const commonReason = document.getElementById('urBulkReason').value;
   if (!manager) { notify('신청자를 입력해주세요','error'); return; }
   if (!date)    { notify('작성일자를 선택해주세요','error'); return; }
+  // 오류 행 검사
+  const errRows = urBulkRows.filter(r=>r._storeErr||r._itemErr);
+  if (errRows.length) {
+    const msgs = errRows.slice(0,5).map(r=>{
+      const e=[];
+      if(r._storeErr) e.push(`매장명 오류: "${r.storeName}"`);
+      if(r._itemErr)  e.push(`품목명 오류: "${r.itemName}"`);
+      return e.join(' / ');
+    });
+    if(errRows.length>5) msgs.push(`외 ${errRows.length-5}건 더`);
+    alert(`아래 항목을 수정 후 다시 업로드해 주세요.\n\n${msgs.join('\n')}`);
+    return;
+  }
   showLoading();
   try {
-    const SEASONS = [
-      {key:'하계', szF:'haSz', qF:'haQty'},
-      {key:'춘추', szF:'chSz', qF:'chQty'},
-      {key:'동계', szF:'dkSz', qF:'dkQty'},
-    ];
+    const allItems = getUniformItems();
     const toInsert = [];
     for (const row of urBulkRows) {
+      if (!row.qty || row.qty <= 0) continue;
       await checkAndRegisterMgr(row.mgrName, row.storeName);
-      for (const s of SEASONS) {
-        const qty  = row[s.qF];
-        const size = row[s.szF];
-        if (!qty || qty <= 0) continue;
-        const item = _findUniItemBySeason(s.key, size);
-        toInsert.push({req_date:date, manager, store_name:row.storeName, recv_manager:row.mgrName,
-          item_name:item?.name||`유니폼(${s.key}) ${size}`, item_code:item?.code||'',
-          size, qty, reason:row.reason||commonReason, note:'', status:'pending'});
-      }
+      const item = allItems.find(x=>x.name===row.itemName);
+      // 사이즈: 품목명 마지막 토큰 (예: "유니폼(춘추) L" → "L")
+      const size = row.itemName.trim().split(/\s+/).pop();
+      toInsert.push({
+        req_date:date, manager, store_name:row.storeName, recv_manager:row.mgrName,
+        item_name:row.itemName, item_code:item?.code||'', size,
+        qty:row.qty, delivery_type:row.deliveryType, reason:row.reason||commonReason,
+        note:'', status:'pending'
+      });
     }
-    if (!toInsert.length) { hideLoading(); notify('등록할 품목이 없습니다 (수량 0 항목 제외)','warn'); return; }
+    if (!toInsert.length) { hideLoading(); notify('등록할 품목이 없습니다','warn'); return; }
     const CHUNK = 50;
     let inserted = [];
     for (let i = 0; i < toInsert.length; i += CHUNK) {
-      const {data, error} = await db.from('uniform_requests').insert(toInsert.slice(i, i+CHUNK)).select();
+      const {data, error} = await db.from('uniform_requests').insert(toInsert.slice(i,i+CHUNK)).select();
       if (error) throw error;
       if (data) inserted = inserted.concat(data);
     }
     inserted.forEach(r => UNIFORM_REQS.unshift(r));
-    notify(`${urBulkRows.length}명 / 총 ${inserted.length}건 등록 완료 ✓`, 'success');
+    notify(`총 ${inserted.length}건 신청 등록 완료 ✓ (물류팀 출고처리 후 재고 반영)`, 'success');
     clearUrBulkUpload();
     renderUniformReqList();
   } catch(e) { console.error(e); notify('오류: '+e.message,'error'); }
@@ -5423,13 +5445,14 @@ function renderUniformReqList() {
   tbody.innerHTML=f.length?f.map(r=>`<tr>
     <td class="tm">${r.id}</td><td>${r.req_date||''}</td><td>${r.manager||''}</td><td>${r.store_name||''}</td>
     <td>${r.recv_manager||''}</td><td>${r.item_name||''}</td><td>${r.size||''}</td><td>${r.qty||0}벌</td>
+    <td><span class="badge ${r.delivery_type==='직납'?'b-prog':'b-zero'}" style="font-size:11px">${r.delivery_type||'택배'}</span></td>
     <td>${r.reason||''}</td><td>${r.note||''}</td>
     <td>${_uniStatusBadge(r.status)}</td>
     <td>${r.out_date||''}</td><td>${r.arr_date||''}</td><td>${r.out_note||''}</td>
     <td>${r.status==='pending'?`<button class="btn btn-suc btn-sm" onclick="openUniShipModal(${r.id})">출고하기</button>`:'—'}</td>
     <td><button class="btn btn-sm" style="background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.3)" onclick="deleteUniReq(${r.id})">삭제</button></td>
     </tr>`).join('')
-    :'<tr><td colspan="16" style="text-align:center;padding:20px;color:var(--tx3)">신청 내역 없음</td></tr>';
+    :'<tr><td colspan="17" style="text-align:center;padding:20px;color:var(--tx3)">신청 내역 없음</td></tr>';
 }
 
 function renderUniformPkpList() {
