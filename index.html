@@ -5526,8 +5526,7 @@ function openUniBulkShipModal(batchId) {
   document.getElementById('moUniShip').classList.add('open');
 }
 
-// doUniShip() 에서 BULK: prefix 감지해서 일괄처리
-const _origDoUniShip = window.doUniShip;
+// doUniShip() — 개별/일괄 통합 (BULK: prefix로 분기)
 async function doUniShip() {
   const rawId = document.getElementById('uniShipTargetId').value;
   if(String(rawId).startsWith('BULK:')) {
