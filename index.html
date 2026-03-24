@@ -5327,33 +5327,6 @@ function openUniShipModal(id) {
   document.getElementById('uniOutNote').value = '';
   document.getElementById('moUniShip').classList.add('open');
 }
-async function doUniShip() {
-  const id = parseInt(document.getElementById('uniShipTargetId').value);
-  const outDate = document.getElementById('uniOutDate').value;
-  const arrDate = document.getElementById('uniArrDate').value;
-  const outNote = document.getElementById('uniOutNote').value.trim();
-  if(!outDate){notify('출고일자를 입력해주세요','error');return;}
-  const r = UNIFORM_REQS.find(x=>x.id===id); if(!r) return;
-  showLoading();
-  try {
-    const {error}=await db.from('uniform_requests').update({status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote}).eq('id',id);
-    if(error)throw error;
-    // 재고 차감
-    const l=LOGI.find(x=>x.code===r.item_code);
-    if(l){const nq=Math.max(0,l.qty-r.qty);await db.from('inventory').update({qty:nq}).eq('code',r.item_code);l.qty=nq;const iv=INV.find(x=>x.code===r.item_code);if(iv)iv.total=nq;}
-    // 매니저 재고 +
-    await _updateUniMgrStock(r.store_name,r.recv_manager,{name:r.item_name,code:r.item_code,size:r.size},r.qty);
-    // 이력
-    histPush({date:outDate,store:r.store_name,col:r.item_name,before:'',after:r.qty,type:'유니폼출고',memo:`${r.recv_manager} / ${r.size} / ${r.reason}${outNote?' / '+outNote:''}`});
-    // 로컬 업데이트
-    Object.assign(r,{status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote});
-    closeMo('moUniShip');
-    notify('출고 처리 완료 ✓','success');
-    renderUniformReqList();
-  } catch(e){console.error(e);notify('오류: '+e.message,'error');}
-  hideLoading();
-}
-
 // ─── 수거 확인 모달 ───
 function openUniPickupModal(id) {
   const r = UNIFORM_PKPS.find(x=>x.id===id); if(!r) return;
@@ -5448,64 +5421,72 @@ function renderUniformReqList() {
   // 최신순 정렬
   const sorted=[...f].sort((a,b)=>(b.req_date||'').localeCompare(a.req_date||'')||(b.id-a.id));
 
-  // 그룹핑: batch_id 있으면 batch 단위, 없으면 신청일+신청자+직영점+수령매니저 기준
+  // 그룹핑: batch_id 있으면 전체를 하나의 그룹, 없으면 신청일+신청자 기준
   const groupMap=new Map();
   const groupOrder=[];
   sorted.forEach(r=>{
-    const key=r.batch_id||`${r.req_date}||${r.manager}||${r.store_name}||${r.recv_manager}`;
-    if(!groupMap.has(key)){groupMap.set(key,[]);groupOrder.push(key);}
-    groupMap.get(key).push(r);
+    const key=r.batch_id?`BATCH::${r.batch_id}`:`SINGLE::${r.req_date}||${r.manager}||${r.store_name}||${r.recv_manager}`;
+    if(!groupMap.has(key)){groupMap.set(key,{isBatch:!!r.batch_id,batchId:r.batch_id,items:[]});groupOrder.push(key);}
+    groupMap.get(key).items.push(r);
   });
 
   wrap.innerHTML=groupOrder.map(key=>{
-    const items=groupMap.get(key);
-    const f=items[0];
-    const isBatch=!!f.batch_id;
+    const g=groupMap.get(key);
+    const items=g.items;
+    const fi=items[0];
+    const isBatch=g.isBatch;
     const allShipped=items.every(r=>r.status==='shipped');
     const hasPending=items.some(r=>r.status==='pending');
     const headerBg=allShipped?'rgba(16,185,129,.06)':hasPending?'rgba(59,130,246,.06)':'var(--sf)';
     const borderClr=allShipped?'rgba(16,185,129,.3)':hasPending?'rgba(59,130,246,.3)':'var(--br)';
 
-    const outItem=items.find(r=>r.status==='shipped'&&r.out_date);
-    const outInfo=outItem?`<span style="font-size:11px;color:var(--tx3)">│</span><span style="font-size:11px;color:var(--tx3)">출고일</span><span style="font-size:12px;font-weight:600;color:var(--gn)">${outItem.out_date}</span>`:'';
+    // 품목 요약 (헤더에 표시)
+    const summaryItems=items.slice(0,2).map(r=>`${r.item_name||''} ${r.qty}벌`).join(', ');
+    const summaryMore=items.length>2?` 외 ${items.length-2}건`:'';
+    const summary=`<span style="font-size:11px;color:var(--tx3);margin-left:4px">${summaryItems}${summaryMore}</span>`;
 
-    const dlvBadge=`<span class="badge ${f.delivery_type==='직납'?'b-prog':'b-zero'}" style="font-size:11px">${f.delivery_type||'택배'}</span>`;
-    const batchBadge=isBatch?`<span style="font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(139,92,246,.12);color:#a78bfa;border:1px solid rgba(139,92,246,.25)">일괄등록 ${items.length}건</span>`:'';
-    const excelBtn=isBatch?`<button onclick="event.stopPropagation();exportUniBatch('${f.batch_id}')" style="font-size:11px;padding:3px 10px;border-radius:5px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:var(--gn);cursor:pointer;white-space:nowrap">📥 엑셀</button>`:'';
+    const dlvBadge=`<span class="badge ${fi.delivery_type==='직납'?'b-prog':'b-zero'}" style="font-size:11px">${fi.delivery_type||'택배'}</span>`;
+    const batchBadge=isBatch?`<span style="font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(139,92,246,.12);color:#a78bfa;border:1px solid rgba(139,92,246,.25);white-space:nowrap">일괄등록 ${items.length}건</span>`:'';
+    const excelBtn=isBatch?`<button onclick="event.stopPropagation();exportUniBatch('${g.batchId}')" style="font-size:11px;padding:3px 10px;border-radius:5px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:var(--gn);cursor:pointer;white-space:nowrap">📥 엑셀</button>`:'';
+    const bulkShipBtn=isBatch&&hasPending?`<button onclick="event.stopPropagation();openUniBulkShipModal('${g.batchId}')" style="font-size:11px;padding:3px 10px;border-radius:5px;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.4);color:var(--gn);cursor:pointer;white-space:nowrap;font-weight:600">🚚 일괄출고</button>`:'';
 
+    // 개별 행 (접으면 숨김)
     const rows=items.map(r=>{
-      const actBtn=r.status==='pending'?`<button class="btn btn-suc btn-sm" onclick="event.stopPropagation();openUniShipModal(${r.id})">출고하기</button>`:'<span style="color:var(--tx3);font-size:12px">-</span>';
+      const actBtn=r.status==='pending'?`<button class="btn btn-suc btn-sm" onclick="event.stopPropagation();openUniShipModal(${r.id})">출고하기</button>`:'<span style="color:var(--tx3);font-size:12px">—</span>';
       const delBtn=r.status==='pending'?`<button class="btn btn-dan btn-sm" onclick="event.stopPropagation();deleteUniReq(${r.id})" style="padding:4px 8px" title="삭제">🗑</button>`:'';
       return`<tr>
         <td class="tb2">${r.item_name||''}</td>
         <td class="tm">${r.size||''}</td>
         <td class="tm">${r.qty||0}벌</td>
+        <td style="font-size:12px;color:var(--tx3)">${r.store_name||''}</td>
+        <td style="font-size:12px;color:var(--tx3)">${r.recv_manager||''}</td>
         <td style="font-size:12px;color:var(--tx3)">${r.reason||''}</td>
-        <td style="font-size:12px;color:var(--tx3)">${r.note||'-'}</td>
         <td>${_uniStatusBadge(r.status)}</td>
         <td>${r.out_date||''}</td>
         <td>${actBtn}</td><td>${delBtn}</td>
       </tr>`;
     }).join('');
 
+    // 헤더 1행 정보 (batch면 신청자/구분만, single이면 직영점+수령도 표시)
+    const storeInfo=isBatch
+      ?`<span style="font-size:11px;color:var(--tx3)">│</span><span style="font-size:11px;color:var(--tx3)">신청자</span><span style="font-size:13px;color:var(--tx2)">${fi.manager||''}</span>${summary}`
+      :`<span style="font-size:11px;color:var(--tx3)">│</span><span style="font-size:11px;color:var(--tx3)">신청자</span><span style="font-size:13px;color:var(--tx2)">${fi.manager||''}</span>
+       <span style="font-size:11px;color:var(--tx3)">│</span><span style="font-weight:600;color:var(--ac2);font-size:13px">${fi.store_name||''}</span>
+       <span style="font-size:11px;color:var(--tx3)">│</span><span style="font-size:11px;color:var(--tx3)">수령</span><span style="font-size:13px;color:var(--tx2)">${fi.recv_manager||''}</span>${summary}`;
+
     return`<div style="margin-bottom:12px;border:1px solid ${borderClr};border-radius:10px;overflow:hidden" ondblclick="toggleReqGroup(this)">
       <div style="background:${headerBg};padding:10px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-bottom:1px solid ${borderClr};cursor:pointer;user-select:none">
-        <span style="font-size:11px;color:var(--tx3)">신청일</span><span style="font-weight:700;color:var(--tx);font-size:13px">${f.req_date||''}</span>
-        <span style="font-size:11px;color:var(--tx3)">│</span>
-        <span style="font-size:11px;color:var(--tx3)">신청자</span><span style="font-size:13px;color:var(--tx2)">${f.manager||''}</span>
-        <span style="font-size:11px;color:var(--tx3)">│</span>
-        <span style="font-weight:600;color:var(--ac2);font-size:13px">${f.store_name||''}</span>
-        <span style="font-size:11px;color:var(--tx3)">│</span>
-        <span style="font-size:11px;color:var(--tx3)">수령</span><span style="font-size:13px;color:var(--tx2)">${f.recv_manager||''}</span>
-        ${dlvBadge}${batchBadge}${outInfo}
+        <span style="font-size:11px;color:var(--tx3)">신청일</span><span style="font-weight:700;color:var(--tx);font-size:13px">${fi.req_date||''}</span>
+        ${storeInfo}
+        ${dlvBadge}${batchBadge}
         <div style="margin-left:auto;display:flex;align-items:center;gap:6px;flex-shrink:0">
-          ${excelBtn}
+          ${excelBtn}${bulkShipBtn}
           <span class="req-toggle-icon" style="font-size:11px;color:var(--tx3)">▲</span>
         </div>
       </div>
       <div class="req-card-body">
         <table style="margin:0">
-          <thead><tr><th>품목명</th><th>사이즈</th><th>수량</th><th>사유</th><th>비고</th><th>상태</th><th>출고일</th><th>액션</th><th></th></tr></thead>
+          <thead><tr><th>품목명</th><th>사이즈</th><th>수량</th><th>직영점</th><th>수령매니저</th><th>사유</th><th>상태</th><th>출고일</th><th>액션</th><th></th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
@@ -5527,6 +5508,78 @@ function exportUniBatch(batchId) {
     XLSX.utils.book_append_sheet(wb,ws,'유니폼신청');
     XLSX.writeFile(wb,`유니폼신청_${items[0].req_date||''}_${items[0].store_name||''}.xlsx`);
   });
+}
+
+// ─── 일괄출고 (batch 전체 pending 항목 한번에 출고) ───
+let _uniBulkShipBatchId = null;
+function openUniBulkShipModal(batchId) {
+  _uniBulkShipBatchId = batchId;
+  const pending = UNIFORM_REQS.filter(r=>r.batch_id===batchId&&r.status==='pending');
+  if(!pending.length){notify('대기중인 항목이 없습니다','warn');return;}
+  // 기존 출고 모달 재활용: 정보만 바꿔서 오픈
+  document.getElementById('uniShipTargetId').value = 'BULK:'+batchId;
+  document.getElementById('uniShipInfo').innerHTML =
+    `<b>일괄출고</b> — 대기중 ${pending.length}건 / ${[...new Set(pending.map(r=>r.store_name))].slice(0,3).join(', ')}${pending.length>3?' 외':''} / 총 ${pending.reduce((s,r)=>s+r.qty,0)}벌`;
+  document.getElementById('uniOutDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('uniArrDate').value = '';
+  document.getElementById('uniOutNote').value = '';
+  document.getElementById('moUniShip').classList.add('open');
+}
+
+// doUniShip() 에서 BULK: prefix 감지해서 일괄처리
+const _origDoUniShip = window.doUniShip;
+async function doUniShip() {
+  const rawId = document.getElementById('uniShipTargetId').value;
+  if(String(rawId).startsWith('BULK:')) {
+    const batchId = rawId.replace('BULK:','');
+    const outDate = document.getElementById('uniOutDate').value;
+    const arrDate = document.getElementById('uniArrDate').value;
+    const outNote = document.getElementById('uniOutNote').value.trim();
+    if(!outDate){notify('출고일자를 입력해주세요','error');return;}
+    const pending = UNIFORM_REQS.filter(r=>r.batch_id===batchId&&r.status==='pending');
+    if(!pending.length){notify('대기중 항목 없음','warn');return;}
+    showLoading();
+    try {
+      for(const r of pending) {
+        const {error}=await db.from('uniform_requests').update({status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote}).eq('id',r.id);
+        if(error) throw error;
+        // 물류재고 차감
+        const l=LOGI.find(x=>x.code===r.item_code);
+        if(l){const nq=Math.max(0,l.qty-r.qty);await db.from('inventory').update({qty:nq}).eq('code',r.item_code);l.qty=nq;const iv=INV.find(x=>x.code===r.item_code);if(iv)iv.total=nq;}
+        // 관리대장 반영
+        await _updateUniMgrStock(r.store_name,r.recv_manager,{name:r.item_name,code:r.item_code,size:r.size},r.qty);
+        // 이력
+        histPush({date:outDate,store:r.store_name,col:r.item_name,before:'',after:r.qty,type:'유니폼출고',memo:`${r.recv_manager}/${r.size}/${r.reason}${outNote?' / '+outNote:''}`});
+        Object.assign(r,{status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote});
+      }
+      closeMo('moUniShip');
+      notify(`일괄출고 완료 — ${pending.length}건 처리 ✓`,'success');
+      renderUniformReqList();
+    } catch(e){console.error(e);notify('오류: '+e.message,'error');}
+    hideLoading();
+    return;
+  }
+  // 개별 출고 (기존 로직)
+  const id=parseInt(rawId);
+  const outDate=document.getElementById('uniOutDate').value;
+  const arrDate=document.getElementById('uniArrDate').value;
+  const outNote=document.getElementById('uniOutNote').value.trim();
+  if(!outDate){notify('출고일자를 입력해주세요','error');return;}
+  const r=UNIFORM_REQS.find(x=>x.id===id); if(!r) return;
+  showLoading();
+  try {
+    const {error}=await db.from('uniform_requests').update({status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote}).eq('id',id);
+    if(error)throw error;
+    const l=LOGI.find(x=>x.code===r.item_code);
+    if(l){const nq=Math.max(0,l.qty-r.qty);await db.from('inventory').update({qty:nq}).eq('code',r.item_code);l.qty=nq;const iv=INV.find(x=>x.code===r.item_code);if(iv)iv.total=nq;}
+    await _updateUniMgrStock(r.store_name,r.recv_manager,{name:r.item_name,code:r.item_code,size:r.size},r.qty);
+    histPush({date:outDate,store:r.store_name,col:r.item_name,before:'',after:r.qty,type:'유니폼출고',memo:`${r.recv_manager}/${r.size}/${r.reason}${outNote?' / '+outNote:''}`});
+    Object.assign(r,{status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote});
+    closeMo('moUniShip');
+    notify('출고 처리 완료 ✓','success');
+    renderUniformReqList();
+  } catch(e){console.error(e);notify('오류: '+e.message,'error');}
+  hideLoading();
 }
 
 function renderUniformPkpList() {
