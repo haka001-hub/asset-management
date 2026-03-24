@@ -925,6 +925,51 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
       </div>
     </div>
   </div>
+  <!-- ── 엑셀 일괄 등록 ── -->
+  <div class="tw" style="margin-bottom:14px;overflow:visible">
+    <div class="th">
+      <div class="tt">📥 엑셀 일괄 등록</div>
+      <button class="btn btn-gst btn-sm" onclick="downloadUniReqTemplate()">⬇ 양식 다운로드</button>
+    </div>
+    <div style="padding:16px 20px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+        <div class="fgrp"><label class="flb">신청자 <span>*</span></label><input type="text" class="fi" id="urBulkMgr" placeholder="이름 (공통 적용)"></div>
+        <div class="fgrp"><label class="flb">작성일자 <span>*</span></label><input type="date" class="fi" id="urBulkDate"></div>
+        <div class="fgrp"><label class="flb">사유 (공통)</label>
+          <select class="fsel" id="urBulkReason">
+            <option value="지급">지급</option>
+            <option value="입사">입사</option>
+            <option value="사이즈교환">사이즈교환</option>
+            <option value="기타">기타</option>
+          </select>
+        </div>
+      </div>
+      <div id="urBulkDropZone" style="border:2px dashed var(--bd2);border-radius:8px;padding:24px;text-align:center;cursor:pointer;transition:all .2s"
+        onclick="document.getElementById('urBulkFileInput').click()"
+        ondragover="event.preventDefault();this.style.borderColor='var(--ac)';this.style.background='rgba(59,130,246,.06)'"
+        ondragleave="this.style.borderColor='var(--bd2)';this.style.background=''"
+        ondrop="event.preventDefault();this.style.borderColor='var(--bd2)';this.style.background='';handleUrBulkDrop(event)">
+        <div style="font-size:24px;margin-bottom:6px">📂</div>
+        <div style="font-size:13px;color:var(--tx2)">클릭하거나 파일을 끌어다 놓으세요</div>
+        <div style="font-size:11px;color:var(--tx3);margin-top:4px">xlsx 지원 &nbsp;·&nbsp; 다운로드한 양식 또는 유니폼 설문 응답 파일(.xlsx) 그대로 사용 가능</div>
+        <input type="file" id="urBulkFileInput" accept=".xlsx,.xls" style="display:none" onchange="handleUrBulkFile(event)">
+      </div>
+      <div id="urBulkPreviewWrap" style="display:none;margin-top:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-size:13px;font-weight:600">미리보기 <span id="urBulkRowCount" style="color:var(--ac)"></span></span>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-gst btn-sm" onclick="clearUrBulkUpload()">취소</button>
+            <button class="btn btn-pri" onclick="submitUrBulk()">일괄 등록</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto;max-height:320px;overflow-y:auto">
+          <table><thead><tr><th>매장명</th><th>수령매니저</th><th>하계사이즈</th><th>하계수량</th><th>춘추사이즈</th><th>춘추수량</th><th>동계사이즈</th><th>동계수량</th><th>사유</th></tr></thead>
+          <tbody id="urBulkPreviewBody"></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="tw">
     <div class="th">
       <div class="tt">유니폼 신청 목록</div>
@@ -5070,6 +5115,153 @@ async function submitUniformReq() {
     console.error(e);
     notify('오류: '+e.message,'error');
   }
+  hideLoading();
+}
+
+// ─── 유니폼 신청 엑셀 일괄 등록 ───
+let urBulkRows = [];
+
+function downloadUniReqTemplate() {
+  withXLSX(() => {
+    const wb = XLSX.utils.book_new();
+    const header = ['매장명','수령매니저','하계사이즈','하계수량','춘추사이즈','춘추수량','동계사이즈','동계수량','사유'];
+    const sample = [
+      ['인천송도국제도시직영점','강민정','L(95)',2,'L(95)',2,'L(95)',1,'지급'],
+      ['개금직영점','송해나','3XL(110)',0,'3XL(110)',2,'3XL(110)',1,'지급'],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet([header, ...sample]);
+    ws['!cols'] = [22,12,10,8,10,8,10,8,10].map(w=>({wch:w}));
+    XLSX.utils.book_append_sheet(wb, ws, '유니폼신청');
+    const sizeWs = XLSX.utils.aoa_to_sheet([['사이즈 코드'],['XS(80)'],['S(85)'],['M(90)'],['L(95)'],['XL(100)'],['2XL(105)'],['3XL(110)'],['4XL(115)']]);
+    XLSX.utils.book_append_sheet(wb, sizeWs, '사이즈참고');
+    XLSX.writeFile(wb, '유니폼신청_일괄등록양식.xlsx');
+  });
+}
+
+function handleUrBulkFile(e) {
+  const file = e.target.files[0]; if (!file) return;
+  processUrBulkFile(file); e.target.value = '';
+}
+function handleUrBulkDrop(e) {
+  const file = e.dataTransfer.files[0]; if (!file) return;
+  processUrBulkFile(file);
+}
+
+function processUrBulkFile(file) {
+  withXLSX(() => {
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      try {
+        const data = new Uint8Array(ev.target.result);
+        const wb = XLSX.read(data, {type:'array'});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+        if (!rows || rows.length < 2) { notify('데이터가 없습니다','error'); return; }
+        const header = rows[0].map(h => String(h||'').trim());
+        // 설문 형식 감지: 첫 열이 타임스탬프 또는 두 번째 열이 '매장명'
+        const isSurvey = header[0].includes('타임스탬프') || (header[1]&&header[1].includes('매장명'));
+        urBulkRows = [];
+        rows.slice(1).forEach(r => {
+          let storeName, mgrName, haSz, haQty, chSz, chQty, dkSz, dkQty, reason;
+          if (isSurvey) {
+            storeName = String(r[1]||'').trim();
+            mgrName   = String(r[2]||'').trim();
+            haSz  = String(r[3]||'').trim(); haQty = parseInt(r[4])||0;
+            chSz  = String(r[5]||'').trim(); chQty = parseInt(r[6])||0;
+            dkSz  = String(r[7]||'').trim(); dkQty = parseInt(r[8])||0;
+            reason = '지급';
+          } else {
+            storeName = String(r[0]||'').trim();
+            mgrName   = String(r[1]||'').trim();
+            haSz  = String(r[2]||'').trim(); haQty = parseInt(r[3])||0;
+            chSz  = String(r[4]||'').trim(); chQty = parseInt(r[5])||0;
+            dkSz  = String(r[6]||'').trim(); dkQty = parseInt(r[7])||0;
+            reason = String(r[8]||'지급').trim()||'지급';
+          }
+          if (!storeName || !mgrName) return;
+          urBulkRows.push({storeName, mgrName, haSz, haQty, chSz, chQty, dkSz, dkQty, reason});
+        });
+        if (!urBulkRows.length) { notify('유효한 데이터가 없습니다','error'); return; }
+        // 오늘 날짜 자동 세팅
+        const bd = document.getElementById('urBulkDate');
+        if (bd && !bd.value) bd.value = new Date().toISOString().split('T')[0];
+        showUrBulkPreview();
+      } catch(err) { notify('파일 읽기 실패: '+err.message,'error'); }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function showUrBulkPreview() {
+  document.getElementById('urBulkRowCount').textContent = `${urBulkRows.length}개 행`;
+  document.getElementById('urBulkPreviewBody').innerHTML = urBulkRows.map(r=>`
+    <tr>
+      <td class="tb2">${r.storeName}</td>
+      <td class="tb2">${r.mgrName}</td>
+      <td class="tm">${r.haSz||'-'}</td><td class="tm">${r.haQty}</td>
+      <td class="tm">${r.chSz||'-'}</td><td class="tm">${r.chQty}</td>
+      <td class="tm">${r.dkSz||'-'}</td><td class="tm">${r.dkQty}</td>
+      <td class="tm">${r.reason||'지급'}</td>
+    </tr>`).join('');
+  document.getElementById('urBulkPreviewWrap').style.display = '';
+}
+
+function clearUrBulkUpload() {
+  urBulkRows = [];
+  document.getElementById('urBulkPreviewWrap').style.display = 'none';
+  document.getElementById('urBulkFileInput').value = '';
+}
+
+function _findUniItemBySeason(season, size) {
+  const items = getUniformItems();
+  if (!size) return null;
+  let item = items.find(x => x.name.includes(season) && x.name.includes(size));
+  if (item) return item;
+  const sCode = size.replace(/\([^)]*\)/g,'').trim().toUpperCase();
+  item = items.find(x => x.name.includes(season) && x.name.replace(/\([^)]*\)/g,'').trim().toUpperCase().includes(sCode));
+  return item || {code:'', name:`유니폼(${season}) ${size}`, total:0, out:0};
+}
+
+async function submitUrBulk() {
+  if (!urBulkRows.length) { notify('업로드된 데이터가 없습니다','error'); return; }
+  const manager = document.getElementById('urBulkMgr').value.trim();
+  const date    = document.getElementById('urBulkDate').value;
+  const commonReason = document.getElementById('urBulkReason').value;
+  if (!manager) { notify('신청자를 입력해주세요','error'); return; }
+  if (!date)    { notify('작성일자를 선택해주세요','error'); return; }
+  showLoading();
+  try {
+    const SEASONS = [
+      {key:'하계', szF:'haSz', qF:'haQty'},
+      {key:'춘추', szF:'chSz', qF:'chQty'},
+      {key:'동계', szF:'dkSz', qF:'dkQty'},
+    ];
+    const toInsert = [];
+    for (const row of urBulkRows) {
+      await checkAndRegisterMgr(row.mgrName, row.storeName);
+      for (const s of SEASONS) {
+        const qty  = row[s.qF];
+        const size = row[s.szF];
+        if (!qty || qty <= 0) continue;
+        const item = _findUniItemBySeason(s.key, size);
+        toInsert.push({req_date:date, manager, store_name:row.storeName, recv_manager:row.mgrName,
+          item_name:item?.name||`유니폼(${s.key}) ${size}`, item_code:item?.code||'',
+          size, qty, reason:row.reason||commonReason, note:'', status:'pending'});
+      }
+    }
+    if (!toInsert.length) { hideLoading(); notify('등록할 품목이 없습니다 (수량 0 항목 제외)','warn'); return; }
+    const CHUNK = 50;
+    let inserted = [];
+    for (let i = 0; i < toInsert.length; i += CHUNK) {
+      const {data, error} = await db.from('uniform_requests').insert(toInsert.slice(i, i+CHUNK)).select();
+      if (error) throw error;
+      if (data) inserted = inserted.concat(data);
+    }
+    inserted.forEach(r => UNIFORM_REQS.unshift(r));
+    notify(`${urBulkRows.length}명 / 총 ${inserted.length}건 등록 완료 ✓`, 'success');
+    clearUrBulkUpload();
+    renderUniformReqList();
+  } catch(e) { console.error(e); notify('오류: '+e.message,'error'); }
   hideLoading();
 }
 
