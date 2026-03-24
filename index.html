@@ -5967,21 +5967,26 @@ if(localStorage.getItem('ams-theme')==='light'){
 
 // ═══ INIT ═══
 (async()=>{
-  await loadFromDB();
-  STORE_OUT_LOG = REQS.filter(r=>r.status==='shipped').map(r=>({store:r.store,code:r.code,name:r.asset,qty:r.qty,date:r.outDate,route:r.route,manager:r.outMgr,memo:r.outMemo}));
-  renderDash(); updateBadge();
-  renderOrderMgmt(); renderPurchaseHist(); updateOrderBadge();
-  // 인라인 폼 초기화
-  clearReqForm(); clearPkForm();
-  clearUniReqForm(); clearUniPkpForm();
-  // URL 해시 라우팅 (텔레그램 링크 직접 접근)
-  if(window.location.hash){
-    const pageId=window.location.hash.slice(1);
-    if(document.getElementById('page-'+pageId)){
-      const btn=document.querySelector(`[onclick*="showPage('${pageId}'"]`);
-      showPage(pageId,btn);
+  try { await loadFromDB(); } catch(e){ console.error('[loadFromDB 오류]',e); }
+  try { STORE_OUT_LOG = REQS.filter(r=>r.status==='shipped').map(r=>({store:r.store,code:r.code,name:r.asset,qty:r.qty,date:r.outDate,route:r.route,manager:r.outMgr,memo:r.outMemo})); } catch(e){ console.error(e); }
+  try { renderDash(); } catch(e){ console.error('[renderDash 오류]',e); }
+  try { updateBadge(); } catch(e){ console.error(e); }
+  try { renderOrderMgmt(); } catch(e){ console.error(e); }
+  try { renderPurchaseHist(); } catch(e){ console.error(e); }
+  try { updateOrderBadge(); } catch(e){ console.error(e); }
+  try { clearReqForm(); } catch(e){ console.error(e); }
+  try { clearPkForm(); } catch(e){ console.error(e); }
+  try { clearUniReqForm(); } catch(e){ console.error(e); }
+  try { clearUniPkpForm(); } catch(e){ console.error(e); }
+  try {
+    if(window.location.hash){
+      const pageId=window.location.hash.slice(1);
+      if(document.getElementById('page-'+pageId)){
+        const btn=document.querySelector(`[onclick*="showPage('${pageId}'"]`);
+        showPage(pageId,btn);
+      }
     }
-  }
+  } catch(e){ console.error(e); }
 })();
 </script>
 </body>
