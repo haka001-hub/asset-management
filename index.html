@@ -1021,8 +1021,10 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
       <div class="tt">유니폼 수거 목록</div>
       <div class="ta"><div class="sw"><span class="sic">⌕</span><input class="si" id="upkSrch" placeholder="검색..." oninput="renderUniformPkpList()"></div></div>
     </div>
-    <table><thead><tr><th>번호</th><th>작성일자</th><th>신청자</th><th>직영점</th><th>반환매니저</th><th>구분</th><th>유니폼</th><th>사이즈</th><th>수량</th><th>사유</th><th>비고</th><th>상태</th><th>수거예상일</th><th>수거일자</th><th>수거비고</th><th>액션</th><th>삭제</th></tr></thead>
+    <div style="overflow-x:auto">
+    <table style="white-space:nowrap"><thead><tr><th>번호</th><th>작성일자</th><th>신청자</th><th>직영점</th><th>반환매니저</th><th>구분</th><th>유니폼</th><th>사이즈</th><th>수량</th><th>사유</th><th>비고</th><th>상태</th><th>수거예상일</th><th>수거일자</th><th>수거비고</th><th>액션</th><th>삭제</th></tr></thead>
     <tbody id="uniPkpTable"></tbody></table>
+    </div>
   </div>
 </div>
 
