@@ -68,6 +68,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
 .btn-suc{background:var(--gn);border-color:var(--gn);color:#fff}.btn-suc:hover{background:#059669}
 .btn-dan{background:var(--rd);border-color:var(--rd);color:#fff}.btn-dan:hover{background:#dc2626}
 .btn-gst{background:transparent;border-color:var(--bd);color:var(--tx2)}.btn-gst:hover{background:var(--sf2);color:var(--tx)}
+.btn-warn{background:#d97706;border-color:#d97706;color:#fff}.btn-warn:hover{background:#b45309}
 .btn-sm{padding:5px 10px;font-size:12px}
 .tabbar{display:flex;border-bottom:1px solid var(--bd);padding:0 16px}
 .tab{padding:9px 18px;font-size:13px;font-weight:500;color:var(--tx3);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s}
@@ -993,7 +994,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
       <button class="btn btn-gst btn-sm" onclick="toggleUniPkpForm(this)">접기 ▲</button>
     </div>
     <div id="uniPkpFormBody" style="padding:16px 20px">
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px">
         <div class="fgrp"><label class="flb">작성일자 <span>*</span></label><input type="date" class="fi" id="upkDate"></div>
         <div class="fgrp"><label class="flb">신청자 <span>*</span></label><input type="text" class="fi" id="upkMgr" placeholder="이름"></div>
         <div class="fgrp"><label class="flb">직영점명 <span>*</span></label>
@@ -1001,6 +1002,9 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
         </div>
         <div class="fgrp"><label class="flb">반환 매니저 성함 <span>*</span></label>
           <div class="acw"><input type="text" class="fi" id="upkReturnMgr" placeholder="매니저명 검색..." autocomplete="off" oninput="acUniMgr(this,'acUpkMgrList')" onfocus="acUniMgr(this,'acUpkMgrList')"><div class="acl" id="acUpkMgrList"></div></div>
+        </div>
+        <div class="fgrp"><label class="flb">구분 <span>*</span></label>
+          <select class="fi" id="upkDeliveryType"><option value="택배">택배</option><option value="직납">직납</option></select>
         </div>
       </div>
       <div class="sdiv">수거 품목</div>
@@ -1017,7 +1021,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
       <div class="tt">유니폼 수거 목록</div>
       <div class="ta"><div class="sw"><span class="sic">⌕</span><input class="si" id="upkSrch" placeholder="검색..." oninput="renderUniformPkpList()"></div></div>
     </div>
-    <table><thead><tr><th>번호</th><th>작성일자</th><th>신청자</th><th>직영점</th><th>반환매니저</th><th>유니폼</th><th>사이즈</th><th>수량</th><th>사유</th><th>비고</th><th>상태</th><th>수거일자</th><th>수거비고</th><th>액션</th><th>삭제</th></tr></thead>
+    <table><thead><tr><th>번호</th><th>작성일자</th><th>신청자</th><th>직영점</th><th>반환매니저</th><th>구분</th><th>유니폼</th><th>사이즈</th><th>수량</th><th>사유</th><th>비고</th><th>상태</th><th>수거예상일</th><th>수거일자</th><th>수거비고</th><th>액션</th><th>삭제</th></tr></thead>
     <tbody id="uniPkpTable"></tbody></table>
   </div>
 </div>
@@ -1101,6 +1105,27 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
     <div class="md-ft">
       <button class="btn btn-gst" onclick="closeMo('moUniPickup')">취소</button>
       <button class="btn btn-suc" onclick="doUniPickup()">수거확인 ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: 유니폼 수거예상일 입력 ══ -->
+<div class="mo" id="moUniExpectedPickup">
+  <div class="md" style="width:440px">
+    <div class="md-hd">
+      <div><div class="md-ti">수거 예상일 입력</div><div class="md-su">예상 수거일자 등록 → 매장 안내 후 수거확인 진행</div></div>
+      <button class="md-cl" onclick="closeMo('moUniExpectedPickup')">✕</button>
+    </div>
+    <div class="md-bd">
+      <input type="hidden" id="uniExpPkpTargetId">
+      <div class="fg">
+        <div class="fgrp s2"><label class="flb">수거 신청 내용</label><div id="uniExpPkpInfo" style="font-size:13px;color:var(--tx2);padding:6px 0"></div></div>
+        <div class="fgrp s2"><label class="flb">수거 예상일자 <span>*</span></label><input type="date" class="fi" id="uniExpPkpDate"></div>
+      </div>
+    </div>
+    <div class="md-ft">
+      <button class="btn btn-gst" onclick="closeMo('moUniExpectedPickup')">취소</button>
+      <button class="btn btn-pri" onclick="doUniExpectedPickup()">확인 ✓</button>
     </div>
   </div>
 </div>
@@ -5294,6 +5319,7 @@ async function submitUniformPkp() {
   const manager=document.getElementById('upkMgr').value.trim();
   const store=document.getElementById('upkStore').value.trim();
   const returnMgr=document.getElementById('upkReturnMgr').value.trim();
+  const deliveryType=document.getElementById('upkDeliveryType').value;
   if(!date||!manager||!store||!returnMgr){notify('필수 항목(작성일자/신청자/직영점명/반환매니저)을 입력해주세요','error');return;}
   const items=_collectUniItems('upk',uniPkpRows);
   if(!items.length||items.some(it=>!it.code)){notify('모든 품목의 유니폼을 선택해주세요','error');return;}
@@ -5303,7 +5329,8 @@ async function submitUniformPkp() {
     if (!ok) { hideLoading(); return; }
     const {data:inserted,error}=await db.from('uniform_pickups').insert(
       items.map(it=>({req_date:date,manager,store_name:store,return_manager:returnMgr,
-        item_name:it.name,item_code:it.code,size:it.size,qty:it.qty,reason:it.reason,note:it.note,status:'pending'}))
+        item_name:it.name,item_code:it.code,size:it.size,qty:it.qty,reason:it.reason,note:it.note,
+        delivery_type:deliveryType,status:'pending'}))
     ).select();
     if(error)throw error;
     if(inserted)inserted.forEach(r=>UNIFORM_PKPS.unshift(r));
@@ -5327,6 +5354,31 @@ function openUniShipModal(id) {
   document.getElementById('uniOutNote').value = '';
   document.getElementById('moUniShip').classList.add('open');
 }
+// ─── 수거 예상일 모달 ───
+function openUniExpectedPickupModal(id) {
+  const r = UNIFORM_PKPS.find(x=>x.id===id); if(!r) return;
+  document.getElementById('uniExpPkpTargetId').value = id;
+  document.getElementById('uniExpPkpInfo').innerHTML = `${r.store_name} / ${r.return_manager} / ${r.item_name} ${r.size} ${r.qty}벌 / ${r.delivery_type||'택배'}`;
+  document.getElementById('uniExpPkpDate').value = '';
+  document.getElementById('moUniExpectedPickup').classList.add('open');
+}
+async function doUniExpectedPickup() {
+  const id = parseInt(document.getElementById('uniExpPkpTargetId').value);
+  const expDate = document.getElementById('uniExpPkpDate').value;
+  if(!expDate){notify('수거 예상일자를 입력해주세요','error');return;}
+  const r = UNIFORM_PKPS.find(x=>x.id===id); if(!r) return;
+  showLoading();
+  try {
+    const {error}=await db.from('uniform_pickups').update({status:'scheduled',expected_pickup_date:expDate}).eq('id',id);
+    if(error)throw error;
+    Object.assign(r,{status:'scheduled',expected_pickup_date:expDate});
+    closeMo('moUniExpectedPickup');
+    notify('수거 예상일이 등록되었습니다 ✓','success');
+    renderUniformPkpList();
+  } catch(e){console.error(e);notify('오류: '+e.message,'error');}
+  hideLoading();
+}
+
 // ─── 수거 확인 모달 ───
 function openUniPickupModal(id) {
   const r = UNIFORM_PKPS.find(x=>x.id===id); if(!r) return;
@@ -5407,6 +5459,7 @@ async function _updateUniMgrStock(store, mgrName, item, delta) {
 // ─── 목록 렌더 ───
 function _uniStatusBadge(s){
   if(s==='pending') return '<span class="badge b-pend">대기중</span>';
+  if(s==='scheduled') return '<span class="badge b-prog">수거예정</span>';
   if(s==='shipped') return '<span class="badge b-ship">출고완료</span>';
   if(s==='confirmed') return '<span class="badge b-ship">수거완료</span>';
   return `<span class="badge">${s}</span>`;
@@ -5585,16 +5638,23 @@ function renderUniformPkpList() {
   const srch=(document.getElementById('upkSrch')?.value||'').trim().toLowerCase();
   const tbody=document.getElementById('uniPkpTable'); if(!tbody) return;
   const f=UNIFORM_PKPS.filter(r=>!srch||[r.store_name,r.item_name,r.return_manager,r.manager].some(v=>v?.toLowerCase().includes(srch)));
-  tbody.innerHTML=f.length?f.map(r=>`<tr>
+  tbody.innerHTML=f.length?f.map(r=>{
+    const dlvBadge=`<span class="badge ${r.delivery_type==='직납'?'b-prog':'b-zero'}" style="font-size:11px">${r.delivery_type||'택배'}</span>`;
+    let actionBtn='—';
+    if(r.status==='pending') actionBtn=`<button class="btn btn-warn btn-sm" onclick="openUniExpectedPickupModal(${r.id})">수거예상일</button>`;
+    else if(r.status==='scheduled') actionBtn=`<button class="btn btn-pri btn-sm" onclick="openUniPickupModal(${r.id})">수거확인</button>`;
+    return `<tr>
     <td class="tm">${r.id}</td><td>${r.req_date||''}</td><td>${r.manager||''}</td><td>${r.store_name||''}</td>
-    <td>${r.return_manager||''}</td><td>${r.item_name||''}</td><td>${r.size||''}</td><td>${r.qty||0}벌</td>
+    <td>${r.return_manager||''}</td><td>${dlvBadge}</td><td>${r.item_name||''}</td><td>${r.size||''}</td><td>${r.qty||0}벌</td>
     <td>${r.reason||''}</td><td>${r.note||''}</td>
     <td>${_uniStatusBadge(r.status)}</td>
+    <td>${r.expected_pickup_date||''}</td>
     <td>${r.pickup_date||''}</td><td>${r.pickup_note||''}</td>
-    <td>${r.status==='pending'?`<button class="btn btn-pri btn-sm" onclick="openUniPickupModal(${r.id})">수거확인</button>`:'—'}</td>
+    <td>${actionBtn}</td>
     <td><button class="btn btn-sm" style="background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.3)" onclick="deleteUniPkp(${r.id})">삭제</button></td>
-    </tr>`).join('')
-    :'<tr><td colspan="15" style="text-align:center;padding:20px;color:var(--tx3)">수거 내역 없음</td></tr>';
+    </tr>`;
+  }).join('')
+    :'<tr><td colspan="17" style="text-align:center;padding:20px;color:var(--tx3)">수거 내역 없음</td></tr>';
 }
 
 // ─── 삭제 ───
@@ -5935,8 +5995,8 @@ function exportUniformMgmt() {
     const rData=[['번호','작성일자','출고일자','도착일자','신청자','직영점','수령매니저','유니폼','사이즈','수량','사유','비고(신청)','비고(출고)','상태']];
     UNIFORM_REQS.forEach(r=>rData.push([r.id,r.req_date,r.out_date,r.arr_date,r.manager,r.store_name,r.recv_manager,r.item_name,r.size,r.qty,r.reason,r.note,r.out_note,r.status]));
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rData),'유니폼신청');
-    const pData=[['번호','작성일자','수거일자','신청자','직영점','반환매니저','유니폼','사이즈','수량','사유','비고(신청)','비고(수거)','상태']];
-    UNIFORM_PKPS.forEach(r=>pData.push([r.id,r.req_date,r.pickup_date,r.manager,r.store_name,r.return_manager,r.item_name,r.size,r.qty,r.reason,r.note,r.pickup_note,r.status]));
+    const pData=[['번호','작성일자','구분','신청자','직영점','반환매니저','유니폼','사이즈','수량','사유','비고(신청)','상태','수거예상일','수거일자','비고(수거)']];
+    UNIFORM_PKPS.forEach(r=>pData.push([r.id,r.req_date,r.delivery_type||'택배',r.manager,r.store_name,r.return_manager,r.item_name,r.size,r.qty,r.reason,r.note,r.status,r.expected_pickup_date||'',r.pickup_date||'',r.pickup_note||'']));
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(pData),'유니폼수거');
     const mData=[['매니저명','재직상태','비고','등록일']];
     UNIFORM_MANAGERS.forEach(m=>mData.push([m.manager_name,m.employment_status,m.note,m.created_at?new Date(m.created_at).toLocaleDateString('ko-KR'):'']));
