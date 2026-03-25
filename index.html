@@ -5652,8 +5652,8 @@ function renderUniformPkpList() {
     <td>${_uniStatusBadge(r.status)}</td>
     <td>${r.expected_pickup_date||''}</td>
     <td>${r.pickup_date||''}</td><td>${r.pickup_note||''}</td>
-    <td>${actionBtn}</td>
-    <td><button class="btn" style="padding:3px 8px;font-size:11px;background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.3)" onclick="deleteUniPkp(${r.id})">삭제</button></td>
+    <td style="text-align:center">${actionBtn}</td>
+    <td style="text-align:center"><button class="btn" style="padding:3px 8px;font-size:11px;background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.3)" onclick="deleteUniPkp(${r.id})">삭제</button></td>
     </tr>`;
   }).join('')
     :'<tr><td colspan="17" style="text-align:center;padding:20px;color:var(--tx3)">수거 내역 없음</td></tr>';
