@@ -5641,8 +5641,8 @@ function renderUniformPkpList() {
   tbody.innerHTML=f.length?f.map(r=>{
     const dlvBadge=`<span class="badge ${r.delivery_type==='직납'?'b-prog':'b-zero'}" style="font-size:11px">${r.delivery_type||'택배'}</span>`;
     let actionBtn='—';
-    if(r.status==='pending') actionBtn=`<button class="btn btn-warn btn-sm" onclick="openUniExpectedPickupModal(${r.id})">수거예상일</button>`;
-    else if(r.status==='scheduled') actionBtn=`<button class="btn btn-pri btn-sm" onclick="openUniPickupModal(${r.id})">수거확인</button>`;
+    if(r.status==='pending') actionBtn=`<button class="btn btn-warn" style="padding:3px 8px;font-size:11px" onclick="openUniExpectedPickupModal(${r.id})">수거예상일</button>`;
+    else if(r.status==='scheduled') actionBtn=`<button class="btn btn-pri" style="padding:3px 8px;font-size:11px" onclick="openUniPickupModal(${r.id})">수거확인</button>`;
     return `<tr>
     <td class="tm">${r.id}</td><td>${r.req_date||''}</td><td>${r.manager||''}</td><td>${r.store_name||''}</td>
     <td>${r.return_manager||''}</td><td>${dlvBadge}</td><td>${r.item_name||''}</td><td>${r.size||''}</td><td>${r.qty||0}벌</td>
@@ -5651,7 +5651,7 @@ function renderUniformPkpList() {
     <td>${r.expected_pickup_date||''}</td>
     <td>${r.pickup_date||''}</td><td>${r.pickup_note||''}</td>
     <td>${actionBtn}</td>
-    <td><button class="btn btn-sm" style="background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.3)" onclick="deleteUniPkp(${r.id})">삭제</button></td>
+    <td><button class="btn" style="padding:3px 8px;font-size:11px;background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.3)" onclick="deleteUniPkp(${r.id})">삭제</button></td>
     </tr>`;
   }).join('')
     :'<tr><td colspan="17" style="text-align:center;padding:20px;color:var(--tx3)">수거 내역 없음</td></tr>';
