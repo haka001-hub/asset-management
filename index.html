@@ -3357,8 +3357,7 @@ function renderPickup(){
     const brokenInfo = p.reason==='고장' && (p.brokenQty||0)>0
       ? `<span style="font-size:10px;color:#f87171;margin-left:4px">(정상${p.normalQty||0}/고장${p.brokenQty||0})</span>`
       : '';
-    const delBtn=p.status==='pending'
-      ?`<button class="btn btn-dan btn-sm" onclick="deletePickup('${p.id}')" style="padding:4px 8px" title="삭제">🗑</button>`:'';
+    const delBtn=`<button class="btn btn-dan btn-sm" onclick="deletePickup('${p.id}')" style="padding:4px 8px" title="삭제">🗑</button>`;
     return`<tr>
       <td class="tm">${p.id}</td><td class="tm">${fd(p.date)}</td>
       <td>${p.manager}<span style="font-size:11px;color:var(--tx3)"> (${p.team})</span></td>
@@ -3563,9 +3562,11 @@ async function submitPickupInline(){
   const created=[];
   for(const it of items){
     const id=`PKU-${yr}-${String(nextNum).padStart(3,'0')}`;nextNum++;
-    const{error:insErr}=await db.from('pickups').insert({id,date,manager,team,reason,asset:it.name,code:it.code,qty:it.qty,broken_qty:0,store,route,ship_type:it.shipType,address,note,status:'pending'});
+    const brokenQtyVal = reason==='고장' ? it.qty : 0;
+    const normalQtyVal = reason==='고장' ? 0 : it.qty;
+    const{error:insErr}=await db.from('pickups').insert({id,date,manager,team,reason,asset:it.name,code:it.code,qty:it.qty,broken_qty:brokenQtyVal,store,route,ship_type:it.shipType,address,note,status:'pending'});
     if(insErr){notify('저장 실패: '+insErr.message,'error');return}
-    PICKUPS.push({id,date,manager,team,reason,asset:it.name,code:it.code,qty:it.qty,brokenQty:0,normalQty:it.qty,store,route,shipType:it.shipType,address,note,status:'pending',pickupDate:'',confDate:'',confMgr:'',confMemo:''});
+    PICKUPS.push({id,date,manager,team,reason,asset:it.name,code:it.code,qty:it.qty,brokenQty:brokenQtyVal,normalQty:normalQtyVal,store,route,shipType:it.shipType,address,note,status:'pending',pickupDate:'',confDate:'',confMgr:'',confMemo:''});
     created.push(`${it.name} ${it.qty}개`);
   }
   created.forEach((label,i)=>{const it=items[i];histPush({date:new Date().toLocaleString('ko-KR'),store,col:it.name,before:null,after:it.qty,type:'수거신청',memo:`${PICKUPS[PICKUPS.length-items.length+i]?.id||''} / 사유: ${reason}`});});
@@ -3581,13 +3582,16 @@ function clearPkForm(){
   pkItemRows=[];renderPkItems();
 }
 async function deletePickup(id){
-  if(!confirm(`수거신청 ${id}를 삭제하시겠습니까?`))return;
   const p=PICKUPS.find(x=>x.id===id);
-  if(p&&p.status!=='pending'){notify('대기중 신청만 삭제할 수 있습니다','error');return}
+  const statusLabel={pending:'대기중',in_progress:'수거진행중',confirmed:'수거완료',rejected:'반려'}[p?.status]||p?.status||'';
+  const warnMsg=p?.status==='confirmed'?'\n\n⚠️ 이미 수거완료된 내역입니다.\n물류재고(고장포함)는 수동으로 정정해야 합니다.':'';
+  if(!confirm(`수거신청 ${id} [${statusLabel}]를 삭제하시겠습니까?\n관련 이력도 함께 삭제됩니다.${warnMsg}`))return;
   const idx=PICKUPS.findIndex(x=>x.id===id);if(idx!==-1)PICKUPS.splice(idx,1);
+  await db.from('store_history').delete().ilike('memo',`%${id}%`);
+  SA_HIST=SA_HIST.filter(h=>!((h.memo||'').includes(id)));
   const{error}=await db.from('pickups').delete().eq('id',id);
   if(error){notify('삭제 실패: '+error.message,'error');return}
-  notify('삭제 완료');updateBadge();renderPickup();
+  notify('삭제 완료');updateBadge();renderPickup();renderPickupHist();
 }
 
 // ═══ PICKUP: 수거 확인 모달 ═══
