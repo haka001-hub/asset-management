@@ -819,33 +819,62 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
 <!-- ══════════════════════════════ 쇼핑백/무지봉투 - 데이터 업로드 ══════════════════════════════ -->
 <div id="page-bag-upload" class="hidden" style="padding:22px 28px">
 
-  <!-- ① 버튼 행 -->
-  <div style="display:flex;gap:10px;margin-bottom:10px">
-    <button class="btn btn-gst" onclick="downloadBagTemplate()">⬇ 양식 다운로드</button>
-    <label class="btn btn-pri" style="cursor:pointer">⬆ 파일 선택
-      <input type="file" id="bagFileInput2" accept=".xlsx,.xls" style="display:none" onchange="handleBagFile(event)">
-    </label>
-  </div>
-  <!-- ② 출고 규칙 한 줄 -->
-  <div style="display:flex;gap:16px;align-items:center;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:8px 16px;margin-bottom:12px;flex-wrap:wrap">
+  <!-- 출고 규칙 -->
+  <div style="display:flex;gap:16px;align-items:center;background:var(--sf2);border:1px solid var(--bd);border-radius:8px;padding:8px 16px;margin-bottom:14px;flex-wrap:wrap">
     <span style="font-size:10px;font-weight:700;color:var(--tx3);letter-spacing:.1em;text-transform:uppercase;white-space:nowrap">출고 규칙</span>
     <span style="font-size:12px;white-space:nowrap"><span class="badge b-pend">쇼핑백</span> 1묶음 이하 → 4묶음 출고</span>
     <span style="font-size:12px;white-space:nowrap"><span class="badge b-appr">무지봉투</span> 2묶음 이하 → 10묶음 출고</span>
+    <span style="margin-left:auto;display:flex;align-items:center;gap:6px">
+      <label style="font-size:12px;color:var(--tx3);white-space:nowrap">플레이엠디 출고창고코드</label>
+      <input type="text" class="fi" id="playMDWarehouseCode" value="001" style="width:70px;padding:4px 7px;font-size:12px">
+    </span>
   </div>
 
-  <!-- ③ 드래그&드롭 영역 -->
-  <div id="bagDropZone2"
-    style="border:2px dashed var(--bd);border-radius:12px;padding:22px 24px;text-align:center;transition:all .2s;cursor:pointer;background:var(--sf);margin-bottom:14px;display:flex;flex-direction:column;align-items:center;justify-content:center"
-    ondragover="event.preventDefault();this.style.borderColor='var(--ac)';this.style.background='rgba(59,130,246,.06)'"
-    ondragleave="this.style.borderColor='var(--bd)';this.style.background='var(--sf)'"
-    ondrop="onBagDrop(event)"
-    onclick="document.getElementById('bagFileInput2').click()">
-    <div style="font-size:28px;margin-bottom:8px">📂</div>
-    <div style="font-size:14px;font-weight:600;color:var(--tx);margin-bottom:4px">엑셀 파일을 드래그하거나 클릭하여 업로드</div>
-    <div style="font-size:12px;color:var(--tx3)">xlsx 지원 &nbsp;·&nbsp; 열 순서: 매장명 / 매장코드 / 쇼핑백 수량 / 무지봉투 수량</div>
+  <!-- 업로드 영역 (2열) -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+
+    <!-- 플레이엠디 -->
+    <div style="border:1px solid var(--bd);border-radius:10px;padding:14px;background:var(--sf)">
+      <div style="font-size:13px;font-weight:600;color:var(--tx);margin-bottom:8px">
+        📊 플레이엠디 재고파일
+        <span style="font-size:11px;font-weight:400;color:var(--tx3)"> (서울/경기/인천)</span>
+      </div>
+      <div id="playDropZone"
+        style="border:2px dashed var(--bd);border-radius:8px;padding:14px;text-align:center;cursor:pointer;background:var(--bg);transition:all .2s"
+        ondragover="event.preventDefault();this.style.borderColor='var(--ac)';this.style.background='rgba(59,130,246,.06)'"
+        ondragleave="this.style.borderColor='var(--bd)';this.style.background='var(--bg)'"
+        ondrop="onBagPosDrop(event,'playmd')"
+        onclick="document.getElementById('playFileInput').click()">
+        <div style="font-size:22px;margin-bottom:4px">📂</div>
+        <div style="font-size:12px;color:var(--tx)">드래그 또는 클릭하여 업로드</div>
+        <div style="font-size:11px;color:var(--tx3);margin-top:2px">매장재고현황 xlsx</div>
+      </div>
+      <input type="file" id="playFileInput" accept=".xlsx,.xls" style="display:none" onchange="handleBagPosFile(event,'playmd')">
+      <div id="playFileName" style="font-size:11px;color:var(--tx3);margin-top:6px;text-align:center">파일 없음</div>
+    </div>
+
+    <!-- 돌핀포스 -->
+    <div style="border:1px solid var(--bd);border-radius:10px;padding:14px;background:var(--sf)">
+      <div style="font-size:13px;font-weight:600;color:var(--tx);margin-bottom:8px">
+        📊 돌핀포스 재고파일
+        <span style="font-size:11px;font-weight:400;color:var(--tx3)"> (부산/대구/울산/경남)</span>
+      </div>
+      <div id="dolphinDropZone"
+        style="border:2px dashed var(--bd);border-radius:8px;padding:14px;text-align:center;cursor:pointer;background:var(--bg);transition:all .2s"
+        ondragover="event.preventDefault();this.style.borderColor='var(--ac)';this.style.background='rgba(59,130,246,.06)'"
+        ondragleave="this.style.borderColor='var(--bd)';this.style.background='var(--bg)'"
+        ondrop="onBagPosDrop(event,'dolphin')"
+        onclick="document.getElementById('dolphinFileInput').click()">
+        <div style="font-size:22px;margin-bottom:4px">📂</div>
+        <div style="font-size:12px;color:var(--tx)">드래그 또는 클릭하여 업로드</div>
+        <div style="font-size:11px;color:var(--tx3);margin-top:2px">수불_집계_현황 xlsx</div>
+      </div>
+      <input type="file" id="dolphinFileInput" accept=".xlsx,.xls" style="display:none" onchange="handleBagPosFile(event,'dolphin')">
+      <div id="dolphinFileName" style="font-size:11px;color:var(--tx3);margin-top:6px;text-align:center">파일 없음</div>
+    </div>
   </div>
 
-  <!-- ④ 미리보기 (업로드 후 표시) -->
+  <!-- 미리보기 (업로드 후 표시) -->
   <div id="bagPreviewWrap" style="display:none">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <div>
@@ -853,13 +882,13 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
         <span id="bagRowCount" style="font-size:12px;color:var(--tx3);margin-left:8px"></span>
       </div>
       <div style="display:flex;gap:8px">
-        <button class="btn btn-gst btn-sm" onclick="clearBagUpload()">✕ 취소</button>
+        <button class="btn btn-gst btn-sm" onclick="clearBagUpload()">✕ 초기화</button>
         <button class="btn btn-pri btn-sm" onclick="calcBagShipping()">▶ 출고량 계산 &amp; 저장</button>
       </div>
     </div>
     <div class="tw" style="overflow-x:auto">
       <table>
-        <thead><tr><th>매장명</th><th>매장코드</th><th>쇼핑백 현재수량</th><th>무지봉투 현재수량</th></tr></thead>
+        <thead><tr><th>포스구분</th><th>매장명</th><th>매장코드</th><th>쇼핑백 현재수량</th><th>무지봉투 현재수량</th></tr></thead>
         <tbody id="bagPreviewBody"></tbody>
       </table>
     </div>
@@ -4540,6 +4569,94 @@ function withXLSX(fn) {
 // ── 업로드 탭 ──
 function renderBagUpload() { /* 정적 HTML, 재렌더 불필요 */ }
 
+// 돌핀포스 매장 판단 (부산/대구/울산/경남/경북 지역 키워드)
+function isDolphinStore(storeName, storeCode) {
+  const storeInfo = ADDR.find(a => a.name === storeName || (storeCode && a.code === storeCode));
+  const src = (storeInfo?.address || '') + ' ' + (storeName || '');
+  const kw = ['부산','대구','울산','경남','경북','김해','양산','창원','거제','마산','진주','통영','사천','밀양','구미','포항','경주','안동'];
+  return kw.some(k => src.includes(k));
+}
+
+// POS 파일 드롭
+function onBagPosDrop(e, posType) {
+  e.preventDefault();
+  const dz = document.getElementById(posType==='playmd'?'playDropZone':'dolphinDropZone');
+  dz.style.borderColor='var(--bd)';dz.style.background='var(--bg)';
+  const file=e.dataTransfer?.files?.[0];
+  if(file) processBagPosFile(file,posType);
+}
+
+// 파일 input 핸들러
+function handleBagPosFile(e, posType) {
+  const file=e.target.files[0];if(!file)return;
+  processBagPosFile(file,posType);e.target.value='';
+}
+
+// POS 파일 파싱 (포스타입 자동 감지 후 처리)
+function processBagPosFile(file, posType) {
+  withXLSX(()=>{
+    const reader=new FileReader();
+    reader.onload=function(ev){
+      try{
+        const data=new Uint8Array(ev.target.result);
+        const wb=XLSX.read(data,{type:'array'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+        if(!rows||rows.length<2){notify('데이터가 없습니다','error');return;}
+        const parsed = posType==='playmd' ? parsePlayMDStock(rows) : parseDolphinStock(rows);
+        if(!parsed.length){notify('쇼핑백/무지봉투 데이터를 찾을 수 없습니다','error');return;}
+        bagUploadRows=bagUploadRows.filter(r=>r.posType!==posType).concat(parsed);
+        const fnEl=document.getElementById(posType==='playmd'?'playFileName':'dolphinFileName');
+        if(fnEl){fnEl.textContent=`✓ ${file.name} (${parsed.length}개 매장)`;fnEl.style.color='var(--gn)';}
+        showBagPreview();
+      }catch(e){notify('파일 읽기 실패: '+e.message,'error');}
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// 플레이엠디 재고 파일 파싱
+// 헤더: 행2 (⇅,매장명,매장코드,상품코드,상품코드명,칼라,칼라명,사이즈패턴,재고수량,...)
+function parsePlayMDStock(rows) {
+  const TARGET={'ETC-0013':true,'ETC-0016-1':true};
+  const storeMap={};
+  for(let i=2;i<rows.length;i++){
+    const row=rows[i];
+    const storeName=String(row[1]||'').trim();
+    const storeCode=String(row[2]||'').trim();
+    const productCode=String(row[3]||'').trim();
+    const qty=parseInt(row[8])||0;
+    if(!storeName||storeName.toLowerCase()==='test')continue;
+    if(!TARGET[productCode])continue;
+    const key=storeCode||storeName;
+    if(!storeMap[key])storeMap[key]={storeName,storeCode,shoppingQty:0,envelopeQty:0,posType:'playmd'};
+    if(productCode==='ETC-0013')storeMap[key].shoppingQty=qty;
+    if(productCode==='ETC-0016-1')storeMap[key].envelopeQty=qty;
+  }
+  return Object.values(storeMap);
+}
+
+// 돌핀포스 재고 파일 파싱
+// 헤더: 행1 (번호,매장명,매장코드,상품코드,상품명,판매가,매장판매수량,매장판매금액,현재수량)
+function parseDolphinStock(rows) {
+  const TARGET={'ETC-0013':true,'ETC-0016-1':true};
+  const storeMap={};
+  for(let i=1;i<rows.length;i++){
+    const row=rows[i];
+    const storeName=String(row[1]||'').trim();
+    const storeCode=String(row[2]||'').trim();
+    const productCode=String(row[3]||'').trim();
+    const qty=parseInt(row[8])||0;
+    if(!storeName||storeName==='매장명')continue;
+    if(!TARGET[productCode])continue;
+    const key=storeCode||storeName;
+    if(!storeMap[key])storeMap[key]={storeName,storeCode,shoppingQty:0,envelopeQty:0,posType:'dolphin'};
+    if(productCode==='ETC-0013')storeMap[key].shoppingQty=qty;
+    if(productCode==='ETC-0016-1')storeMap[key].envelopeQty=qty;
+  }
+  return Object.values(storeMap);
+}
+
 // 주소에서 지역 추출
 function getRegionFromAddr(addr) {
   const a = addr||'';
@@ -4577,68 +4694,30 @@ function downloadBagTemplate() {
   });
 }
 
-// 파일 드롭
-function onBagDrop(e) {
-  e.preventDefault();
-  const dz = document.getElementById('bagDropZone2');
-  dz.style.borderColor = 'var(--bd)';
-  dz.style.background = 'var(--sf)';
-  const file = e.dataTransfer.files[0];
-  if (file) processBagFile(file);
-}
-
-// 파일 input 핸들러
-function handleBagFile(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  processBagFile(file);
-  e.target.value = '';
-}
-
-// 엑셀 파일 파싱
-function processBagFile(file) {
-  withXLSX(() => {
-    const reader = new FileReader();
-    reader.onload = function(ev) {
-      try {
-        const data = new Uint8Array(ev.target.result);
-        const wb = XLSX.read(data, {type:'array'});
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
-        if (!rows || rows.length < 2) { notify('데이터가 없습니다', 'error'); return; }
-        bagUploadRows = rows.slice(1)
-          .filter(r => r[0])
-          .map(r => ({
-            storeName: String(r[0]||'').trim(),
-            storeCode: String(r[1]||'').trim(),
-            shoppingQty: parseInt(r[2]) >= 0 ? parseInt(r[2]) : 0,
-            envelopeQty: parseInt(r[3]) >= 0 ? parseInt(r[3]) : 0,
-          }));
-        showBagPreview();
-      } catch(e) { notify('파일 읽기 실패: '+e.message, 'error'); }
-    };
-    reader.readAsArrayBuffer(file);
-  });
-}
-
 // 미리보기 표시
 function showBagPreview() {
-  document.getElementById('bagRowCount').textContent = `${bagUploadRows.length}개 매장`;
-  document.getElementById('bagPreviewBody').innerHTML = bagUploadRows.map(r => `
+  const playCount=bagUploadRows.filter(r=>r.posType==='playmd').length;
+  const dolphinCount=bagUploadRows.filter(r=>r.posType==='dolphin').length;
+  document.getElementById('bagRowCount').textContent=`${bagUploadRows.length}개 매장 (플레이엠디 ${playCount} / 돌핀포스 ${dolphinCount})`;
+  document.getElementById('bagPreviewBody').innerHTML=bagUploadRows.map(r=>`
     <tr>
+      <td class="tm"><span class="badge ${r.posType==='playmd'?'b-pend':'b-prog'}" style="font-size:10px">${r.posType==='playmd'?'플레이엠디':'돌핀포스'}</span></td>
       <td class="tb2">${r.storeName}</td>
       <td class="tm">${r.storeCode}</td>
       <td class="tm">${r.shoppingQty}</td>
       <td class="tm">${r.envelopeQty}</td>
     </tr>`).join('');
-  document.getElementById('bagPreviewWrap').style.display = '';
+  document.getElementById('bagPreviewWrap').style.display='';
 }
 
-// 미리보기 취소
+// 초기화
 function clearBagUpload() {
-  bagUploadRows = [];
-  document.getElementById('bagPreviewWrap').style.display = 'none';
-  document.getElementById('bagFileInput2').value = '';
+  bagUploadRows=[];
+  document.getElementById('bagPreviewWrap').style.display='none';
+  ['playFileInput','dolphinFileInput'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const pf=document.getElementById('playFileName');const df=document.getElementById('dolphinFileName');
+  if(pf){pf.textContent='파일 없음';pf.style.color='';}
+  if(df){df.textContent='파일 없음';df.style.color='';}
 }
 
 // 출고량 계산 & Supabase 저장
@@ -4830,7 +4909,8 @@ function renderBagResult() {
         </div>
         <div class="ta" style="flex-wrap:wrap;gap:6px">
           ${!isDispatched && shipCount > 0 ? `<button class="btn btn-suc btn-sm" onclick="dispatchBagBatch('${batchId}')">🚀 출고 처리</button>` : ''}
-          <button class="btn btn-gst btn-sm" onclick="downloadPlayPos('${batchId}')">📋 포스 등록</button>
+          <button class="btn btn-gst btn-sm" onclick="downloadPlayMDPos('${batchId}')">📋 플레이엠디 등록</button>
+          <button class="btn btn-gst btn-sm" onclick="downloadDolphinPos('${batchId}')">📋 돌핀포스 등록</button>
           <button class="btn btn-gst btn-sm" onclick="downloadBagHanjin('${batchId}')">🚚 한진택배</button>
         </div>
       </div>
@@ -4922,24 +5002,50 @@ async function clearBagHistory() {
 }
 
 // ── 엑셀 다운로드: 플레이엠디 포스 등록양식 ──
-function downloadPlayPos(batchId) {
+// ── 플레이엠디 포스 등록 양식 다운로드 ──
+// 양식: 출고창고코드 / 매장코드 / 출고일자(YYYYMMDD) / 상품코드 / 칼라코드 / 비고 / 수량
+function downloadPlayMDPos(batchId) {
   withXLSX(() => {
     const items = BAG_SHIPPING.filter(r => r.batch_id === batchId && r.need_ship);
     if (!items.length) { notify('출고 필요 항목이 없습니다', 'error'); return; }
-    const today = new Date().toISOString().slice(0,10);
-    const rows = [['지역','매장코드','매장명','날짜','상품코드','상품명','수량','비고']];
-    items.forEach(r => {
-      const info = ADDR.find(a => a.name === r.store_name || (r.store_code && a.code === r.store_code)) || {address:''};
-      const region = getBagRegion(r.store_name, info.address);
-      rows.push([region, r.store_code||'', r.store_name||'', r.dispatch_date||today, r.product_code, r.product_name, r.ship_qty, '']);
+    const playItems = items.filter(r => !isDolphinStore(r.store_name, r.store_code));
+    if (!playItems.length) { notify('플레이엠디 출고 매장이 없습니다', 'error'); return; }
+    const warehouseCode = document.getElementById('playMDWarehouseCode')?.value || '001';
+    const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    const rows = [['출고창고코드','매장코드','출고일자(8자리 숫자만)','상품코드','칼라코드','비고','수량']];
+    playItems.forEach(r => {
+      rows.push([warehouseCode, r.store_code||'', dateStr, r.product_code, '0', '', r.ship_qty]);
     });
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{wch:8},{wch:12},{wch:22},{wch:12},{wch:14},{wch:24},{wch:8},{wch:10}];
-    XLSX.utils.book_append_sheet(wb, ws, '포스등록');
+    ws['!cols'] = [{wch:14},{wch:10},{wch:22},{wch:14},{wch:10},{wch:10},{wch:8}];
+    XLSX.utils.book_append_sheet(wb, ws, '매장출고');
     const label = items[0]?.batch_label || batchId;
     XLSX.writeFile(wb, `플레이엠디포스등록_${label.replace(/[: ]/g,'_')}.xlsx`);
-    notify('플레이엠디 포스 등록 양식 다운로드 완료', 'success');
+    notify(`플레이엠디 포스 등록 양식 다운로드 완료 (${playItems.length}건)`, 'success');
+  });
+}
+
+// ── 돌핀포스 등록 양식 다운로드 ──
+// 양식: 매장코드 / 날짜 / 상품코드 / 상품명 / 수량 / 비고
+function downloadDolphinPos(batchId) {
+  withXLSX(() => {
+    const items = BAG_SHIPPING.filter(r => r.batch_id === batchId && r.need_ship);
+    if (!items.length) { notify('출고 필요 항목이 없습니다', 'error'); return; }
+    const dolphinItems = items.filter(r => isDolphinStore(r.store_name, r.store_code));
+    if (!dolphinItems.length) { notify('돌핀포스 출고 매장이 없습니다', 'error'); return; }
+    const dateStr = new Date().toISOString().slice(0,10);
+    const rows = [['매장코드','날짜','상품코드','상품명','수량','비고']];
+    dolphinItems.forEach(r => {
+      rows.push([r.store_code||'', dateStr, r.product_code, r.product_name, r.ship_qty, '']);
+    });
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:10},{wch:12},{wch:14},{wch:24},{wch:8},{wch:10}];
+    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+    const label = items[0]?.batch_label || batchId;
+    XLSX.writeFile(wb, `돌핀포스등록_${label.replace(/[: ]/g,'_')}.xlsx`);
+    notify(`돌핀포스 등록 양식 다운로드 완료 (${dolphinItems.length}건)`, 'success');
   });
 }
 
