@@ -2,6 +2,8 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
 <title>자산관리 시스템 v3</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -1006,7 +1008,14 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
       <div class="tt">유니폼 신청 목록</div>
       <div class="ta"><div class="sw"><span class="sic">⌕</span><input class="si" id="urSrch" placeholder="검색..." oninput="renderUniformReqList()"></div></div>
     </div>
-    <div id="uniReqCards" style="padding:8px 0"></div>
+    <div style="overflow-x:auto">
+      <table style="white-space:nowrap"><thead><tr>
+        <th>작성일자</th><th>신청자</th><th>직영점</th><th>수령매니저</th><th>구분</th>
+        <th>유니폼</th><th>사이즈</th><th>수량</th><th>사유</th><th>비고</th>
+        <th>상태</th><th>출고일자</th><th>출고비고</th><th>액션</th><th>삭제</th>
+      </tr></thead>
+      <tbody id="uniReqTable"></tbody></table>
+    </div>
   </div>
 </div>
 
@@ -1869,11 +1878,9 @@ function showQQTab(tabId, btn) {
   function sendTab() {
     try { iframe.contentWindow.postMessage({ qqTab: tabId }, '*'); } catch(e) {}
   }
-  if (iframe.contentDocument && iframe.contentDocument.readyState === 'complete') {
-    sendTab();
-  } else {
-    iframe.addEventListener('load', sendTab, { once: true });
-  }
+  // 이미 로드된 경우 즉시 전송 + 첫 로드 시를 위한 load 리스너 병행
+  iframe.addEventListener('load', sendTab, { once: true });
+  setTimeout(sendTab, 80);
 }
 
 // ═══ STORE MGMT ═══
@@ -4603,9 +4610,19 @@ function processBagPosFile(file, posType) {
         if(!rows||rows.length<2){notify('데이터가 없습니다','error');return;}
         const parsed = posType==='playmd' ? parsePlayMDStock(rows) : parseDolphinStock(rows);
         if(!parsed.length){notify('쇼핑백/무지봉투 데이터를 찾을 수 없습니다','error');return;}
-        bagUploadRows=bagUploadRows.filter(r=>r.posType!==posType).concat(parsed);
+        // 지역 필터 이중 보정
+        const PLAYMD_KW = ['서울','경기','인천','제주'];
+        const DOLPHIN_KW = ['부산','울산','경남','대구','김해','양산','창원','거제','마산','진주','통영','사천','밀양'];
+        const filtered = parsed.filter(item => {
+          const si = ADDR.find(a => a.name===item.storeName||(item.storeCode&&a.code===item.storeCode));
+          const src = (si?.address||'') + ' ' + item.storeName;
+          if (posType==='playmd') return PLAYMD_CODES[item.storeName] || PLAYMD_KW.some(k=>src.includes(k));
+          return DOLPHIN_KW.some(k=>src.includes(k));
+        });
+        if(!filtered.length){notify('해당 지역 매장이 없습니다 (플레이엠디:서울/경기/인천/제주, 돌핀포스:부산/울산/경남/대구)','error');return;}
+        bagUploadRows=bagUploadRows.filter(r=>r.posType!==posType).concat(filtered);
         const fnEl=document.getElementById(posType==='playmd'?'playFileName':'dolphinFileName');
-        if(fnEl){fnEl.textContent=`✓ ${file.name} (${parsed.length}개 매장)`;fnEl.style.color='var(--gn)';}
+        if(fnEl){fnEl.textContent=`✓ ${file.name} (${filtered.length}개 매장)`;fnEl.style.color='var(--gn)';}
         showBagPreview();
       }catch(e){notify('파일 읽기 실패: '+e.message,'error');}
     };
@@ -4631,7 +4648,14 @@ function parsePlayMDStock(rows) {
     if(productCode==='ETC-0013')storeMap[key].shoppingQty=qty;
     if(productCode==='ETC-0016-1')storeMap[key].envelopeQty=qty;
   }
-  return Object.values(storeMap);
+  return Object.values(storeMap).filter(item => {
+    // PLAYMD_CODES에 등록된 매장명이면 플레이엠디 매장
+    if (PLAYMD_CODES[item.storeName]) return true;
+    // 없으면 주소/매장명으로 서울/경기/인천/제주 확인
+    const si = ADDR.find(a => a.name === item.storeName || (item.storeCode && a.code === item.storeCode));
+    const src = (si?.address || '') + ' ' + item.storeName;
+    return ['서울','경기','인천','제주'].some(r => src.includes(r));
+  });
 }
 
 // 돌핀포스 재고 파일 파싱
@@ -4652,7 +4676,16 @@ function parseDolphinStock(rows) {
     if(productCode==='ETC-0013')storeMap[key].shoppingQty=qty;
     if(productCode==='ETC-0016-1')storeMap[key].envelopeQty=qty;
   }
-  return Object.values(storeMap);
+  return Object.values(storeMap).filter(item => {
+    const si = ADDR.find(a => a.name === item.storeName);
+    const src = (si?.address || '') + ' ' + item.storeName;
+    // 부산/울산/경남/대구 및 해당 지역 시/군 이름으로 판별
+    const kw = ['부산','울산','경남','대구','김해','양산','창원','거제','마산','진주','통영','사천','밀양'];
+    if (!kw.some(k => src.includes(k))) return false;
+    // ADDR DB의 매장코드(5자리)로 교체
+    if (si?.code) item.storeCode = si.code;
+    return true;
+  });
 }
 
 // 주소에서 지역 추출
@@ -4847,12 +4880,14 @@ function renderBagResult() {
     return;
   }
 
-  // 전체 합계 (검색 미적용)
+  // 전체 합계 — 출고필요(need_ship=true) + 미출고(dispatched=false) 항목만
   let totalShop = 0, totalEnv = 0;
-  BAG_SHIPPING.forEach(r => {
-    if (!r.need_ship) return;
-    if (r.product_code === 'ETC-0013')   totalShop += (r.ship_qty || 0);
-    if (r.product_code === 'ETC-0016-1') totalEnv  += (r.ship_qty || 0);
+  Object.values(batches).forEach(batch => {
+    batch.items.forEach(r => {
+      if (r.dispatched) return;
+      if (r.product_code === 'ETC-0013')   totalShop += (r.ship_qty || 0);
+      if (r.product_code === 'ETC-0016-1') totalEnv  += (r.ship_qty || 0);
+    });
   });
   const sumEl = document.getElementById('bagResultSummary');
   if (sumEl) sumEl.innerHTML = `
@@ -4875,14 +4910,20 @@ function renderBagResult() {
 
     const shipCount    = batch.items.length;
     const isDispatched = batch.items.every(r => r.dispatched);
+    const batchShop = batch.items.filter(r=>r.product_code==='ETC-0013').reduce((s,r)=>s+r.ship_qty,0);
+    const batchEnv  = batch.items.filter(r=>r.product_code==='ETC-0016-1').reduce((s,r)=>s+r.ship_qty,0);
+    const statusBadges = isDispatched
+      ? `<span class="badge b-appr">쇼핑백 ${batchShop}묶음 / 무지봉투 ${batchEnv}묶음 출고완료</span>`
+      : `<span class="badge b-pend">출고필요 ${shipCount}건</span>
+         <span class="badge" style="background:rgba(59,130,246,.15);color:#60a5fa">쇼핑백 ${batchShop}묶음 (${(batchShop*100).toLocaleString()}개)</span>
+         <span class="badge" style="background:rgba(16,185,129,.15);color:#34d399">무지봉투 ${batchEnv}묶음 (${(batchEnv*100).toLocaleString()}개)</span>`;
 
     html += `
     <div class="tw" style="margin-bottom:20px">
       <div class="th">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <span class="tt">${batch.label}</span>
-          <span class="badge b-pend">출고필요 ${shipCount}건</span>
-          ${isDispatched ? '<span class="badge b-appr">✓ 출고완료</span>' : ''}
+          ${statusBadges}
         </div>
         <div class="ta" style="flex-wrap:wrap;gap:6px">
           ${!isDispatched ? `<button class="btn btn-suc btn-sm" onclick="dispatchBagBatch('${batchId}')">🚀 출고 처리</button>` : ''}
@@ -5031,7 +5072,9 @@ function downloadDolphinPos(batchId) {
     const dateStr = new Date().toISOString().slice(0,10);
     const rows = [['매장코드','날짜','상품코드','상품명','수량','비고']];
     dolphinItems.forEach(r => {
-      rows.push([r.store_code||'', dateStr, r.product_code, r.product_name, r.ship_qty, '']);
+      const addrInfo = ADDR.find(a => a.name === r.store_name);
+      const storeCode = addrInfo?.code || r.store_code || '';
+      rows.push([storeCode, dateStr, r.product_code, r.product_name, r.ship_qty, '']);
     });
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(rows);
@@ -5573,84 +5616,26 @@ function _uniStatusBadge(s){
 
 function renderUniformReqList() {
   const srch=(document.getElementById('urSrch')?.value||'').trim().toLowerCase();
-  const wrap=document.getElementById('uniReqCards'); if(!wrap) return;
+  const tbody=document.getElementById('uniReqTable'); if(!tbody) return;
   const f=UNIFORM_REQS.filter(r=>!srch||[r.store_name,r.item_name,r.recv_manager,r.manager].some(v=>v?.toLowerCase().includes(srch)));
-  if(!f.length){wrap.innerHTML='<div style="text-align:center;padding:32px;color:var(--tx3)">신청 내역 없음</div>';return;}
-
-  // 최신순 정렬
   const sorted=[...f].sort((a,b)=>(b.req_date||'').localeCompare(a.req_date||'')||(b.id-a.id));
-
-  // 그룹핑: batch_id 있으면 전체를 하나의 그룹, 없으면 신청일+신청자 기준
-  const groupMap=new Map();
-  const groupOrder=[];
-  sorted.forEach(r=>{
-    const key=r.batch_id?`BATCH::${r.batch_id}`:`SINGLE::${r.req_date}||${r.manager}||${r.store_name}||${r.recv_manager}`;
-    if(!groupMap.has(key)){groupMap.set(key,{isBatch:!!r.batch_id,batchId:r.batch_id,items:[]});groupOrder.push(key);}
-    groupMap.get(key).items.push(r);
-  });
-
-  wrap.innerHTML=groupOrder.map(key=>{
-    const g=groupMap.get(key);
-    const items=g.items;
-    const fi=items[0];
-    const isBatch=g.isBatch;
-    const allShipped=items.every(r=>r.status==='shipped');
-    const hasPending=items.some(r=>r.status==='pending');
-    const headerBg=allShipped?'rgba(16,185,129,.06)':hasPending?'rgba(59,130,246,.06)':'var(--sf)';
-    const borderClr=allShipped?'rgba(16,185,129,.3)':hasPending?'rgba(59,130,246,.3)':'var(--br)';
-
-    // 품목 요약 (헤더에 표시)
-    const summaryItems=items.slice(0,2).map(r=>`${r.item_name||''} ${r.qty}벌`).join(', ');
-    const summaryMore=items.length>2?` 외 ${items.length-2}건`:'';
-    const summary=`<span style="font-size:11px;color:var(--tx3);margin-left:4px">${summaryItems}${summaryMore}</span>`;
-
-    const dlvBadge=`<span class="badge ${fi.delivery_type==='직납'?'b-prog':'b-zero'}" style="font-size:11px">${fi.delivery_type||'택배'}</span>`;
-    const batchBadge=isBatch?`<span style="font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(139,92,246,.12);color:#a78bfa;border:1px solid rgba(139,92,246,.25);white-space:nowrap">일괄등록 ${items.length}건</span>`:'';
-    const excelBtn=isBatch?`<button onclick="event.stopPropagation();exportUniBatch('${g.batchId}')" style="font-size:11px;padding:3px 10px;border-radius:5px;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:var(--gn);cursor:pointer;white-space:nowrap">📥 엑셀</button>`:'';
-    const bulkShipBtn=isBatch&&hasPending?`<button onclick="event.stopPropagation();openUniBulkShipModal('${g.batchId}')" style="font-size:11px;padding:3px 10px;border-radius:5px;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.4);color:var(--gn);cursor:pointer;white-space:nowrap;font-weight:600">🚚 일괄출고</button>`:'';
-
-    // 개별 행 (접으면 숨김)
-    const rows=items.map(r=>{
-      const actBtn=r.status==='pending'?`<button class="btn btn-suc btn-sm" onclick="event.stopPropagation();openUniShipModal(${r.id})">출고하기</button>`:'<span style="color:var(--tx3);font-size:12px">—</span>';
-      const delBtn=r.status==='pending'?`<button class="btn btn-dan btn-sm" onclick="event.stopPropagation();deleteUniReq(${r.id})" style="padding:4px 8px" title="삭제">🗑</button>`:'';
-      return`<tr>
-        <td class="tb2">${r.item_name||''}</td>
-        <td class="tm">${r.size||''}</td>
-        <td class="tm">${r.qty||0}벌</td>
-        <td style="font-size:12px;color:var(--tx3)">${r.store_name||''}</td>
-        <td style="font-size:12px;color:var(--tx3)">${r.recv_manager||''}</td>
-        <td style="font-size:12px;color:var(--tx3)">${r.reason||''}</td>
-        <td>${_uniStatusBadge(r.status)}</td>
-        <td>${r.out_date||''}</td>
-        <td>${actBtn}</td><td>${delBtn}</td>
-      </tr>`;
-    }).join('');
-
-    // 헤더 1행 정보 (batch면 신청자/구분만, single이면 직영점+수령도 표시)
-    const storeInfo=isBatch
-      ?`<span style="font-size:11px;color:var(--tx3)">│</span><span style="font-size:11px;color:var(--tx3)">신청자</span><span style="font-size:13px;color:var(--tx2)">${fi.manager||''}</span>${summary}`
-      :`<span style="font-size:11px;color:var(--tx3)">│</span><span style="font-size:11px;color:var(--tx3)">신청자</span><span style="font-size:13px;color:var(--tx2)">${fi.manager||''}</span>
-       <span style="font-size:11px;color:var(--tx3)">│</span><span style="font-weight:600;color:var(--ac2);font-size:13px">${fi.store_name||''}</span>
-       <span style="font-size:11px;color:var(--tx3)">│</span><span style="font-size:11px;color:var(--tx3)">수령</span><span style="font-size:13px;color:var(--tx2)">${fi.recv_manager||''}</span>${summary}`;
-
-    return`<div style="margin-bottom:12px;border:1px solid ${borderClr};border-radius:10px;overflow:hidden" ondblclick="toggleReqGroup(this)">
-      <div style="background:${headerBg};padding:10px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-bottom:1px solid ${borderClr};cursor:pointer;user-select:none">
-        <span style="font-size:11px;color:var(--tx3)">신청일</span><span style="font-weight:700;color:var(--tx);font-size:13px">${fi.req_date||''}</span>
-        ${storeInfo}
-        ${dlvBadge}${batchBadge}
-        <div style="margin-left:auto;display:flex;align-items:center;gap:6px;flex-shrink:0">
-          ${excelBtn}${bulkShipBtn}
-          <span class="req-toggle-icon" style="font-size:11px;color:var(--tx3)">▲</span>
-        </div>
-      </div>
-      <div class="req-card-body">
-        <table style="margin:0">
-          <thead><tr><th>품목명</th><th>사이즈</th><th>수량</th><th>직영점</th><th>수령매니저</th><th>사유</th><th>상태</th><th>출고일</th><th>액션</th><th></th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    </div>`;
-  }).join('');
+  tbody.innerHTML=sorted.length?sorted.map(r=>{
+    const dlvBadge=`<span class="badge ${r.delivery_type==='직납'?'b-prog':'b-zero'}" style="font-size:11px">${r.delivery_type||'택배'}</span>`;
+    const actBtn=r.status==='pending'
+      ?`<button class="btn btn-suc btn-sm" onclick="openUniShipModal(${r.id})">출고하기</button>`
+      :'—';
+    const delBtn=`<button class="btn" style="padding:3px 8px;font-size:11px;background:rgba(248,113,113,.12);color:#f87171;border:1px solid rgba(248,113,113,.3)" onclick="deleteUniReq(${r.id})">삭제</button>`;
+    return`<tr>
+      <td>${r.req_date||''}</td><td>${r.manager||''}</td><td>${r.store_name||''}</td><td>${r.recv_manager||''}</td>
+      <td>${dlvBadge}</td><td class="tb2">${r.item_name||''}</td><td class="tm">${r.size||''}</td><td class="tm">${r.qty||0}벌</td>
+      <td>${r.reason||''}</td><td>${r.note||''}</td>
+      <td>${_uniStatusBadge(r.status)}</td>
+      <td class="tm">${r.out_date||''}</td><td>${r.out_note||''}</td>
+      <td><div style="display:flex;justify-content:center">${actBtn}</div></td>
+      <td><div style="display:flex;justify-content:center">${delBtn}</div></td>
+    </tr>`;
+  }).join('')
+  :'<tr><td colspan="15" style="text-align:center;padding:20px;color:var(--tx3)">신청 내역 없음</td></tr>';
 }
 
 function exportUniBatch(batchId) {
