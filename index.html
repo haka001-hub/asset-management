@@ -4631,16 +4631,21 @@ function processBagPosFile(file, posType) {
 }
 
 // 플레이엠디 재고 파일 파싱
-// 헤더: 행2 (⇅,매장명,매장코드,상품코드,상품코드명,칼라,칼라명,사이즈패턴,재고수량,...)
+// 헤더: 매장명 컬럼 위치 자동 감지
 function parsePlayMDStock(rows) {
   const TARGET={'ETC-0013':true,'ETC-0016-1':true};
   const storeMap={};
-  for(let i=2;i<rows.length;i++){
+  // 헤더 행 자동 감지 (row[1]이 '매장명'인 행 찾기, 최대 5행 탐색)
+  let startIdx=1;
+  for(let i=0;i<Math.min(5,rows.length);i++){
+    if(String(rows[i][1]||'').trim()==='매장명'){startIdx=i+1;break;}
+  }
+  for(let i=startIdx;i<rows.length;i++){
     const row=rows[i];
     const storeName=String(row[1]||'').trim();
     const storeCode=String(row[2]||'').trim();
     const productCode=String(row[3]||'').trim();
-    const qty=parseInt(row[8])||0;
+    const qty=Number(row[8])||0;
     if(!storeName||storeName.toLowerCase()==='test')continue;
     if(!TARGET[productCode])continue;
     const key=storeCode||storeName;
