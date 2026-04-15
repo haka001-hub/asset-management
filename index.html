@@ -1784,6 +1784,7 @@ let REQS = [];
 let STORE_OUT_LOG = [];
 
 let reqFilter='all', logiFilter='all', curOutId=null;
+let reqSubmitting=false;
 let pkFilter='all', curPkId=null;
 
 // 수거 신청 데이터
@@ -2987,6 +2988,8 @@ function selInlineReqAsset(i,code,name){
   if(ac)ac.classList.remove('show');
 }
 async function submitReqInline(){
+  if(reqSubmitting){notify('처리 중입니다. 잠시 기다려주세요.','error');return;}
+  reqSubmitting=true;
   const date=document.getElementById('rDate').value;
   const manager=document.getElementById('rMgr').value.trim();
   const team=document.getElementById('rTeam').value;
@@ -3004,25 +3007,36 @@ async function submitReqInline(){
   if(!items.length){notify('품목을 1개 이상 추가해주세요','error');return}
   for(const[j,it]of items.entries()){
     if(!it.code||!it.name){notify(`${j+1}번 품목: 목록에서 품목을 선택해주세요`,'error');return}
-    if(!(it.qty>0)){notify(`${j+1}번 품목: 수량을 입력해주세요`,'error');return}
+    if(!(it.qty>0)){notify(`${j+1}번 품목: 수량을 입력해주세요`,'error');reqSubmitting=false;return}
     const logi=LOGI.find(l=>l.code===it.code);
-    if(logi&&it.qty>logi.qty){notify(`재고 부족 — ${it.name} 현재 ${logi.qty}개`,'error');return}
+    if(logi&&it.qty>logi.qty){notify(`재고 부족 — ${it.name} 현재 ${logi.qty}개`,'error');reqSubmitting=false;return}
   }
+  try{
   const yr=new Date().getFullYear();
   const{data:lastRows}=await db.from('requests').select('id').like('id',`REQ-${yr}-%`).order('id',{ascending:false}).limit(1);
   let nextNum=1;
   if(lastRows&&lastRows.length>0){const m=lastRows[0].id.match(/(\d+)$/);if(m)nextNum=parseInt(m[1])+1;}
+  // 인메모리 REQS에서도 최대값 확인 (동시 제출·중복 방지)
+  REQS.forEach(r=>{if(r.id&&r.id.startsWith(`REQ-${yr}-`)){const m=r.id.match(/(\d+)$/);if(m&&parseInt(m[1])>=nextNum)nextNum=parseInt(m[1])+1;}});
   const created=[];
   for(const it of items){
-    const id=`REQ-${yr}-${String(nextNum).padStart(3,'0')}`;nextNum++;
+    const id=`REQ-${yr}-${String(nextNum).padStart(4,'0')}`;nextNum++;
     const{error:insErr}=await db.from('requests').insert({id,date,manager,team,asset:it.name,code:it.code,qty:it.qty,store,route,ship_type:it.shipType,address,note,status:'pending',out_date:'',out_mgr:'',out_memo:'',arr_date:''});
-    if(insErr){notify('DB 저장 실패: '+insErr.message,'error');return;}
+    if(insErr){
+      if(insErr.message&&insErr.message.includes('duplicate')){
+        notify('이미 저장된 신청이 있습니다. 페이지를 새로고침 후 목록을 확인해주세요.','error');
+      }else{
+        notify('DB 저장 실패: '+insErr.message,'error');
+      }
+      return;
+    }
     REQS.push({id,date,manager,team,asset:it.name,code:it.code,qty:it.qty,store,route,shipType:it.shipType,address,note,status:'pending',outDate:'',outMgr:'',outMemo:'',arrDate:''});
     created.push(`${it.name} ${it.qty}개`);
   }
   notify(`신청 완료! ${created.join(' · ')}`);
   sendTelegram(`📦 <b>자산신청</b>\n신청일자: ${date}\n신청품목: ${created.join(', ')}\n매장: ${store}\n배송코스: ${route||'-'}\n주소: ${address}\n담당자: ${manager} (${team})\n\n🔗 <a href="https://haka001-hub.github.io/asset-management/#request">↗ 자산 신청 탭 바로가기</a>`);
   clearReqForm();updateBadge();renderReqs();
+  }finally{reqSubmitting=false;}
 }
 function clearReqForm(){
   document.getElementById('rDate').value=today();
