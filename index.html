@@ -3015,8 +3015,9 @@ async function submitReqInline(){
   const created=[];
   for(const it of items){
     const id=`REQ-${yr}-${String(nextNum).padStart(3,'0')}`;nextNum++;
+    const{error:insErr}=await db.from('requests').insert({id,date,manager,team,asset:it.name,code:it.code,qty:it.qty,store,route,ship_type:it.shipType,address,note,status:'pending',out_date:'',out_mgr:'',out_memo:'',arr_date:''});
+    if(insErr){notify('DB 저장 실패: '+insErr.message,'error');return;}
     REQS.push({id,date,manager,team,asset:it.name,code:it.code,qty:it.qty,store,route,shipType:it.shipType,address,note,status:'pending',outDate:'',outMgr:'',outMemo:'',arrDate:''});
-    db.from('requests').insert({id,date,manager,team,asset:it.name,code:it.code,qty:it.qty,store,route,ship_type:it.shipType,address,note,status:'pending',out_date:'',out_mgr:'',out_memo:'',arr_date:''}).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message);});
     created.push(`${it.name} ${it.qty}개`);
   }
   notify(`신청 완료! ${created.join(' · ')}`);
