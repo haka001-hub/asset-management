@@ -1666,7 +1666,7 @@ async function loadFromDB() {
     }
     if (storeRes.data && storeRes.data.length > 0) {
       ADDR.length = 0;
-      storeRes.data.forEach(r => ADDR.push({code:r.code||'', name:r.name, route:r.route||'', address:r.address||'', phone:r.phone||''}));
+      storeRes.data.forEach(r => ADDR.push({id:r.id, code:r.code||'', name:r.name, route:r.route||'', address:r.address||'', phone:r.phone||''}));
     }
     if (saRes.data && saRes.data.length > 0) {
       Object.keys(SA_DATA).forEach(k => delete SA_DATA[k]);
@@ -1962,10 +1962,26 @@ async function saveEditStore(){
   const {error}=await db.from('stores').update({code:code||null,name,route:route||null,address:address||null}).eq('id',id);
   if(error){notify('수정 실패: '+error.message,'error');return;}
   const s=ADDR.find(a=>a.id===id);
+  const oldName=s?s.name:name;
   if(s){s.code=code;s.name=name;s.route=route;s.address=address;}
+  // 매장명 변경 시 관련 인메모리 데이터도 갱신
+  if(oldName!==name){
+    REQS.forEach(r=>{if(r.store===oldName)r.store=name;});
+    PICKUPS.forEach(p=>{if(p.store===oldName)p.store=name;});
+    SA_HIST.forEach(h=>{if(h.store_name===oldName)h.store_name=name;});
+    UNIFORM_REQS.forEach(r=>{if(r.store_name===oldName)r.store_name=name;});
+    UNIFORM_PKPS.forEach(r=>{if(r.store_name===oldName)r.store_name=name;});
+    // SA_DATA 키 변경
+    if(SA_DATA[oldName]!==undefined){SA_DATA[name]=SA_DATA[oldName];delete SA_DATA[oldName];}
+  }
   document.getElementById('stEditModal').style.display='none';
   notify(`"${name}" 수정 완료`,'success');
   renderStoreMgmt();
+  // 현재 열려있는 탭 새로고침
+  const curPage=document.querySelector('.ni.active')?.getAttribute('onclick')?.match(/showPage\('([^']+)'/)?.[1];
+  if(curPage&&curPage!=='store-mgmt'){
+    ({'request':renderReqs,'outgoing':renderOut,'history':renderHist,'pickup':renderPickup,'pickupmgmt':renderPickupMgmt,'pickuphist':renderPickupHist,'bag-result':renderBagResult,'bag-history':renderBagHistory,'uniform-req':renderUniformReqList,'uniform-pickup':renderUniformPkpList,'uniform-hist':renderUniformHist})[curPage]?.();
+  }
 }
 
 // ═══ DASHBOARD ═══
