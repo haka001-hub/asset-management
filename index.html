@@ -1623,7 +1623,61 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
 // ═══ SUPABASE CONFIG ═══
 const SUPA_URL = 'https://fmbcrvhyfxkcphveodet.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZtYmNydmh5ZnhrY3BodmVvZGV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNjg4OTgsImV4cCI6MjA4ODg0NDg5OH0.YweP1WaduzmvGPiakyy2okraIHN8FCpRz0-nEcNxiTg';
-const db = supabase.createClient(SUPA_URL, SUPA_KEY);
+const AMS_ERP_ORIGIN = (() => {
+  const saved = localStorage.getItem('ams-erp-origin') || '';
+  if (saved) return saved.replace(/\/+$/,'');
+  return location.hostname.includes('second-erp') ? location.origin : '';
+})();
+const AMS_ERP_TOKEN = localStorage.getItem('ams-erp-token') || '';
+const AMS_USE_ERP = Boolean(AMS_ERP_ORIGIN) && (location.origin === AMS_ERP_ORIGIN || Boolean(AMS_ERP_TOKEN));
+
+function createErpLegacyClient(origin, token) {
+  const endpoint = `${origin.replace(/\/+$/,'')}/api/ams/legacy-rest`;
+  const encodeFilter = value => encodeURIComponent(String(value ?? ''));
+  class LegacyQuery {
+    constructor(table) {
+      this.table = table;
+      this.method = 'GET';
+      this.body = undefined;
+      this.params = new URLSearchParams({select:'*'});
+      this.headers = {};
+      this.singleResult = false;
+    }
+    select(){ this.headers.Prefer = [this.headers.Prefer,'return=representation'].filter(Boolean).join(','); return this; }
+    order(field, opts={}){ this.params.set('order', `${field}.${opts.ascending===false?'desc':'asc'}`); return this; }
+    limit(n){ this.params.set('limit', String(n)); return this; }
+    eq(field, value){ this.params.set(field, `eq.${encodeFilter(value)}`); return this; }
+    gte(field, value){ this.params.set(field, `gte.${encodeFilter(value)}`); return this; }
+    lte(field, value){ this.params.set(field, `lte.${encodeFilter(value)}`); return this; }
+    like(field, value){ this.params.set(field, `like.${encodeFilter(value)}`); return this; }
+    ilike(field, value){ this.params.set(field, `ilike.${encodeFilter(value)}`); return this; }
+    insert(payload){ this.method='POST'; this.body=payload; return this; }
+    upsert(payload){ this.method='POST'; this.body=payload; this.headers.Prefer='resolution=merge-duplicates,return=representation'; return this; }
+    update(payload){ this.method='PATCH'; this.body=payload; return this; }
+    delete(){ this.method='DELETE'; return this; }
+    single(){ this.singleResult=true; this.headers.Accept='application/vnd.pgrst.object+json'; return this; }
+    async execute(){
+      const res = await fetch(`${endpoint}/${encodeURIComponent(this.table)}?${this.params.toString()}`, {
+        method: this.method,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? {Authorization:`Bearer ${token}`, apikey:token} : {}),
+          ...this.headers
+        },
+        credentials: 'include',
+        ...(this.body !== undefined ? {body: JSON.stringify(this.body)} : {})
+      });
+      const payload = await res.json().catch(()=>null);
+      if(!res.ok) return {data:null,error:{message:payload?.message||`ERP 요청 실패 (${res.status})`,details:payload}};
+      const data = this.singleResult && Array.isArray(payload) ? (payload[0]||null) : payload;
+      return {data,error:null};
+    }
+    then(resolve,reject){ return this.execute().then(resolve,reject); }
+  }
+  return {from(table){ return new LegacyQuery(table); }};
+}
+
+const db = AMS_USE_ERP ? createErpLegacyClient(AMS_ERP_ORIGIN, AMS_ERP_TOKEN) : supabase.createClient(SUPA_URL, SUPA_KEY);
 
 function showLoading(msg='데이터 로딩 중...') {
   let el = document.getElementById('db-loading');
