@@ -5171,6 +5171,53 @@ function getUniformItems() {
   return u.length ? u : INV;
 }
 
+function _uniCleanName(value) {
+  return String(value||'').replace(/\s+/g,' ').trim();
+}
+function _uniSeasonName(value) {
+  const text = String(value||'').trim();
+  const match = text.match(/(유니폼\([^)]+\))/);
+  return match ? match[1] : text;
+}
+function _uniItemCodeForSeason(season, fallback='') {
+  return ({'유니폼(하계)':'AST-126','유니폼(춘추)':'AST-127','유니폼(동계)':'AST-128'})[season] || fallback || '';
+}
+function _uniNormSize(value) {
+  return String(value||'').replace(/\([^)]*\)/g,'').trim().toUpperCase();
+}
+function _uniFindMgr(name) {
+  const clean = _uniCleanName(name);
+  return UNIFORM_MANAGERS.find(m => _uniCleanName(m.manager_name) === clean);
+}
+function _uniFindStock(mgrName, itemName) {
+  const clean = _uniCleanName(mgrName);
+  const season = _uniSeasonName(itemName);
+  return UNIFORM_MGRSTK
+    .filter(s => _uniCleanName(s.manager_name) === clean && _uniSeasonName(s.item_name) === season)
+    .sort((a,b) => (b.id||0) - (a.id||0))[0];
+}
+function _uniCanonicalManagers() {
+  const map = new Map();
+  [...UNIFORM_MANAGERS].sort((a,b)=>(a.id||0)-(b.id||0)).forEach(m => {
+    const clean = _uniCleanName(m.manager_name);
+    if(!clean) return;
+    const current = map.get(clean);
+    if(!current || (current.employment_status !== '재직' && m.employment_status === '재직')) {
+      map.set(clean, {...m, manager_name:clean});
+    }
+  });
+  return [...map.values()];
+}
+async function _updateInventoryQty(code, delta) {
+  const l = LOGI.find(x=>x.code===code);
+  if(!l) return;
+  const nq = Math.max(0, (parseInt(l.qty)||0) + delta);
+  await db.from('inventory').update({qty:nq}).eq('code',code);
+  l.qty = nq;
+  const iv = INV.find(x=>x.code===code);
+  if(iv) iv.total = nq;
+}
+
 // ─── 매장 자동완성 ───
 function acUniStore(val, mode) {
   const listId = mode === 'req' ? 'acUrStList' : 'acUpkStList';
@@ -5201,7 +5248,7 @@ function acUniMgr(inp, listId) {
   if (!list) return;
   const q = inp.value.trim().toLowerCase();
   if (!q) { list.classList.remove('show'); return; }
-  const m = UNIFORM_MANAGERS.filter(x => x.manager_name.toLowerCase().includes(q)).slice(0, 12);
+  const m = _uniCanonicalManagers().filter(x => x.manager_name.toLowerCase().includes(q)).slice(0, 12);
   if (!m.length) { list.classList.remove('show'); return; }
   list.innerHTML = m.map(x => `
     <div class="aci" onclick="document.getElementById('${inp.id}').value='${x.manager_name.replace(/'/g,"\\'")}';document.getElementById('${listId}').classList.remove('show')">
@@ -5213,8 +5260,9 @@ function acUniMgr(inp, listId) {
 }
 
 async function checkAndRegisterMgr(name, storeName) {
+  name = _uniCleanName(name);
   if (!name) return true;
-  const exists = UNIFORM_MANAGERS.find(m => m.manager_name === name);
+  const exists = _uniFindMgr(name);
   if (exists) return true;
   const ok = confirm(`"${name}"은 관리대장에 없는 이름입니다.\n신규 입사자인가요? 관리대장에 등록하시겠습니까?`);
   if (!ok) return false;
@@ -5310,9 +5358,9 @@ function _collectUniItems(prefix, rows) {
 // ─── 신청 제출 (pending 상태만 생성, 재고 미반영) ───
 async function submitUniformReq() {
   const date=document.getElementById('urDate').value;
-  const manager=document.getElementById('urMgr').value.trim();
+  const manager=_uniCleanName(document.getElementById('urMgr').value);
   const store=document.getElementById('urStore').value.trim();
-  const recvMgr=document.getElementById('urRecvMgr').value.trim();
+  const recvMgr=_uniCleanName(document.getElementById('urRecvMgr').value);
   const delivery=document.getElementById('urDelivery')?.value||'택배';
   if(!date||!manager||!store||!recvMgr){notify('필수 항목(작성일자/신청자/직영점명/수령매니저)을 입력해주세요','error');return;}
   const items=_collectUniItems('ur',uniReqRows);
@@ -5447,7 +5495,7 @@ function clearUrBulkUpload() {
 
 async function submitUrBulk() {
   if (!urBulkRows.length) { notify('업로드된 데이터가 없습니다','error'); return; }
-  const manager = document.getElementById('urBulkMgr').value.trim();
+  const manager = _uniCleanName(document.getElementById('urBulkMgr').value);
   const date    = document.getElementById('urBulkDate').value;
   const commonReason = document.getElementById('urBulkReason').value;
   if (!manager) { notify('신청자를 입력해주세요','error'); return; }
@@ -5474,11 +5522,12 @@ async function submitUrBulk() {
     const toInsert = [];
     for (const row of urBulkRows) {
       if (!row.qty || row.qty <= 0) continue;
-      await checkAndRegisterMgr(row.mgrName, row.storeName);
+      const recvMgr = _uniCleanName(row.mgrName);
+      await checkAndRegisterMgr(recvMgr, row.storeName);
       const item = allItems.find(x=>x.name===row.itemName);
       const size = row.itemName.trim().split(/\s+/).pop();
       toInsert.push({
-        req_date:date, manager, store_name:row.storeName, recv_manager:row.mgrName,
+        req_date:date, manager, store_name:row.storeName, recv_manager:recvMgr,
         item_name:row.itemName, item_code:item?.code||'', size,
         qty:row.qty, delivery_type:row.deliveryType, reason:row.reason||commonReason,
         note:'', status:'pending', batch_id:batchId
@@ -5503,9 +5552,9 @@ async function submitUrBulk() {
 // ─── 수거 신청 제출 (pending 상태만 생성, 재고 미반영) ───
 async function submitUniformPkp() {
   const date=document.getElementById('upkDate').value;
-  const manager=document.getElementById('upkMgr').value.trim();
+  const manager=_uniCleanName(document.getElementById('upkMgr').value);
   const store=document.getElementById('upkStore').value.trim();
-  const returnMgr=document.getElementById('upkReturnMgr').value.trim();
+  const returnMgr=_uniCleanName(document.getElementById('upkReturnMgr').value);
   const deliveryType=document.getElementById('upkDeliveryType').value;
   if(!date||!manager||!store||!returnMgr){notify('필수 항목(작성일자/신청자/직영점명/반환매니저)을 입력해주세요','error');return;}
   const items=_collectUniItems('upk',uniPkpRows);
@@ -5581,21 +5630,29 @@ async function doUniPickup() {
   const pickupNote = document.getElementById('uniPickupNote').value.trim();
   if(!pickupDate){notify('수거일자를 입력해주세요','error');return;}
   const r = UNIFORM_PKPS.find(x=>x.id===id); if(!r) return;
+  if(r.status==='confirmed'){notify('이미 수거완료 처리된 항목입니다','warn');return;}
   showLoading();
   try {
-    const {error}=await db.from('uniform_pickups').update({status:'confirmed',pickup_date:pickupDate,pickup_note:pickupNote}).eq('id',id);
+    const {data:updated,error}=await db.from('uniform_pickups')
+      .update({status:'confirmed',pickup_date:pickupDate,pickup_note:pickupNote})
+      .eq('id',id)
+      .in('status',['pending','scheduled'])
+      .select('id');
     if(error)throw error;
-    // 반납재고 증가 (사용가능 재고가 아닌 반납재고로 귀속 대기)
-    const l=LOGI.find(x=>x.code===r.item_code);
-    if(l){const nrq=(l.returnQty||0)+r.qty;await db.from('inventory').update({return_qty:nrq}).eq('code',r.item_code);l.returnQty=nrq;}
-    // 매니저 재고 -
-    await _updateUniMgrStock(r.store_name,r.return_manager,{name:r.item_name,code:r.item_code,size:r.size},-r.qty);
-    // 이력
-    histPush({date:pickupDate,store:r.store_name,col:r.item_name,before:'',after:-r.qty,type:'유니폼수거(반납대기)',memo:`${r.return_manager} / ${r.size} / ${r.reason}${pickupNote?' / '+pickupNote:''}`});
-    // 로컬 업데이트
-    Object.assign(r,{status:'confirmed',pickup_date:pickupDate,pickup_note:pickupNote});
-    closeMo('moUniPickup');
-    notify('수거 확인 처리 완료 ✓','success');
+    if(!updated || !updated.length){
+      notify('이미 처리된 항목이라 재고 반영을 건너뛰었습니다','warn');
+    } else {
+      // 물류재고 증가
+      await _updateInventoryQty(r.item_code, r.qty);
+      // 매니저 재고 -
+      await _updateUniMgrStock(r.store_name,r.return_manager,{name:r.item_name,code:r.item_code,size:r.size},-r.qty);
+      // 이력
+      histPush({date:pickupDate,store:r.store_name,col:r.item_name,before:'',after:-r.qty,type:'유니폼수거',memo:`${r.return_manager} / ${r.size} / ${r.reason}${pickupNote?' / '+pickupNote:''}`});
+      // 로컬 업데이트
+      Object.assign(r,{status:'confirmed',pickup_date:pickupDate,pickup_note:pickupNote});
+      closeMo('moUniPickup');
+      notify('수거 확인 처리 완료 ✓','success');
+    }
     renderUniformPkpList();
   } catch(e){console.error(e);notify('오류: '+e.message,'error');}
   hideLoading();
@@ -5603,40 +5660,41 @@ async function doUniPickup() {
 
 // ─── 매니저 재고 업데이트 헬퍼 ───
 async function _updateUniMgrStock(store, mgrName, item, delta) {
-  // 사이즈 정규화: '2XL(105)' → '2XL', '2XL' → '2XL'
-  const normSz = s => (s||'').replace(/\([^)]*\)/g,'').trim().toUpperCase();
-
-  // 품목명 '유니폼(하계) 2XL' → season='유니폼(하계)', rawSize='2XL'
-  const seasonMatch = (item.name||'').match(/(유니폼\([^)]+\))/);
-  const season = seasonMatch ? seasonMatch[1] : item.name;
-  const rawSize = normSz((item.name||'').replace(season,'').trim() || item.size);
+  mgrName = _uniCleanName(mgrName);
+  const season = _uniSeasonName(item.name);
+  const rawSize = _uniNormSize((item.name||'').replace(season,'').trim() || item.size);
 
   // ── DB에서 직접 조회 (메모리 캐시 무시) ──
   const {data: rows, error: fetchErr} = await db.from('uniform_manager_stock')
-    .select('*').eq('manager_name', mgrName).eq('item_name', season);
+    .select('*');
 
   if(fetchErr){ console.error('[MGR_STOCK 조회 오류]', fetchErr.message); return; }
 
-  // 사이즈 퍼지 매칭
-  const existing = (rows||[]).find(m => normSz(m.size) === rawSize);
+  const candidates = (rows||[]).filter(m => _uniCleanName(m.manager_name) === mgrName && _uniSeasonName(m.item_name) === season);
+  const existing = candidates
+    .sort((a,b)=>{
+      const aSize = _uniNormSize(a.size) === rawSize ? 1 : 0;
+      const bSize = _uniNormSize(b.size) === rawSize ? 1 : 0;
+      return bSize - aSize || (b.id||0) - (a.id||0);
+    })[0];
 
   if(existing){
-    const nq = Math.max(0, existing.qty + delta);
+    const nq = Math.max(0, (parseInt(existing.qty)||0) + delta);
     const {error:updErr} = await db.from('uniform_manager_stock')
-      .update({qty:nq, store_name:store, updated_at:new Date().toISOString()})
+      .update({qty:nq, store_name:store, manager_name:mgrName, item_name:season, item_code:_uniItemCodeForSeason(season, item.code), updated_at:new Date().toISOString()})
       .eq('id', existing.id);
     if(updErr){ console.error('[MGR_STOCK 업데이트 오류]', updErr.message); return; }
     // 메모리 동기화
     const mem = UNIFORM_MGRSTK.find(m=>m.id===existing.id);
-    if(mem){ mem.qty=nq; mem.store_name=store; }
-    else { existing.qty=nq; UNIFORM_MGRSTK.push(existing); }
+    if(mem){ mem.qty=nq; mem.store_name=store; mem.manager_name=mgrName; mem.item_name=season; mem.item_code=_uniItemCodeForSeason(season, item.code); }
+    else { Object.assign(existing,{qty:nq,store_name:store,manager_name:mgrName,item_name:season,item_code:_uniItemCodeForSeason(season, item.code)}); UNIFORM_MGRSTK.push(existing); }
   } else {
     // 해당 매니저의 같은 시즌 레코드가 있으면 그 사이즈 형식 재사용
-    const sameSeasonRow = (rows||[])[0];
+    const sameSeasonRow = candidates[0];
     const sizeForInsert = sameSeasonRow ? sameSeasonRow.size : rawSize;
     const {data:ins, error:insErr} = await db.from('uniform_manager_stock')
       .insert({store_name:store, manager_name:mgrName, item_name:season,
-               item_code:item.code, size:sizeForInsert, qty:Math.max(0,delta)})
+               item_code:_uniItemCodeForSeason(season, item.code), size:sizeForInsert, qty:Math.max(0,delta)})
       .select().single();
     if(insErr){ console.error('[MGR_STOCK 삽입 오류]', insErr.message); return; }
     if(ins) UNIFORM_MGRSTK.push(ins);
@@ -5822,6 +5880,7 @@ async function deleteUniBatch(batchId) {
 
 // ─── 일괄출고 (batch 전체 pending 항목 한번에 출고) ───
 let _uniBulkShipBatchId = null;
+let _uniShipSubmitting = false;
 function openUniBulkShipModal(batchId) {
   _uniBulkShipBatchId = batchId;
   const pending = UNIFORM_REQS.filter(r=>r.batch_id===batchId&&r.status==='pending');
@@ -5847,25 +5906,34 @@ async function doUniShip() {
     if(!outDate){notify('출고일자를 입력해주세요','error');return;}
     const pending = UNIFORM_REQS.filter(r=>r.batch_id===batchId&&r.status==='pending');
     if(!pending.length){notify('대기중 항목 없음','warn');return;}
+    if(_uniShipSubmitting){notify('출고 처리 중입니다. 잠시만 기다려주세요','warn');return;}
+    _uniShipSubmitting = true;
     showLoading();
+    let processed = 0;
     try {
       for(const r of pending) {
-        const {error}=await db.from('uniform_requests').update({status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote}).eq('id',r.id);
+        const {data:updated,error}=await db.from('uniform_requests')
+          .update({status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote})
+          .eq('id',r.id)
+          .eq('status','pending')
+          .select('id');
         if(error) throw error;
+        if(!updated || !updated.length) continue;
         // 물류재고 차감
-        const l=LOGI.find(x=>x.code===r.item_code);
-        if(l){const nq=Math.max(0,l.qty-r.qty);await db.from('inventory').update({qty:nq}).eq('code',r.item_code);l.qty=nq;const iv=INV.find(x=>x.code===r.item_code);if(iv)iv.total=nq;}
+        await _updateInventoryQty(r.item_code, -r.qty);
         // 관리대장 반영
         await _updateUniMgrStock(r.store_name,r.recv_manager,{name:r.item_name,code:r.item_code,size:r.size},r.qty);
         // 이력
         histPush({date:outDate,store:r.store_name,col:r.item_name,before:'',after:r.qty,type:'유니폼출고',memo:`${r.recv_manager}/${r.size}/${r.reason}${outNote?' / '+outNote:''}`});
         Object.assign(r,{status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote});
+        processed++;
       }
       _collapsedBatches.add(batchId);
       closeMo('moUniShip');
-      notify(`일괄출고 완료 — ${pending.length}건 처리 ✓`,'success');
+      notify(`일괄출고 완료 — ${processed}건 처리 ✓${processed<pending.length?` / ${pending.length-processed}건은 이미 처리됨`:''}`,'success');
       renderUniformReqList();
     } catch(e){console.error(e);notify('오류: '+e.message,'error');}
+    _uniShipSubmitting = false;
     hideLoading();
     return;
   }
@@ -5876,19 +5944,30 @@ async function doUniShip() {
   const outNote=document.getElementById('uniOutNote').value.trim();
   if(!outDate){notify('출고일자를 입력해주세요','error');return;}
   const r=UNIFORM_REQS.find(x=>x.id===id); if(!r) return;
+  if(r.status==='shipped'){notify('이미 출고완료 처리된 항목입니다','warn');return;}
+  if(_uniShipSubmitting){notify('출고 처리 중입니다. 잠시만 기다려주세요','warn');return;}
+  _uniShipSubmitting = true;
   showLoading();
   try {
-    const {error}=await db.from('uniform_requests').update({status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote}).eq('id',id);
+    const {data:updated,error}=await db.from('uniform_requests')
+      .update({status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote})
+      .eq('id',id)
+      .eq('status','pending')
+      .select('id');
     if(error)throw error;
-    const l=LOGI.find(x=>x.code===r.item_code);
-    if(l){const nq=Math.max(0,l.qty-r.qty);await db.from('inventory').update({qty:nq}).eq('code',r.item_code);l.qty=nq;const iv=INV.find(x=>x.code===r.item_code);if(iv)iv.total=nq;}
-    await _updateUniMgrStock(r.store_name,r.recv_manager,{name:r.item_name,code:r.item_code,size:r.size},r.qty);
-    histPush({date:outDate,store:r.store_name,col:r.item_name,before:'',after:r.qty,type:'유니폼출고',memo:`${r.recv_manager}/${r.size}/${r.reason}${outNote?' / '+outNote:''}`});
-    Object.assign(r,{status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote});
-    closeMo('moUniShip');
-    notify('출고 처리 완료 ✓','success');
+    if(!updated || !updated.length){
+      notify('이미 처리된 항목이라 재고 반영을 건너뛰었습니다','warn');
+    } else {
+      await _updateInventoryQty(r.item_code, -r.qty);
+      await _updateUniMgrStock(r.store_name,r.recv_manager,{name:r.item_name,code:r.item_code,size:r.size},r.qty);
+      histPush({date:outDate,store:r.store_name,col:r.item_name,before:'',after:r.qty,type:'유니폼출고',memo:`${r.recv_manager}/${r.size}/${r.reason}${outNote?' / '+outNote:''}`});
+      Object.assign(r,{status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote});
+      closeMo('moUniShip');
+      notify('출고 처리 완료 ✓','success');
+    }
     renderUniformReqList();
   } catch(e){console.error(e);notify('오류: '+e.message,'error');}
+  _uniShipSubmitting = false;
   hideLoading();
 }
 
@@ -5926,8 +6005,8 @@ async function deleteUniReq(id) {
     if(error) throw error;
     // 출고된 경우 재고 원복
     if(r.status==='shipped'){
-      const l=LOGI.find(x=>x.code===r.item_code);
-      if(l){const nq=Math.max(0,l.qty-r.qty);await db.from('inventory').update({qty:nq}).eq('code',r.item_code);l.qty=nq;const iv=INV.find(x=>x.code===r.item_code);if(iv)iv.total=nq;}
+      await _updateInventoryQty(r.item_code, r.qty);
+      await _updateUniMgrStock(r.store_name,r.recv_manager,{name:r.item_name,code:r.item_code,size:r.size},-r.qty);
     }
     const idx=UNIFORM_REQS.findIndex(x=>x.id===id);
     if(idx>-1) UNIFORM_REQS.splice(idx,1);
@@ -5945,10 +6024,10 @@ async function deleteUniPkp(id) {
   try {
     const {error}=await db.from('uniform_pickups').delete().eq('id',id);
     if(error) throw error;
-    // 수거확인된 경우 반납재고 원복
+    // 수거확인된 경우 물류재고/관리대장 원복
     if(r.status==='confirmed'){
-      const l=LOGI.find(x=>x.code===r.item_code);
-      if(l){const nrq=Math.max(0,(l.returnQty||0)-r.qty);await db.from('inventory').update({return_qty:nrq}).eq('code',r.item_code);l.returnQty=nrq;}
+      await _updateInventoryQty(r.item_code, -r.qty);
+      await _updateUniMgrStock(r.store_name,r.return_manager,{name:r.item_name,code:r.item_code,size:r.size},r.qty);
     }
     const idx=UNIFORM_PKPS.findIndex(x=>x.id===id);
     if(idx>-1) UNIFORM_PKPS.splice(idx,1);
@@ -6003,7 +6082,7 @@ function renderUniformMgmt() {
     return `<span class="badge">${s||'재직'}</span>`;
   };
 
-  const getStock=(name,item)=>UNIFORM_MGRSTK.find(s=>s.manager_name===name&&s.item_name===item);
+  const getStock=(name,item)=>_uniFindStock(name,item);
   const qtyCell=(s)=>{
     if(!s) return '<span style="color:var(--tx3)">-</span>';
     const clr=s.qty===0?'#f87171':s.qty<=1?'#fbbf24':'var(--gn)';
@@ -6015,16 +6094,17 @@ function renderUniformMgmt() {
     :`<button onclick="openUniStockNew(_umMgrIdx('${mgrName.replace(/'/g,"\\'")}'),'${season}')" style="${btnStyle}color:#60a5fa">+</button>`;
 
   // 필터
-  let mgrs = UNIFORM_MANAGERS.filter(m=>!srch||m.manager_name.toLowerCase().includes(srch)||(m.employment_status||'').includes(srch));
-  if(umFilter==='zero') mgrs=mgrs.filter(m=>UNIFORM_MGRSTK.filter(s=>s.manager_name===m.manager_name).some(s=>s.qty===0));
-  if(umFilter==='summer') mgrs=mgrs.filter(m=>{const s=getStock(m.manager_name,'유니폼(하계)');return s&&s.qty===0;});
-  if(umFilter==='spring') mgrs=mgrs.filter(m=>{const s=getStock(m.manager_name,'유니폼(춘추)');return s&&s.qty===0;});
-  if(umFilter==='winter') mgrs=mgrs.filter(m=>{const s=getStock(m.manager_name,'유니폼(동계)');return s&&s.qty===0;});
+  const allMgrs = _uniCanonicalManagers();
+  let mgrs = allMgrs.filter(m=>!srch||m.manager_name.toLowerCase().includes(srch)||(m.employment_status||'').includes(srch));
+  if(umFilter==='zero') mgrs=mgrs.filter(m=>UNIFORM_MGRSTK.filter(s=>_uniCleanName(s.manager_name)===m.manager_name).some(s=>(parseInt(s.qty)||0)===0));
+  if(umFilter==='summer') mgrs=mgrs.filter(m=>{const s=getStock(m.manager_name,'유니폼(하계)');return s&&(parseInt(s.qty)||0)===0;});
+  if(umFilter==='spring') mgrs=mgrs.filter(m=>{const s=getStock(m.manager_name,'유니폼(춘추)');return s&&(parseInt(s.qty)||0)===0;});
+  if(umFilter==='winter') mgrs=mgrs.filter(m=>{const s=getStock(m.manager_name,'유니폼(동계)');return s&&(parseInt(s.qty)||0)===0;});
 
-  const total=UNIFORM_MANAGERS.length;
-  const active=UNIFORM_MANAGERS.filter(m=>m.employment_status==='재직').length;
-  const leave=UNIFORM_MANAGERS.filter(m=>m.employment_status==='휴직').length;
-  const quit=UNIFORM_MANAGERS.filter(m=>m.employment_status==='퇴직').length;
+  const total=allMgrs.length;
+  const active=allMgrs.filter(m=>m.employment_status==='재직').length;
+  const leave=allMgrs.filter(m=>m.employment_status==='휴직').length;
+  const quit=allMgrs.filter(m=>m.employment_status==='퇴직').length;
 
   const rows = mgrs.length ? mgrs.map(m=>{
     const ss=getStock(m.manager_name,'유니폼(하계)');
@@ -6081,10 +6161,9 @@ function renderUniformMgmt() {
 
 // ─── 매니저 추가/수정/삭제 ───
 function _setUniMgrSzQt(season, szId, qtId, mgrName) {
-  const normSz=v=>(v||'').replace(/\([^)]*\)/g,'').trim().toUpperCase();
-  const s=UNIFORM_MGRSTK.find(x=>x.manager_name===mgrName&&x.item_name===season);
+  const s=_uniFindStock(mgrName, season);
   const sel=document.getElementById(szId);
-  if(s&&s.size){const match=[...sel.options].find(o=>normSz(o.value)===normSz(s.size));sel.value=match?match.value:s.size;}
+  if(s&&s.size){const match=[...sel.options].find(o=>_uniNormSize(o.value)===_uniNormSize(s.size));sel.value=match?match.value:s.size;}
   else sel.value='M(90)';
   document.getElementById(qtId).value=s?s.qty:0;
 }
@@ -6116,7 +6195,7 @@ function openUniMgrEdit(id) {
 }
 async function saveUniMgrEdit() {
   const id=document.getElementById('uniMgrEditId').value;
-  const name=document.getElementById('uniMgrEditName').value.trim();
+  const name=_uniCleanName(document.getElementById('uniMgrEditName').value);
   const status=document.getElementById('uniMgrEditStatus').value;
   const note=document.getElementById('uniMgrEditNote').value.trim();
   if(!name){notify('성함을 입력해주세요','error');return;}
@@ -6130,26 +6209,37 @@ async function saveUniMgrEdit() {
     let mgrName=name;
     if(id) {
       const oldM=UNIFORM_MANAGERS.find(x=>x.id===parseInt(id));
-      const oldName=oldM?oldM.manager_name:name;
+      const oldRawName=oldM?oldM.manager_name:name;
+      const oldName=_uniCleanName(oldRawName);
       await db.from('uniform_managers').update({manager_name:name,employment_status:status,note,updated_at:new Date().toISOString()}).eq('id',parseInt(id));
       if(oldM){oldM.manager_name=name;oldM.employment_status=status;oldM.note=note;}
       // 매니저명 변경 시 stock 테이블도 업데이트
-      if(oldName!==name) await db.from('uniform_manager_stock').update({manager_name:name}).eq('manager_name',oldName);
+      if(oldName!==name || oldRawName!==name) {
+        await db.from('uniform_manager_stock').update({manager_name:name}).eq('manager_name',oldRawName);
+        if(oldRawName!==oldName) await db.from('uniform_manager_stock').update({manager_name:name}).eq('manager_name',oldName);
+        UNIFORM_MGRSTK.forEach(s=>{ if(_uniCleanName(s.manager_name)===oldName) s.manager_name=name; });
+      }
       mgrName=name;
     } else {
-      const {data:ins}=await db.from('uniform_managers').insert({manager_name:name,employment_status:status,note}).select().single();
-      if(ins)UNIFORM_MANAGERS.push(ins);
+      const existingMgr = _uniFindMgr(name);
+      if(existingMgr){
+        await db.from('uniform_managers').update({manager_name:name,employment_status:status,note,updated_at:new Date().toISOString()}).eq('id',existingMgr.id);
+        existingMgr.manager_name=name; existingMgr.employment_status=status; existingMgr.note=note;
+      } else {
+        const {data:ins}=await db.from('uniform_managers').insert({manager_name:name,employment_status:status,note}).select().single();
+        if(ins)UNIFORM_MANAGERS.push(ins);
+      }
     }
     // 3시즌 재고 upsert
     for(const s of seasons){
       const sz=document.getElementById(s.szId).value;
       const qty=parseInt(document.getElementById(s.qtId).value)||0;
-      const exist=UNIFORM_MGRSTK.find(x=>x.manager_name===mgrName&&x.item_name===s.key);
+      const exist=_uniFindStock(mgrName,s.key);
       if(exist){
-        await db.from('uniform_manager_stock').update({size:sz,qty,updated_at:new Date().toISOString()}).eq('id',exist.id);
-        exist.size=sz; exist.qty=qty;
+        await db.from('uniform_manager_stock').update({manager_name:mgrName,item_name:s.key,item_code:s.code,size:sz,qty,updated_at:new Date().toISOString()}).eq('id',exist.id);
+        exist.manager_name=mgrName; exist.item_name=s.key; exist.item_code=s.code; exist.size=sz; exist.qty=qty;
       } else {
-        const existStock=UNIFORM_MGRSTK.find(x=>x.manager_name===mgrName);
+        const existStock=UNIFORM_MGRSTK.find(x=>_uniCleanName(x.manager_name)===mgrName);
         const storeName=existStock?existStock.store_name:'';
         const {data:ins}=await db.from('uniform_manager_stock').insert({store_name:storeName,manager_name:mgrName,item_name:s.key,item_code:s.code,size:sz,qty}).select().single();
         if(ins)UNIFORM_MGRSTK.push(ins);
@@ -6163,13 +6253,17 @@ async function saveUniMgrEdit() {
 }
 async function deleteUniMgr(id) {
   const m=UNIFORM_MANAGERS.find(x=>x.id===id); if(!m) return;
-  if(!confirm(`"${m.manager_name}" 매니저를 삭제하시겠습니까?\n보유 유니폼 현황도 함께 삭제됩니다.`)) return;
+  const cleanName = _uniCleanName(m.manager_name);
+  const linked = UNIFORM_MGRSTK.filter(s=>_uniCleanName(s.manager_name)===cleanName && (parseInt(s.qty)||0)>0);
+  if(linked.length){
+    notify(`"${cleanName}" 매니저는 보유 유니폼 수량이 있어 삭제할 수 없습니다. 먼저 관리대장에서 수량을 0으로 조정해주세요.`,'error');
+    return;
+  }
+  if(!confirm(`"${cleanName}" 매니저를 삭제하시겠습니까?\n보유 수량이 있는 경우에는 삭제되지 않습니다.`)) return;
   showLoading();
   try {
-    await db.from('uniform_manager_stock').delete().eq('manager_name',m.manager_name);
     await db.from('uniform_managers').delete().eq('id',id);
     const idx=UNIFORM_MANAGERS.findIndex(x=>x.id===id); if(idx>-1)UNIFORM_MANAGERS.splice(idx,1);
-    UNIFORM_MGRSTK=UNIFORM_MGRSTK.filter(s=>s.manager_name!==m.manager_name);
     notify('삭제 완료','success');
     renderUniformMgmt();
   } catch(e){console.error(e);notify('오류: '+e.message,'error');}
@@ -6204,26 +6298,28 @@ function openUniStockEdit(id) {
 }
 async function saveUniStockEdit() {
   const id=parseInt(document.getElementById('uniStockEditId').value)||0;
-  const itemName=document.getElementById('uniStockEditItem').value.trim();
+  const itemName=_uniSeasonName(document.getElementById('uniStockEditItem').value);
   const size=document.getElementById('uniStockEditSize').value;
   const qty=parseInt(document.getElementById('uniStockEditQty').value)||0;
+  const itemCode=_uniItemCodeForSeason(itemName);
   showLoading();
   try {
     if(id) {
       // 기존 레코드 수정
-      await db.from('uniform_manager_stock').update({item_name:itemName,size,qty,updated_at:new Date().toISOString()}).eq('id',id);
+      await db.from('uniform_manager_stock').update({item_name:itemName,item_code:itemCode,size,qty,updated_at:new Date().toISOString()}).eq('id',id);
       const s=UNIFORM_MGRSTK.find(x=>x.id===id);
-      if(s){s.item_name=itemName;s.size=size;s.qty=qty;}
+      if(s){s.item_name=itemName;s.item_code=itemCode;s.size=size;s.qty=qty;}
     } else {
       // 신규 레코드 생성 (-셀)
       const {mgrName, season} = _uniNewStkTarget||{};
-      if(!mgrName){notify('오류: 매니저 정보 없음','error');hideLoading();return;}
+      const cleanMgr = _uniCleanName(mgrName);
+      if(!cleanMgr){notify('오류: 매니저 정보 없음','error');hideLoading();return;}
       const codeMap={'유니폼(하계)':'AST-126','유니폼(춘추)':'AST-127','유니폼(동계)':'AST-128'};
-      const existStk=UNIFORM_MGRSTK.find(x=>x.manager_name===mgrName);
+      const existStk=UNIFORM_MGRSTK.find(x=>_uniCleanName(x.manager_name)===cleanMgr);
       const storeName=existStk?existStk.store_name:'';
       const {data:ins,error:insErr}=await db.from('uniform_manager_stock').insert({
-        store_name:storeName, manager_name:mgrName, item_name:itemName,
-        item_code:codeMap[season]||'', size, qty
+        store_name:storeName, manager_name:cleanMgr, item_name:itemName,
+        item_code:codeMap[itemName]||codeMap[season]||'', size, qty
       }).select().single();
       if(insErr) throw insErr;
       if(ins) UNIFORM_MGRSTK.push(ins);
