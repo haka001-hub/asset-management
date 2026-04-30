@@ -5935,6 +5935,30 @@ async function deleteUniBatch(batchId) {
 // ─── 일괄출고 (batch 전체 pending 항목 한번에 출고) ───
 let _uniBulkShipBatchId = null;
 let _uniShipSubmitting = false;
+const _uniShipSideEffectAppliedIds = new Set();
+
+async function _shipUniformRequestOnce(r, outDate, arrDate, outNote) {
+  const requestId = String(r.id);
+  if (_uniShipSideEffectAppliedIds.has(requestId)) {
+    return {processed:false, skipped:true};
+  }
+
+  const {data:updated,error}=await db.from('uniform_requests')
+    .update({status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote})
+    .eq('id',r.id)
+    .eq('status','pending')
+    .select('id,status');
+  if(error) throw error;
+  if(!updated || !updated.length) return {processed:false, skipped:false};
+
+  await _updateInventoryQty(r.item_code, -r.qty);
+  await _updateUniMgrStock(r.store_name,r.recv_manager,{name:r.item_name,code:r.item_code,size:r.size},r.qty);
+  histPush({date:outDate,store:r.store_name,col:r.item_name,before:'',after:r.qty,type:'유니폼출고',memo:`${r.recv_manager}/${r.size}/${r.reason}${outNote?' / '+outNote:''} / 신청ID:${requestId}`});
+  Object.assign(r,{status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote});
+  _uniShipSideEffectAppliedIds.add(requestId);
+  return {processed:true, skipped:false};
+}
+
 function openUniBulkShipModal(batchId) {
   _uniBulkShipBatchId = batchId;
   const pending = UNIFORM_REQS.filter(r=>r.batch_id===batchId&&r.status==='pending');
@@ -5966,21 +5990,8 @@ async function doUniShip() {
     let processed = 0;
     try {
       for(const r of pending) {
-        const {data:updated,error}=await db.from('uniform_requests')
-          .update({status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote})
-          .eq('id',r.id)
-          .eq('status','pending')
-          .select('id');
-        if(error) throw error;
-        if(!updated || !updated.length) continue;
-        // 물류재고 차감
-        await _updateInventoryQty(r.item_code, -r.qty);
-        // 관리대장 반영
-        await _updateUniMgrStock(r.store_name,r.recv_manager,{name:r.item_name,code:r.item_code,size:r.size},r.qty);
-        // 이력
-        histPush({date:outDate,store:r.store_name,col:r.item_name,before:'',after:r.qty,type:'유니폼출고',memo:`${r.recv_manager}/${r.size}/${r.reason}${outNote?' / '+outNote:''}`});
-        Object.assign(r,{status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote});
-        processed++;
+        const result = await _shipUniformRequestOnce(r, outDate, arrDate, outNote);
+        if(result.processed) processed++;
       }
       _collapsedBatches.add(batchId);
       closeMo('moUniShip');
@@ -6003,19 +6014,10 @@ async function doUniShip() {
   _uniShipSubmitting = true;
   showLoading();
   try {
-    const {data:updated,error}=await db.from('uniform_requests')
-      .update({status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote})
-      .eq('id',id)
-      .eq('status','pending')
-      .select('id');
-    if(error)throw error;
-    if(!updated || !updated.length){
+    const result = await _shipUniformRequestOnce(r, outDate, arrDate, outNote);
+    if(!result.processed){
       notify('이미 처리된 항목이라 재고 반영을 건너뛰었습니다','warn');
     } else {
-      await _updateInventoryQty(r.item_code, -r.qty);
-      await _updateUniMgrStock(r.store_name,r.recv_manager,{name:r.item_name,code:r.item_code,size:r.size},r.qty);
-      histPush({date:outDate,store:r.store_name,col:r.item_name,before:'',after:r.qty,type:'유니폼출고',memo:`${r.recv_manager}/${r.size}/${r.reason}${outNote?' / '+outNote:''}`});
-      Object.assign(r,{status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote});
       closeMo('moUniShip');
       notify('출고 처리 완료 ✓','success');
     }
