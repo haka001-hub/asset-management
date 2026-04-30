@@ -1647,6 +1647,7 @@ function createErpLegacyClient(origin, token) {
     order(field, opts={}){ this.params.set('order', `${field}.${opts.ascending===false?'desc':'asc'}`); return this; }
     limit(n){ this.params.set('limit', String(n)); return this; }
     eq(field, value){ this.params.set(field, `eq.${encodeFilter(value)}`); return this; }
+    in(field, values){ this.params.set(field, `in.(${(values||[]).map(encodeFilter).join(',')})`); return this; }
     gte(field, value){ this.params.set(field, `gte.${encodeFilter(value)}`); return this; }
     lte(field, value){ this.params.set(field, `lte.${encodeFilter(value)}`); return this; }
     like(field, value){ this.params.set(field, `like.${encodeFilter(value)}`); return this; }
@@ -5678,6 +5679,32 @@ function openUniPickupModal(id) {
   document.getElementById('uniPickupNote').value = '';
   document.getElementById('moUniPickup').classList.add('open');
 }
+
+let _uniPickupSubmitting = false;
+const _uniPickupSideEffectAppliedIds = new Set();
+
+async function _confirmUniformPickupOnce(r, pickupDate, pickupNote) {
+  const pickupId = String(r.id);
+  if (_uniPickupSideEffectAppliedIds.has(pickupId)) {
+    return {processed:false, skipped:true};
+  }
+
+  const {data:updated,error}=await db.from('uniform_pickups')
+    .update({status:'confirmed',pickup_date:pickupDate,pickup_note:pickupNote})
+    .eq('id',r.id)
+    .in('status',['pending','scheduled'])
+    .select('id,status');
+  if(error) throw error;
+  if(!updated || !updated.length) return {processed:false, skipped:false};
+
+  await _updateInventoryQty(r.item_code, r.qty);
+  await _updateUniMgrStock(r.store_name,r.return_manager,{name:r.item_name,code:r.item_code,size:r.size},-r.qty);
+  histPush({date:pickupDate,store:r.store_name,col:r.item_name,before:'',after:-r.qty,type:'유니폼수거',memo:`${r.return_manager} / ${r.size} / ${r.reason}${pickupNote?' / '+pickupNote:''} / 수거ID:${pickupId}`});
+  Object.assign(r,{status:'confirmed',pickup_date:pickupDate,pickup_note:pickupNote});
+  _uniPickupSideEffectAppliedIds.add(pickupId);
+  return {processed:true, skipped:false};
+}
+
 async function doUniPickup() {
   const id = parseInt(document.getElementById('uniPickupTargetId').value);
   const pickupDate = document.getElementById('uniPickupDate').value;
@@ -5685,30 +5712,20 @@ async function doUniPickup() {
   if(!pickupDate){notify('수거일자를 입력해주세요','error');return;}
   const r = UNIFORM_PKPS.find(x=>x.id===id); if(!r) return;
   if(r.status==='confirmed'){notify('이미 수거완료 처리된 항목입니다','warn');return;}
+  if(_uniPickupSubmitting){notify('수거 확인 처리 중입니다. 잠시만 기다려주세요','warn');return;}
+  _uniPickupSubmitting = true;
   showLoading();
   try {
-    const {data:updated,error}=await db.from('uniform_pickups')
-      .update({status:'confirmed',pickup_date:pickupDate,pickup_note:pickupNote})
-      .eq('id',id)
-      .in('status',['pending','scheduled'])
-      .select('id');
-    if(error)throw error;
-    if(!updated || !updated.length){
+    const result = await _confirmUniformPickupOnce(r, pickupDate, pickupNote);
+    if(!result.processed){
       notify('이미 처리된 항목이라 재고 반영을 건너뛰었습니다','warn');
     } else {
-      // 물류재고 증가
-      await _updateInventoryQty(r.item_code, r.qty);
-      // 매니저 재고 -
-      await _updateUniMgrStock(r.store_name,r.return_manager,{name:r.item_name,code:r.item_code,size:r.size},-r.qty);
-      // 이력
-      histPush({date:pickupDate,store:r.store_name,col:r.item_name,before:'',after:-r.qty,type:'유니폼수거',memo:`${r.return_manager} / ${r.size} / ${r.reason}${pickupNote?' / '+pickupNote:''}`});
-      // 로컬 업데이트
-      Object.assign(r,{status:'confirmed',pickup_date:pickupDate,pickup_note:pickupNote});
       closeMo('moUniPickup');
       notify('수거 확인 처리 완료 ✓','success');
     }
     renderUniformPkpList();
   } catch(e){console.error(e);notify('오류: '+e.message,'error');}
+  _uniPickupSubmitting = false;
   hideLoading();
 }
 
