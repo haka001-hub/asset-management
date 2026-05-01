@@ -2992,13 +2992,20 @@ async function exportAllTables(){
 
 // ═══ TELEGRAM 알림 ═══
 function sendTelegram(msg){
-  const token='7631301557:AAHaX_j_jaqZcozlayCOLQXFjXB9JQhkIRQ';
-  const chatId='-5189056099';
-  fetch(`https://api.telegram.org/bot${token}/sendMessage`,{
-    method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({chat_id:chatId,text:msg,parse_mode:'HTML'})
+  if (!AMS_ERP_ORIGIN || (!AMS_ERP_TOKEN && location.origin !== AMS_ERP_ORIGIN)) {
+    console.error('[텔레그램 전송 실패] ERP 브릿지 토큰이 설정되지 않았습니다.');
+    return;
+  }
+  fetch(`${AMS_ERP_ORIGIN.replace(/\/+$/,'')}/api/ams/legacy-notifications/telegram`,{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      ...(AMS_ERP_TOKEN ? {Authorization:`Bearer ${AMS_ERP_TOKEN}`, apikey:AMS_ERP_TOKEN} : {})
+    },
+    credentials:'include',
+    body:JSON.stringify({text:msg,parseMode:'HTML'})
   }).then(r=>r.json()).then(res=>{
-    if(!res.ok) console.error('[텔레그램 전송 실패]',res.description, res);
+    if(!res.ok) console.error('[텔레그램 전송 실패]',res.message||res.description, res);
   }).catch(e=>console.error('[텔레그램 네트워크 오류]',e));
 }
 
