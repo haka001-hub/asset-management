@@ -4343,11 +4343,15 @@ async function submitPurchaseRequest() {
   }).filter(i=>i.name&&i.qty>0);
   if(!items.length){notify('품목명과 수량을 입력해주세요','error');return;}
 
-  // DB에서 최신 ID 조회해서 다음 번호 결정 (중복 방지)
-  const {data:lastReqs} = await db.from('purchase_requests').select('id').order('created_at',{ascending:false}).limit(1);
-  let nextNum = 1;
-  if(lastReqs&&lastReqs.length>0){const m=lastReqs[0].id.match(/(\d+)$/);if(m)nextNum=parseInt(m[1])+1;}
-  const rid = 'PO-' + new Date().getFullYear() + '-' + String(nextNum).padStart(3,'0');
+  // 해당 연도의 PO 번호만 기준으로 다음 번호를 계산해 테스트/이관 데이터와 섞이지 않게 한다.
+  const reqYear = new Date().getFullYear();
+  const {data:lastReqs,error:lastReqErr} = await db.from('purchase_requests').select('id').like('id',`PO-${reqYear}-%`).limit(5000);
+  if(lastReqErr){notify('구매요청 번호 조회 실패: '+lastReqErr.message,'error');return;}
+  const maxReqNum = (lastReqs||[]).reduce((max,row)=>{
+    const m = String(row.id||'').match(/^PO-(\d{4})-(\d+)$/);
+    return m&&m[1]===String(reqYear) ? Math.max(max,parseInt(m[2],10)||0) : max;
+  },0);
+  const rid = 'PO-' + reqYear + '-' + String(maxReqNum+1).padStart(3,'0');
 
   const reqData = {id:rid, request_date:reqDate, manager, status:'pending', note:''};
   const {error:e1} = await db.from('purchase_requests').insert(reqData);
