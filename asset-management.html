@@ -23,6 +23,9 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
 .topbar{display:flex;align-items:center;justify-content:space-between;padding:15px 28px;border-bottom:1px solid var(--bd);background:rgba(17,24,39,.85);backdrop-filter:blur(10px);position:sticky;top:0;z-index:50}
 .page-title{font-size:18px;font-weight:700}.page-sub{font-size:12px;color:var(--tx3)}
 .tb{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;border:1px solid}
+.erp-ledger-badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 10px;font-size:11px;font-weight:700;border:1px solid var(--bd);white-space:nowrap}
+.erp-ledger-badge.ok{color:var(--gn);border-color:rgba(16,185,129,.35);background:rgba(16,185,129,.08)}
+.erp-ledger-badge.err{color:var(--rd);border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.08)}
 .tb-lg{background:rgba(59,130,246,.1);border-color:rgba(59,130,246,.3);color:var(--ac2)}
 .tb-op{background:rgba(16,185,129,.1);border-color:rgba(16,185,129,.3);color:var(--gn)}
 .tb-fn{background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.3);color:var(--yw)}
@@ -181,7 +184,7 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
       <div class="page-title" id="pgTitle">대시보드</div>
       <div class="page-sub" id="pgSub">전체 자산 현황 요약</div>
     </div>
-    <div style="display:flex;gap:8px">
+    <div id="asBridgeStatusSlot" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
       <span class="tb tb-lg">물류팀</span>
       <span class="tb tb-op">경영지원</span>
       <span class="tb tb-fn">재무팀</span>
@@ -1163,7 +1166,7 @@ function showPage(id,btn){
   const[t,s]=META[id]||['',''];
   document.getElementById('pgTitle').textContent=t;
   document.getElementById('pgSub').textContent=s;
-  ({dashboard:renderDash,inventory:renderInv,request:renderReqs,outgoing:renderOut,history:renderHist,logistics:renderLogi,storeout:renderStoreOut,storeasset:renderSA,pickup:renderPickup,pickupmgmt:renderPickupMgmt,pickuphist:renderPickupHist,bulkorder:renderBulkHist,aspickup:renderASPickup})[id]?.();
+  ({dashboard:renderDash,inventory:renderInv,request:renderReqs,outgoing:renderOut,history:renderHist,logistics:renderLogi,storeout:renderStoreOut,storeasset:renderSA,pickup:renderPickup,pickupmgmt:renderPickupMgmt,pickuphist:renderPickupHist,bulkorder:renderBulkHist,aspickup:()=>AS_DATA.length ? renderASPickup() : asLoadDB()})[id]?.();
   updateBadge();
 }
 
@@ -2688,11 +2691,9 @@ function downloadInvExcel(){
 }
 
 
-// ═══ AS 수거 관리 (Supabase 연동) ═══
-const AS_SB_URL = 'https://fmbcrvhyfxkcphveodet.supabase.co';
-const AS_SB_KEY = 'sb_publishable_EFtGJSivFdur04_bW_jWyQ_84mn90a_';
-const AS_HDR = {'Content-Type':'application/json','apikey':AS_SB_KEY,'Authorization':'Bearer '+AS_SB_KEY};
+// ═══ AS 수거 관리 (ERP 원장 연동) ═══
 const AS_DEFAULT_ERP_ORIGIN = 'https://second-erp-production.up.railway.app';
+const AS_ERP_TOKEN_MESSAGE = 'ERP 연결 설정이 필요합니다. 왼쪽 아래 설정에서 ERP 주소/토큰을 저장하거나 관리자에게 문의하세요.';
 let AS_DATA = [];
 let asActionId = null;
 const AS_REGIONS = ['부산','서울','인천','경기','경남','대구','울산','제주'];
@@ -2722,10 +2723,50 @@ function asBridgeUrl(query){
   return `${origin}/api/ams/legacy-rest/as_requests${query ? `?${query}` : ''}`;
 }
 
+function setAsBridgeBadge(ok, detail){
+  const slot = document.getElementById('asBridgeStatusSlot');
+  if(!slot) return;
+  let badge = document.getElementById('asErpLedgerBadge');
+  if(!badge){
+    badge = document.createElement('span');
+    badge.id = 'asErpLedgerBadge';
+    slot.prepend(badge);
+  }
+  badge.className = `erp-ledger-badge ${ok ? 'ok' : 'err'}`;
+  badge.textContent = ok ? 'ERP 원장 연결됨' : 'ERP 연결 설정 필요';
+  badge.title = detail || '';
+}
+
+function ensureAsBridge(){
+  const cfg = asBridgeConfig();
+  const ok = location.origin === cfg.origin || Boolean(cfg.token);
+  setAsBridgeBadge(ok, ok ? cfg.origin : AS_ERP_TOKEN_MESSAGE);
+  if(!ok) throw new Error(AS_ERP_TOKEN_MESSAGE);
+}
+
+async function asLedgerFetch(query, options={}){
+  ensureAsBridge();
+  const r = await fetch(asBridgeUrl(query), options);
+  const text = await r.text();
+  let data = null;
+  if(text){
+    try { data = JSON.parse(text); }
+    catch { data = {message: text}; }
+  }
+  if(!r.ok){
+    const message = r.status === 401 || r.status === 403
+      ? AS_ERP_TOKEN_MESSAGE
+      : (data?.message || `ERP 원장 요청 실패 (${r.status})`);
+    setAsBridgeBadge(false, message);
+    throw new Error(message);
+  }
+  setAsBridgeBadge(true, asBridgeConfig().origin);
+  return data;
+}
+
 async function asLoadDB(){
   try{
-    const r = await fetch(asBridgeUrl('order=created_at.desc&limit=2000'),{headers:asBridgeHeaders()});
-    const rows = await r.json();
+    const rows = await asLedgerFetch('order=created_at.desc&limit=2000',{headers:asBridgeHeaders()});
     if(!Array.isArray(rows)) throw new Error(JSON.stringify(rows));
     AS_DATA = rows.map(r=>({
       id:r.seq_id, _dbid:r.id,
@@ -2743,10 +2784,9 @@ async function asLoadDB(){
 
 async function asDbUpdate(seqId, fields){
   const query = `seq_id=eq.${encodeURIComponent(seqId)}`;
-  const r = await fetch(asBridgeUrl(query),{
+  await asLedgerFetch(query,{
     method:'PATCH', headers:asBridgeHeaders('return=minimal'), body:JSON.stringify(fields)
   });
-  if(!r.ok){ const t=await r.text(); throw new Error(t); }
 }
 
 function asUpdateBadge(){

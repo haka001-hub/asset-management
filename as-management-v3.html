@@ -40,6 +40,9 @@ body{background:var(--bg);color:var(--tx);font-family:'Pretendard','Apple SD Got
 .topbar-title{font-weight:700;font-size:16px}
 .topbar-sub{font-size:12px;color:var(--tx3);margin-left:4px}
 .topbar-right{display:flex;gap:8px;align-items:center;margin-left:auto}
+.erp-ledger-badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:6px 10px;font-size:11px;font-weight:700;border:1px solid var(--bd);white-space:nowrap}
+.erp-ledger-badge.ok{color:var(--gn);border-color:rgba(15,185,129,.35);background:rgba(15,185,129,.08)}
+.erp-ledger-badge.err{color:var(--rd);border-color:rgba(242,87,87,.4);background:rgba(242,87,87,.08)}
 
 .page{display:none;padding:22px;flex:1}
 .page.active{display:block}
@@ -1570,12 +1573,10 @@ function clearBulkSel(){
 }
 
 // ══════════════════════════════════════════
-// SUPABASE DB 연동
+// ERP 원장 연동
 // ══════════════════════════════════════════
-const SB_URL = 'https://fmbcrvhyfxkcphveodet.supabase.co';
-const SB_KEY = 'sb_publishable_EFtGJSivFdur04_bW_jWyQ_84mn90a_';
-const SB_HDR = {'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
 const AS_DEFAULT_ERP_ORIGIN = 'https://second-erp-production.up.railway.app';
+const AS_ERP_TOKEN_MESSAGE = 'ERP 연결 설정이 필요합니다. 자산관리 메인 화면 왼쪽 아래 설정에서 ERP 주소/토큰을 저장하거나 관리자에게 문의하세요.';
 
 function asBridgeConfig(){
   const savedOrigin = localStorage.getItem('ams-erp-origin') || '';
@@ -1602,10 +1603,50 @@ function asBridgeUrl(query){
   return `${origin}/api/ams/legacy-rest/as_requests${query ? `?${query}` : ''}`;
 }
 
+function setAsBridgeBadge(ok, detail){
+  const slot = document.querySelector('.topbar-right');
+  if(!slot) return;
+  let badge = document.getElementById('asErpLedgerBadge');
+  if(!badge){
+    badge = document.createElement('span');
+    badge.id = 'asErpLedgerBadge';
+    slot.prepend(badge);
+  }
+  badge.className = `erp-ledger-badge ${ok ? 'ok' : 'err'}`;
+  badge.textContent = ok ? 'ERP 원장 연결됨' : 'ERP 연결 설정 필요';
+  badge.title = detail || '';
+}
+
+function ensureAsBridge(){
+  const cfg = asBridgeConfig();
+  const ok = location.origin === cfg.origin || Boolean(cfg.token);
+  setAsBridgeBadge(ok, ok ? cfg.origin : AS_ERP_TOKEN_MESSAGE);
+  if(!ok) throw new Error(AS_ERP_TOKEN_MESSAGE);
+}
+
+async function asLedgerFetch(query, options={}){
+  ensureAsBridge();
+  const r = await fetch(asBridgeUrl(query), options);
+  const text = await r.text();
+  let data = null;
+  if(text){
+    try { data = JSON.parse(text); }
+    catch { data = {message: text}; }
+  }
+  if(!r.ok){
+    const message = r.status === 401 || r.status === 403
+      ? AS_ERP_TOKEN_MESSAGE
+      : (data?.message || `ERP 원장 요청 실패 (${r.status})`);
+    setAsBridgeBadge(false, message);
+    throw new Error(message);
+  }
+  setAsBridgeBadge(true, asBridgeConfig().origin);
+  return data;
+}
+
 async function dbLoad(){
   try{
-    const r = await fetch(asBridgeUrl('order=created_at.desc&limit=1000'),{headers:asBridgeHeaders()});
-    const rows = await r.json();
+    const rows = await asLedgerFetch('order=created_at.desc&limit=1000',{headers:asBridgeHeaders()});
     if(!Array.isArray(rows)) throw new Error(JSON.stringify(rows));
     AS_LIST = rows.map(r=>({
       id: r.seq_id, _dbid: r.id,
@@ -1641,20 +1682,17 @@ async function dbInsert(item){
     confirm_date: item.date, memo: item.memo, status: item.status,
     submitted_at: item.submittedAt
   };
-  const r = await fetch(asBridgeUrl('select=*'),{
+  const data = await asLedgerFetch('select=*',{
     method:'POST', headers:asBridgeHeaders('return=representation'), body:JSON.stringify(body)
   });
-  const data = await r.json();
-  if(!r.ok) throw new Error(JSON.stringify(data));
   return Array.isArray(data) ? data[0].id : data.id;
 }
 
 async function dbUpdate(seqId, fields){
   const query = `seq_id=eq.${encodeURIComponent(seqId)}`;
-  const r = await fetch(asBridgeUrl(query),{
+  await asLedgerFetch(query,{
     method:'PATCH', headers:asBridgeHeaders('return=minimal'), body:JSON.stringify(fields)
   });
-  if(!r.ok){ const t=await r.text(); throw new Error(t); }
 }
 
 // DB 연동 버전 submitAS 오버라이드
