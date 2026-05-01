@@ -1627,11 +1627,9 @@ const AMS_DEFAULT_ERP_ORIGIN = 'https://second-erp-production.up.railway.app';
 (() => {
   const url = new URL(location.href);
   const origin = url.searchParams.get('erpOrigin') || url.searchParams.get('amsErpOrigin');
-  const token = url.searchParams.get('erpToken') || url.searchParams.get('amsErpToken');
   if (origin) localStorage.setItem('ams-erp-origin', origin.replace(/\/+$/,''));
-  if (token) localStorage.setItem('ams-erp-token', token);
-  if (origin || token) {
-    ['erpOrigin','amsErpOrigin','erpToken','amsErpToken'].forEach(k => url.searchParams.delete(k));
+  if (origin) {
+    ['erpOrigin','amsErpOrigin'].forEach(k => url.searchParams.delete(k));
     history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
   }
 })();
