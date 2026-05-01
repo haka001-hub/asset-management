@@ -2692,13 +2692,42 @@ function downloadInvExcel(){
 const AS_SB_URL = 'https://fmbcrvhyfxkcphveodet.supabase.co';
 const AS_SB_KEY = 'sb_publishable_EFtGJSivFdur04_bW_jWyQ_84mn90a_';
 const AS_HDR = {'Content-Type':'application/json','apikey':AS_SB_KEY,'Authorization':'Bearer '+AS_SB_KEY};
+const AS_DEFAULT_ERP_ORIGIN = 'https://second-erp-production.up.railway.app';
 let AS_DATA = [];
 let asActionId = null;
 const AS_REGIONS = ['부산','서울','인천','경기','경남','대구','울산','제주'];
 
+function asBridgeConfig(){
+  const savedOrigin = localStorage.getItem('ams-erp-origin') || '';
+  const origin = (savedOrigin || AS_DEFAULT_ERP_ORIGIN).replace(/\/+$/,'');
+  const token = localStorage.getItem('ams-erp-token') || '';
+  return {
+    origin,
+    token,
+    useErp: Boolean(origin) && (location.origin === origin || Boolean(token))
+  };
+}
+
+function asBridgeHeaders(prefer){
+  const {token} = asBridgeConfig();
+  return {
+    'Content-Type':'application/json',
+    ...(token ? {'Authorization':'Bearer '+token, 'apikey':token} : {}),
+    ...(prefer ? {'Prefer':prefer} : {})
+  };
+}
+
+function asBridgeUrl(query){
+  const {origin} = asBridgeConfig();
+  return `${origin}/api/ams/legacy-rest/as_requests${query ? `?${query}` : ''}`;
+}
+
 async function asLoadDB(){
   try{
-    const r = await fetch(`${AS_SB_URL}/rest/v1/as_requests?order=created_at.desc&limit=2000`,{headers:AS_HDR});
+    const cfg = asBridgeConfig();
+    const r = cfg.useErp
+      ? await fetch(asBridgeUrl('order=created_at.desc&limit=2000'),{headers:asBridgeHeaders()})
+      : await fetch(`${AS_SB_URL}/rest/v1/as_requests?order=created_at.desc&limit=2000`,{headers:AS_HDR});
     const rows = await r.json();
     if(!Array.isArray(rows)) throw new Error(JSON.stringify(rows));
     AS_DATA = rows.map(r=>({
@@ -2716,9 +2745,15 @@ async function asLoadDB(){
 }
 
 async function asDbUpdate(seqId, fields){
-  const r = await fetch(`${AS_SB_URL}/rest/v1/as_requests?seq_id=eq.${encodeURIComponent(seqId)}`,{
-    method:'PATCH', headers:{...AS_HDR,'Prefer':'return=minimal'}, body:JSON.stringify(fields)
-  });
+  const cfg = asBridgeConfig();
+  const query = `seq_id=eq.${encodeURIComponent(seqId)}`;
+  const r = cfg.useErp
+    ? await fetch(asBridgeUrl(query),{
+      method:'PATCH', headers:asBridgeHeaders('return=minimal'), body:JSON.stringify(fields)
+    })
+    : await fetch(`${AS_SB_URL}/rest/v1/as_requests?${query}`,{
+      method:'PATCH', headers:{...AS_HDR,'Prefer':'return=minimal'}, body:JSON.stringify(fields)
+    });
   if(!r.ok){ const t=await r.text(); throw new Error(t); }
 }
 
