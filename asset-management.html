@@ -2724,10 +2724,7 @@ function asBridgeUrl(query){
 
 async function asLoadDB(){
   try{
-    const cfg = asBridgeConfig();
-    const r = cfg.useErp
-      ? await fetch(asBridgeUrl('order=created_at.desc&limit=2000'),{headers:asBridgeHeaders()})
-      : await fetch(`${AS_SB_URL}/rest/v1/as_requests?order=created_at.desc&limit=2000`,{headers:AS_HDR});
+    const r = await fetch(asBridgeUrl('order=created_at.desc&limit=2000'),{headers:asBridgeHeaders()});
     const rows = await r.json();
     if(!Array.isArray(rows)) throw new Error(JSON.stringify(rows));
     AS_DATA = rows.map(r=>({
@@ -2745,15 +2742,10 @@ async function asLoadDB(){
 }
 
 async function asDbUpdate(seqId, fields){
-  const cfg = asBridgeConfig();
   const query = `seq_id=eq.${encodeURIComponent(seqId)}`;
-  const r = cfg.useErp
-    ? await fetch(asBridgeUrl(query),{
-      method:'PATCH', headers:asBridgeHeaders('return=minimal'), body:JSON.stringify(fields)
-    })
-    : await fetch(`${AS_SB_URL}/rest/v1/as_requests?${query}`,{
-      method:'PATCH', headers:{...AS_HDR,'Prefer':'return=minimal'}, body:JSON.stringify(fields)
-    });
+  const r = await fetch(asBridgeUrl(query),{
+    method:'PATCH', headers:asBridgeHeaders('return=minimal'), body:JSON.stringify(fields)
+  });
   if(!r.ok){ const t=await r.text(); throw new Error(t); }
 }
 
