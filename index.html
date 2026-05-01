@@ -1623,10 +1623,22 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
 // ═══ SUPABASE CONFIG ═══
 const SUPA_URL = 'https://fmbcrvhyfxkcphveodet.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZtYmNydmh5ZnhrY3BodmVvZGV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNjg4OTgsImV4cCI6MjA4ODg0NDg5OH0.YweP1WaduzmvGPiakyy2okraIHN8FCpRz0-nEcNxiTg';
+const AMS_DEFAULT_ERP_ORIGIN = 'https://second-erp-production.up.railway.app';
+(() => {
+  const url = new URL(location.href);
+  const origin = url.searchParams.get('erpOrigin') || url.searchParams.get('amsErpOrigin');
+  const token = url.searchParams.get('erpToken') || url.searchParams.get('amsErpToken');
+  if (origin) localStorage.setItem('ams-erp-origin', origin.replace(/\/+$/,''));
+  if (token) localStorage.setItem('ams-erp-token', token);
+  if (origin || token) {
+    ['erpOrigin','amsErpOrigin','erpToken','amsErpToken'].forEach(k => url.searchParams.delete(k));
+    history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+  }
+})();
 const AMS_ERP_ORIGIN = (() => {
   const saved = localStorage.getItem('ams-erp-origin') || '';
   if (saved) return saved.replace(/\/+$/,'');
-  return location.hostname.includes('second-erp') ? location.origin : '';
+  return location.hostname.includes('second-erp') ? location.origin : AMS_DEFAULT_ERP_ORIGIN;
 })();
 const AMS_ERP_TOKEN = localStorage.getItem('ams-erp-token') || '';
 const AMS_USE_ERP = Boolean(AMS_ERP_ORIGIN) && (location.origin === AMS_ERP_ORIGIN || Boolean(AMS_ERP_TOKEN));
@@ -1679,6 +1691,52 @@ function createErpLegacyClient(origin, token) {
 }
 
 const db = AMS_USE_ERP ? createErpLegacyClient(AMS_ERP_ORIGIN, AMS_ERP_TOKEN) : supabase.createClient(SUPA_URL, SUPA_KEY);
+
+function configureAmsErpBridge(){
+  const origin = prompt('ERP 주소를 입력하세요.', AMS_ERP_ORIGIN || AMS_DEFAULT_ERP_ORIGIN);
+  if (origin === null) return;
+  const normalizedOrigin = origin.trim().replace(/\/+$/,'') || AMS_DEFAULT_ERP_ORIGIN;
+  const tokenGuide = AMS_ERP_TOKEN
+    ? 'ERP 브릿지 토큰을 변경하려면 새 토큰을 입력하세요. 비워두면 기존 토큰을 유지합니다.'
+    : 'ERP 브릿지 토큰을 입력하세요. 토큰은 이 브라우저 localStorage에만 저장됩니다.';
+  const token = prompt(tokenGuide, '');
+  if (token === null) return;
+  if (!AMS_ERP_TOKEN && !token.trim() && location.origin !== normalizedOrigin) {
+    alert('GitHub Pages에서 ERP를 쓰려면 브릿지 토큰이 필요합니다.');
+    return;
+  }
+  localStorage.setItem('ams-erp-origin', normalizedOrigin);
+  if (token.trim()) localStorage.setItem('ams-erp-token', token.trim());
+  location.reload();
+}
+
+function disableAmsErpBridge(){
+  if (!confirm('ERP 브릿지 설정을 지우고 Supabase 백업 모드로 전환할까요?')) return;
+  localStorage.removeItem('ams-erp-origin');
+  localStorage.removeItem('ams-erp-token');
+  location.reload();
+}
+
+function renderAmsDbModeBadge(){
+  const badge = document.createElement('div');
+  badge.id = 'ams-db-mode-badge';
+  badge.style.cssText = 'position:fixed;left:14px;bottom:14px;z-index:9998;background:rgba(15,23,42,.94);border:1px solid rgba(148,163,184,.35);box-shadow:0 10px 30px rgba(0,0,0,.35);border-radius:10px;padding:10px 12px;color:#e5e7eb;font:12px/1.35 system-ui,-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;display:flex;gap:10px;align-items:center;max-width:360px';
+  const mode = AMS_USE_ERP ? 'ERP 원장' : 'Supabase 백업';
+  const color = AMS_USE_ERP ? '#22c55e' : '#f59e0b';
+  badge.innerHTML = `
+    <span style="display:inline-block;width:8px;height:8px;border-radius:999px;background:${color}"></span>
+    <span><b>${mode}</b><br><span style="color:#94a3b8">${AMS_USE_ERP ? AMS_ERP_ORIGIN : 'ERP 토큰 미설정'}</span></span>
+    <button type="button" onclick="configureAmsErpBridge()" style="margin-left:auto;border:1px solid rgba(148,163,184,.35);background:rgba(255,255,255,.06);color:#e5e7eb;border-radius:6px;padding:5px 8px;cursor:pointer">설정</button>
+    ${AMS_USE_ERP ? '<button type="button" onclick="disableAmsErpBridge()" style="border:1px solid rgba(248,113,113,.35);background:rgba(248,113,113,.08);color:#fecaca;border-radius:6px;padding:5px 8px;cursor:pointer">해제</button>' : ''}
+  `;
+  document.body.appendChild(badge);
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', renderAmsDbModeBadge);
+} else {
+  renderAmsDbModeBadge();
+}
 
 function showLoading(msg='데이터 로딩 중...') {
   let el = document.getElementById('db-loading');
