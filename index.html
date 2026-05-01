@@ -1690,22 +1690,46 @@ function createErpLegacyClient(origin, token) {
 
 const db = AMS_USE_ERP ? createErpLegacyClient(AMS_ERP_ORIGIN, AMS_ERP_TOKEN) : supabase.createClient(SUPA_URL, SUPA_KEY);
 
+function escapeAmsAttr(value){
+  return String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+}
+
 function configureAmsErpBridge(){
-  const origin = prompt('ERP 주소를 입력하세요.', AMS_ERP_ORIGIN || AMS_DEFAULT_ERP_ORIGIN);
-  if (origin === null) return;
-  const normalizedOrigin = origin.trim().replace(/\/+$/,'') || AMS_DEFAULT_ERP_ORIGIN;
-  const tokenGuide = AMS_ERP_TOKEN
-    ? 'ERP 브릿지 토큰을 변경하려면 새 토큰을 입력하세요. 비워두면 기존 토큰을 유지합니다.'
-    : 'ERP 브릿지 토큰을 입력하세요. 토큰은 이 브라우저 localStorage에만 저장됩니다.';
-  const token = prompt(tokenGuide, '');
-  if (token === null) return;
-  if (!AMS_ERP_TOKEN && !token.trim() && location.origin !== normalizedOrigin) {
-    alert('GitHub Pages에서 ERP를 쓰려면 브릿지 토큰이 필요합니다.');
-    return;
-  }
-  localStorage.setItem('ams-erp-origin', normalizedOrigin);
-  if (token.trim()) localStorage.setItem('ams-erp-token', token.trim());
-  location.reload();
+  const existing = document.getElementById('ams-erp-bridge-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'ams-erp-bridge-modal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(2,6,23,.72);display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML = `
+    <form id="ams-erp-bridge-form" style="width:min(460px,100%);background:#0f172a;border:1px solid rgba(148,163,184,.35);border-radius:12px;box-shadow:0 24px 70px rgba(0,0,0,.45);padding:18px;color:#e5e7eb;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+      <div style="font-size:15px;font-weight:800;margin-bottom:4px">ERP 원장 연결</div>
+      <div style="font-size:12px;color:#94a3b8;margin-bottom:14px">토큰은 이 브라우저 localStorage에만 저장됩니다. GitHub 코드에는 저장되지 않습니다.</div>
+      <label style="display:block;font-size:12px;color:#cbd5e1;margin-bottom:6px">ERP 주소</label>
+      <input id="ams-erp-origin-input" autocomplete="off" value="${escapeAmsAttr(AMS_ERP_ORIGIN || AMS_DEFAULT_ERP_ORIGIN)}" style="width:100%;height:36px;border-radius:8px;border:1px solid rgba(148,163,184,.35);background:#111827;color:#e5e7eb;padding:0 10px;margin-bottom:12px">
+      <label style="display:block;font-size:12px;color:#cbd5e1;margin-bottom:6px">브리지 토큰</label>
+      <input id="ams-erp-token-input" type="password" autocomplete="off" placeholder="${AMS_ERP_TOKEN ? '변경할 때만 새 토큰 입력' : 'ERP 브리지 토큰 입력'}" style="width:100%;height:36px;border-radius:8px;border:1px solid rgba(148,163,184,.35);background:#111827;color:#e5e7eb;padding:0 10px;margin-bottom:14px">
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button type="button" id="ams-erp-bridge-cancel" style="border:1px solid rgba(148,163,184,.35);background:transparent;color:#e5e7eb;border-radius:8px;padding:8px 12px;cursor:pointer">취소</button>
+        <button type="submit" style="border:1px solid rgba(34,197,94,.45);background:rgba(34,197,94,.16);color:#bbf7d0;border-radius:8px;padding:8px 12px;cursor:pointer;font-weight:700">ERP 원장으로 사용</button>
+      </div>
+    </form>
+  `;
+  document.body.appendChild(modal);
+  document.getElementById('ams-erp-bridge-cancel').onclick = () => modal.remove();
+  document.getElementById('ams-erp-origin-input').focus();
+  document.getElementById('ams-erp-bridge-form').onsubmit = event => {
+    event.preventDefault();
+    const origin = document.getElementById('ams-erp-origin-input').value.trim().replace(/\/+$/,'') || AMS_DEFAULT_ERP_ORIGIN;
+    const token = document.getElementById('ams-erp-token-input').value.trim();
+    if (!AMS_ERP_TOKEN && !token && location.origin !== origin) {
+      alert('GitHub Pages에서 ERP를 쓰려면 브릿지 토큰이 필요합니다.');
+      return;
+    }
+    localStorage.setItem('ams-erp-origin', origin);
+    if (token) localStorage.setItem('ams-erp-token', token);
+    location.reload();
+  };
 }
 
 function disableAmsErpBridge(){
