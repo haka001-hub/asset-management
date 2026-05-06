@@ -4755,6 +4755,15 @@ function renderBagUpload() { /* 정적 HTML, 재렌더 불필요 */ }
 
 // 돌핀포스 매장 판단 (부산/대구/울산/경남/경북 지역 키워드)
 function isDolphinStore(storeName, storeCode) {
+  const normalizedName = (storeName || '').replace(/\s+/g, '').trim();
+  const explicitDolphinStores = [
+    '광주첨단직영점',
+    '광주농성역직영점',
+    '대전용문역직영점',
+    '대전중앙로역직영점'
+  ];
+  if (explicitDolphinStores.some(name => name.replace(/\s+/g, '').trim() === normalizedName)) return true;
+
   const storeInfo = ADDR.find(a => a.name === storeName || (storeCode && a.code === storeCode));
   const src = (storeInfo?.address || '') + ' ' + (storeName || '');
   const kw = ['부산','대구','울산','경남','경북','김해','양산','창원','거제','마산','진주','통영','사천','밀양','구미','포항','경주','안동'];
