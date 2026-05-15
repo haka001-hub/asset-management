@@ -357,6 +357,11 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
         <input class="fi" type="date" id="fDate">
       </div>
     </div>
+    <!-- 최근 매장 빠른 선택 -->
+    <div id="recentStoresBar" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--bd)">
+      <span style="font-size:11px;color:var(--tx3);margin-right:6px">🕐 최근</span>
+      <span id="recentStoresBtns"></span>
+    </div>
   </div>
 
   <!-- 하단: 품목 행 테이블 -->
@@ -367,6 +372,23 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
         <button class="btn btn-gst btn-sm" onclick="addItemRow()">+ 행 추가</button>
         <button class="btn btn-gst btn-sm" onclick="showPage(&#39;team-hist&#39;,document.querySelector(&#39;.ni[onclick*=team-hist]&#39;))">신청 이력 →</button>
       </div>
+    </div>
+
+    <!-- 공통 구분/유무상 설정 바 -->
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--sf3);border-radius:var(--r);padding:8px 12px;margin-bottom:10px">
+      <span style="font-size:11px;font-weight:700;color:var(--tx2);white-space:nowrap">⚡ 공통 설정</span>
+      <select class="fsel" id="commonDiv" style="font-size:12px;padding:5px 8px;width:auto">
+        <option value="">구분 선택...</option>
+        <option>즉시처리</option><option>예외조치</option><option>보상판매에어릭스</option>
+        <option>보상판매R</option><option>보상판매H</option>
+        <option>본사별도수거 박시영</option><option>본사별도수거 이지영</option>
+      </select>
+      <select class="fsel" id="commonCharge" style="font-size:12px;padding:5px 8px;width:auto">
+        <option value="">유/무상...</option>
+        <option>무상</option><option>유상</option><option>수거</option>
+      </select>
+      <button class="btn btn-gst btn-sm" onclick="applyCommonToAll()">전체 행에 적용</button>
+      <span style="font-size:11px;color:var(--tx3)">· 행 추가 시 자동 적용됨</span>
     </div>
 
     <!-- 품목 테이블 -->
@@ -874,8 +896,25 @@ function selectStore(name){
   document.getElementById('fRoute').value=s.route;
   document.getElementById('fCode').value=s.code;
   const nxt=(regionCounters[s.region]||0)+1;
-  document.getElementById('fId').value=`${s.region}-${String(nxt).padStart(5,'0')} (제출 시 확정)`;
+  const fId=document.getElementById('fId');
+  if(fId) fId.value=`${s.region}-${String(nxt).padStart(5,'0')} (제출 시 확정)`;
   document.getElementById('acStoreList').style.display='none';
+  // 최근 매장 저장
+  let recent=JSON.parse(localStorage.getItem('as-recent-stores')||'[]');
+  recent=recent.filter(n=>n!==name);
+  recent.unshift(name);
+  if(recent.length>5) recent=recent.slice(0,5);
+  localStorage.setItem('as-recent-stores',JSON.stringify(recent));
+  renderRecentStores();
+}
+
+function renderRecentStores(){
+  const recent=JSON.parse(localStorage.getItem('as-recent-stores')||'[]');
+  const bar=document.getElementById('recentStoresBar');
+  const btns=document.getElementById('recentStoresBtns');
+  if(!recent.length){bar.style.display='none';return;}
+  bar.style.display='block';
+  btns.innerHTML=recent.map(name=>`<button onclick="selectStore('${name.replace(/'/g,"\\'")}')" style="background:var(--sf3);border:1px solid var(--bd);border-radius:5px;color:var(--tx2);font-size:12px;padding:3px 10px;cursor:pointer;margin-right:4px;margin-bottom:2px">${name.replace('직영점','')}</button>`).join('');
 }
 
 function acProduct(q){
@@ -976,16 +1015,42 @@ function addItemRow(prefill={}){
         style="font-size:12px;padding:6px 9px" value="${prefill.memo||''}"
         onkeydown="cellKey(event,'im-${id}')">
     </td>
-    <td style="text-align:center">
-      <button onclick="removeItemRow(${id})" style="background:transparent;border:none;color:var(--tx3);cursor:pointer;font-size:16px;padding:2px 6px" title="행 삭제">✕</button>
+    <td style="text-align:center;white-space:nowrap">
+      <button onclick="duplicateItemRow(${id})" style="background:transparent;border:none;color:var(--tx2);cursor:pointer;font-size:13px;padding:2px 4px" title="행 복제">⎘</button>
+      <button onclick="removeItemRow(${id})" style="background:transparent;border:none;color:var(--tx3);cursor:pointer;font-size:16px;padding:2px 4px" title="행 삭제">✕</button>
     </td>`;
   tbody.appendChild(tr);
+  // 공통 설정 자동 적용
+  const commonDiv = document.getElementById('commonDiv')?.value;
+  const commonCharge = document.getElementById('commonCharge')?.value;
+  if(commonDiv) document.getElementById(`id-${id}`).value = commonDiv;
+  if(commonCharge) document.getElementById(`ic-${id}`).value = commonCharge;
   return id;
 }
 
 function removeItemRow(id){
   const tr = document.getElementById(`irow-${id}`);
   if(tr) tr.remove();
+}
+
+function duplicateItemRow(id){
+  const div = document.getElementById(`id-${id}`)?.value || '';
+  const charge = document.getElementById(`ic-${id}`)?.value || '';
+  const qty = document.getElementById(`iq-${id}`)?.value || '';
+  const newId = addItemRow({div, charge, qty});
+  setTimeout(()=>document.getElementById(`ip-${newId}`)?.focus(), 30);
+}
+
+function applyCommonToAll(){
+  const div = document.getElementById('commonDiv').value;
+  const charge = document.getElementById('commonCharge').value;
+  document.querySelectorAll('#itemRows tr').forEach(tr=>{
+    const id = tr.dataset.rowid;
+    if(!id) return;
+    if(div) document.getElementById(`id-${id}`).value = div;
+    if(charge) document.getElementById(`ic-${id}`).value = charge;
+  });
+  notify('전체 행에 적용됐습니다', 'ok');
 }
 
 // 행별 제품 자동완성
@@ -1942,6 +2007,7 @@ async function applyBulkDate(){
 // INIT
 // ══════════════════════════════════════════
 document.getElementById('fDate').value=today();
+renderRecentStores();
 addItemRow();
 dbLoad(); // DB에서 데이터 로드
 </script>
