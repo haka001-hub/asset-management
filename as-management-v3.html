@@ -369,7 +369,8 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
     <div class="card-hd">
       <div class="card-title">📦 품목 목록</div>
       <div style="display:flex;gap:8px">
-        <button class="btn btn-gst btn-sm" onclick="addItemRow()">+ 행 추가</button>
+        <button class="btn btn-pri btn-sm" onclick="openProductPicker()">📋 품목 선택</button>
+        <button class="btn btn-gst btn-sm" onclick="addItemRow()">+ 직접 입력</button>
         <button class="btn btn-gst btn-sm" onclick="showPage(&#39;team-hist&#39;,document.querySelector(&#39;.ni[onclick*=team-hist]&#39;))">신청 이력 →</button>
       </div>
     </div>
@@ -537,6 +538,34 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
 
 </div><!-- /main -->
 </div><!-- /shell -->
+
+<!-- ══ MODAL: 품목 선택 ══ -->
+<div class="mo" id="moProductPicker">
+  <div class="md" style="max-width:720px;width:100%">
+    <div class="md-hd">
+      <div><div class="md-ti">📋 품목 선택</div><div class="md-su">수량 입력 후 일괄 추가</div></div>
+      <button class="md-cl" onclick="closeMo('moProductPicker')">✕</button>
+    </div>
+    <div class="md-bd" style="padding:14px 18px">
+      <!-- 검색 + 카테고리 -->
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+        <div class="sw" style="flex:1;min-width:200px"><span style="color:var(--tx3)">⌕</span><input id="pickerSearch" placeholder="제품명 또는 코드 검색..." oninput="renderPicker()" style="width:100%"></div>
+        <button class="btn btn-gst btn-sm" onclick="pickerSelectAll()">전체 선택</button>
+        <button class="btn btn-gst btn-sm" onclick="pickerClearAll()">전체 해제</button>
+      </div>
+      <!-- 카테고리 탭 -->
+      <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px" id="pickerCatTabs"></div>
+      <!-- 선택 수 표시 -->
+      <div style="font-size:12px;color:var(--ac2);font-weight:600;margin-bottom:8px" id="pickerSelInfo">선택된 품목: 0건</div>
+      <!-- 품목 목록 -->
+      <div id="pickerList" style="max-height:360px;overflow-y:auto;border:1px solid var(--bd);border-radius:var(--r)"></div>
+    </div>
+    <div class="md-ft">
+      <button class="btn btn-gst" onclick="closeMo('moProductPicker')">취소</button>
+      <button class="btn btn-pri" onclick="applyProductPicker()">📋 선택 항목 추가</button>
+    </div>
+  </div>
+</div>
 
 <!-- ══ MODAL: 확인처리 (본사) ══ -->
 <div class="mo" id="moConfirm">
@@ -987,7 +1016,7 @@ function addItemRow(prefill={}){
     <td>
       <div class="acw">
         <input class="fi item-cell" id="ip-${id}" placeholder="제품명..." autocomplete="off"
-          style="font-size:12px;padding:6px 9px" value="${prefill.product||''}"
+          style="font-size:12px;padding:6px 9px" value="${(prefill.product||'').replace(/"/g,'&quot;')}"
           oninput="acProductRow(this.value,${id})" onfocus="acProductRow(this.value,${id})"
           onkeydown="cellKey(event,'ip-${id}')">
         <div class="acl" id="apl-${id}"></div>
@@ -1051,6 +1080,134 @@ function applyCommonToAll(){
     if(charge) document.getElementById(`ic-${id}`).value = charge;
   });
   notify('전체 행에 적용됐습니다', 'ok');
+}
+
+// ══════════════════════════════════════════
+// 품목 선택 모달
+// ══════════════════════════════════════════
+const PICKER_CATS = [
+  {id:'all',   label:'전체'},
+  {id:'HNB',   label:'HAKA 본체'},
+  {id:'HAKAB', label:'HAKA B'},
+  {id:'SIG-0', label:'시그니처 배터리'},
+  {id:'SIG-4', label:'팟 (1.9%)'},
+  {id:'SIG-5', label:'MAX'},
+  {id:'ETC',   label:'기타/액세서리'},
+];
+let pickerCat = 'all';
+// {code, qty} 맵
+const pickerSel = {};
+
+function getProductCat(code){
+  if(code.startsWith('HNB')) return 'HNB';
+  if(code.startsWith('HAKAB')) return 'HAKAB';
+  if(code.startsWith('SIG-0')) return 'SIG-0';
+  if(code.startsWith('SIG-4')) return 'SIG-4';
+  if(code.startsWith('SIG-5')||code.startsWith('SIG-6')) return 'SIG-5';
+  return 'ETC';
+}
+
+function openProductPicker(){
+  pickerCat='all';
+  // 카테고리 탭 렌더링
+  const tabs=document.getElementById('pickerCatTabs');
+  tabs.innerHTML=PICKER_CATS.map(c=>`<button class="chip${c.id===pickerCat?' on':''}" onclick="setPickerCat('${c.id}',this)">${c.label}</button>`).join('');
+  document.getElementById('pickerSearch').value='';
+  renderPicker();
+  openMo('moProductPicker');
+}
+
+function setPickerCat(cat, btn){
+  pickerCat=cat;
+  document.querySelectorAll('#pickerCatTabs .chip').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  renderPicker();
+}
+
+function renderPicker(){
+  const q=(document.getElementById('pickerSearch').value||'').trim().toLowerCase();
+  let list=PRODUCTS;
+  if(pickerCat!=='all') list=list.filter(p=>getProductCat(p.code)===pickerCat);
+  if(q) list=list.filter(p=>p.name.toLowerCase().includes(q)||p.code.toLowerCase().includes(q));
+
+  const container=document.getElementById('pickerList');
+  if(!list.length){
+    container.innerHTML=`<div class="empty" style="padding:24px">검색 결과 없음</div>`;
+  } else {
+    container.innerHTML=list.map(p=>{
+      const checked=pickerSel[p.code]!==undefined;
+      const qty=pickerSel[p.code]||1;
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid rgba(45,54,85,.4);${checked?'background:rgba(79,142,247,.08)':''}">
+        <input type="checkbox" ${checked?'checked':''} onchange="pickerToggle('${p.code.replace(/'/g,"\\'")}')" style="width:16px;height:16px;cursor:pointer;flex-shrink:0">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:${checked?'600':'400'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.name}">${p.name}</div>
+          <div style="font-size:11px;color:var(--tx3)">${p.code}</div>
+        </div>
+        <input type="number" min="1" value="${qty}" style="width:60px;padding:4px 7px;background:var(--sf2);border:1px solid var(--bd);border-radius:5px;color:var(--tx);font-size:13px;text-align:center" onchange="pickerSetQty('${p.code.replace(/'/g,"\\'")}',this.value)" onclick="if(!pickerSel['${p.code.replace(/'/g,"\\'")}'])pickerToggle('${p.code.replace(/'/g,"\\'")}')">
+      </div>`;
+    }).join('');
+  }
+  updatePickerSelInfo();
+}
+
+function pickerToggle(code){
+  if(pickerSel[code]!==undefined) delete pickerSel[code];
+  else pickerSel[code]=1;
+  renderPicker();
+}
+
+function pickerSetQty(code, val){
+  const n=Math.max(1,parseInt(val)||1);
+  if(pickerSel[code]!==undefined) pickerSel[code]=n;
+  else { pickerSel[code]=n; }
+  updatePickerSelInfo();
+}
+
+function pickerSelectAll(){
+  const q=(document.getElementById('pickerSearch').value||'').trim().toLowerCase();
+  let list=PRODUCTS;
+  if(pickerCat!=='all') list=list.filter(p=>getProductCat(p.code)===pickerCat);
+  if(q) list=list.filter(p=>p.name.toLowerCase().includes(q)||p.code.toLowerCase().includes(q));
+  list.forEach(p=>{ if(pickerSel[p.code]===undefined) pickerSel[p.code]=1; });
+  renderPicker();
+}
+
+function pickerClearAll(){
+  const q=(document.getElementById('pickerSearch').value||'').trim().toLowerCase();
+  let list=PRODUCTS;
+  if(pickerCat!=='all') list=list.filter(p=>getProductCat(p.code)===pickerCat);
+  if(q) list=list.filter(p=>p.name.toLowerCase().includes(q)||p.code.toLowerCase().includes(q));
+  list.forEach(p=>delete pickerSel[p.code]);
+  renderPicker();
+}
+
+function updatePickerSelInfo(){
+  const cnt=Object.keys(pickerSel).length;
+  document.getElementById('pickerSelInfo').textContent=`선택된 품목: ${cnt}건`;
+}
+
+function applyProductPicker(){
+  const selected=Object.entries(pickerSel);
+  if(!selected.length){notify('선택된 품목이 없습니다','warn');return}
+  // 기존 빈 행 제거 (제품명 비어있는 행)
+  document.querySelectorAll('#itemRows tr').forEach(tr=>{
+    const id=tr.dataset.rowid;
+    if(!id) return;
+    const nm=document.getElementById(`ip-${id}`)?.value.trim();
+    if(!nm) tr.remove();
+  });
+  // 선택 품목을 행으로 추가
+  const div=document.getElementById('commonDiv').value;
+  const charge=document.getElementById('commonCharge').value;
+  selected.forEach(([code,qty])=>{
+    const p=PRODUCTS.find(x=>x.code===code);
+    if(!p) return;
+    const id=addItemRow({product:p.name, qty, div, charge});
+  });
+  // 선택 초기화
+  Object.keys(pickerSel).forEach(k=>delete pickerSel[k]);
+  closeMo('moProductPicker');
+  notify(`${selected.length}개 품목이 추가됐습니다`,'ok');
 }
 
 // 행별 제품 자동완성
