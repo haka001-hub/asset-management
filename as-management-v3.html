@@ -1103,6 +1103,12 @@ function applyCommonToAll(){
     if(div) document.getElementById(`id-${id}`).value=div;
     if(charge) document.getElementById(`ic-${id}`).value=charge;
   });
+  // 체크 해제
+  document.querySelectorAll('.item-row-chk').forEach(c=>c.checked=false);
+  const allChk=document.getElementById('itemChkAll');
+  if(allChk){allChk.checked=false;allChk.indeterminate=false;}
+  const hint=document.getElementById('commonApplyHint');
+  if(hint) hint.textContent='· 미선택 시 전체 적용 · 행 추가 시 자동 적용됨';
   notify(`${targets.length}개 행에 적용됐습니다`,'ok');
 }
 
