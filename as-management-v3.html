@@ -444,19 +444,61 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
 <!-- ══════════ 본사 ══════════ -->
 <div class="page" id="page-hq">
 
-  <!-- 일괄 수거예상일 적용 바 -->
+  <!-- 코스 필터 토글 -->
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+    <span style="font-size:12px;font-weight:700;color:var(--tx2);white-space:nowrap">🚛 코스</span>
+    <button class="chip on" id="courseBtn-all" onclick="setHqCourse('all',this)">전체</button>
+    <button class="chip" id="courseBtn-A" onclick="setHqCourse('A',this)">A코스</button>
+    <button class="chip" id="courseBtn-B" onclick="setHqCourse('B',this)">B코스</button>
+    <button class="chip" id="courseBtn-C" onclick="setHqCourse('C',this)">C코스</button>
+    <button class="chip" id="courseBtn-D" onclick="setHqCourse('D',this)">D코스</button>
+    <button class="chip" id="courseBtn-E" onclick="setHqCourse('E',this)">E코스</button>
+    <span id="courseSummary" style="margin-left:8px;font-size:12px;color:var(--tx3)"></span>
+  </div>
+
+  <!-- 코스별 일괄 처리 패널 -->
+  <div id="courseActionPanel" style="display:none;background:var(--sf2);border:1px solid var(--bd2);border-radius:var(--r2);padding:14px 16px;margin-bottom:14px">
+    <div style="font-size:12px;font-weight:700;color:var(--tx2);margin-bottom:10px" id="coursePanelTitle"></div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap">
+      <!-- 확인대기 → 최종확인 -->
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:rgba(79,142,247,.08);border:1px solid rgba(79,142,247,.25);border-radius:var(--r);padding:10px 14px">
+        <div>
+          <div style="font-size:11px;color:var(--tx2);margin-bottom:2px">확인대기</div>
+          <div style="font-size:20px;font-weight:800;color:var(--ac2)" id="coursePendCnt">0</div>
+          <div style="font-size:10px;color:var(--tx3)">건</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-left:8px">
+          <label style="font-size:11px;color:var(--tx2)">수거 예상일자</label>
+          <input type="date" class="fi" id="courseDateInput" style="width:155px;padding:6px 10px">
+          <button class="btn btn-pri btn-sm" onclick="applyCourseConfirm()">📋 코스 일괄 확인처리</button>
+        </div>
+      </div>
+      <!-- 최종확인 → 수거처리 -->
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:rgba(155,114,240,.08);border:1px solid rgba(155,114,240,.25);border-radius:var(--r);padding:10px 14px">
+        <div>
+          <div style="font-size:11px;color:var(--tx2);margin-bottom:2px">최종확인</div>
+          <div style="font-size:20px;font-weight:800;color:var(--pu2)" id="courseConfCnt">0</div>
+          <div style="font-size:10px;color:var(--tx3)">건</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-left:8px">
+          <label style="font-size:11px;color:var(--tx2)">수거일자</label>
+          <input type="date" class="fi" id="coursePickupDateInput" style="width:155px;padding:6px 10px">
+          <button class="btn btn-pu btn-sm" onclick="applyCoursePickup()">🚚 코스 일괄 수거처리</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 체크박스 일괄 처리 바 -->
   <div id="bulkDateBar" style="display:none;background:rgba(79,142,247,.1);border:1px solid rgba(79,142,247,.3);border-radius:var(--r2);padding:12px 16px;margin-bottom:14px;align-items:center;gap:12px;flex-wrap:wrap">
     <span style="font-size:13px;font-weight:600;color:var(--ac2)">✅ <span id="bulkSelCnt">0</span>건 선택됨</span>
     <div style="display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap">
-      <!-- 확인대기 → 최종확인 -->
       <div id="bulkConfirmSection" style="display:flex;align-items:center;gap:8px">
         <label style="font-size:12px;color:var(--tx2)">수거 예상일자</label>
         <input type="date" class="fi" id="bulkDateInput" style="width:160px;padding:6px 10px">
         <button class="btn btn-pri btn-sm" onclick="applyBulkDate()">📋 일괄 확인</button>
       </div>
-      <!-- 구분선 -->
       <div id="bulkDivider" style="width:1px;height:24px;background:var(--bd)"></div>
-      <!-- 최종확인 → 수거완료 -->
       <div id="bulkPickupSection" style="display:flex;align-items:center;gap:8px">
         <label style="font-size:12px;color:var(--tx2)">수거일자</label>
         <input type="date" class="fi" id="bulkPickupDateInput" style="width:160px;padding:6px 10px">
@@ -1174,21 +1216,66 @@ function buildRegionTabs(){
 // ══════════════════════════════════════════
 const REGIONS_ORDER=['부산','서울','인천','경기','경남','대구','울산','제주'];
 
+let hqCourseFilter = 'all';
+
+function getCourse(route){ return (route||'').charAt(0).toUpperCase(); }
+
+function setHqCourse(course, btn){
+  hqCourseFilter = course;
+  document.querySelectorAll('[id^="courseBtn-"]').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  renderHQ();
+}
+
 function renderHQ(){
   const container=document.getElementById('hqRegionSections');
-  const allRegions=[...new Set(AS_LIST.map(a=>a.region))];
+
+  // 코스 필터 적용
+  const filtered = hqCourseFilter==='all'
+    ? AS_LIST
+    : AS_LIST.filter(a=>getCourse(a.route)===hqCourseFilter);
+
+  // 코스 패널 업데이트
+  const panel=document.getElementById('courseActionPanel');
+  const panelTitle=document.getElementById('coursePanelTitle');
+  const pendCnt=document.getElementById('coursePendCnt');
+  const confCnt=document.getElementById('courseConfCnt');
+  const summary=document.getElementById('courseSummary');
+
+  // 각 코스별 pending/confirmed 수 표시
+  ['A','B','C','D','E'].forEach(c=>{
+    const btn=document.getElementById(`courseBtn-${c}`);
+    if(!btn) return;
+    const pend=AS_LIST.filter(a=>getCourse(a.route)===c&&a.status==='pending').length;
+    const conf=AS_LIST.filter(a=>getCourse(a.route)===c&&a.status==='confirmed').length;
+    btn.textContent=`${c}코스${pend?` 대기${pend}`:''}${conf?` 확인${conf}`:''}`;
+  });
+
+  if(hqCourseFilter!=='all'){
+    const pend=filtered.filter(a=>a.status==='pending').length;
+    const conf=filtered.filter(a=>a.status==='confirmed').length;
+    panel.style.display='block';
+    panelTitle.textContent=`${hqCourseFilter}코스 처리 패널`;
+    pendCnt.textContent=pend;
+    confCnt.textContent=conf;
+    summary.textContent=`확인대기 ${pend}건 · 최종확인 ${conf}건 · 총 ${filtered.length}건`;
+  } else {
+    panel.style.display='none';
+    summary.textContent=`전체 ${AS_LIST.length}건`;
+  }
+
+  const allRegions=[...new Set(filtered.map(a=>a.region))];
   const ordered=REGIONS_ORDER.filter(r=>allRegions.includes(r)).concat(allRegions.filter(r=>!REGIONS_ORDER.includes(r)));
 
   if(!ordered.length){
-    container.innerHTML=`<div class="card"><div class="empty">📭 신청 내역이 없습니다</div></div>`;
+    container.innerHTML=`<div class="card"><div class="empty">📭 ${hqCourseFilter==='all'?'신청 내역이 없습니다':`${hqCourseFilter}코스 신청 내역이 없습니다`}</div></div>`;
     return;
   }
 
   container.innerHTML=ordered.map(region=>{
-    const items=AS_LIST.filter(a=>a.region===region);
+    const items=filtered.filter(a=>a.region===region);
     const pend=items.filter(a=>a.status==='pending');
     const conf=items.filter(a=>a.status==='confirmed');
-    const pick=items.filter(a=>a.status==='pickup');
     const done=items.filter(a=>a.status==='done');
     return `
     <div class="card" style="margin-bottom:14px">
@@ -1206,12 +1293,57 @@ function renderHQ(){
       </div>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th style="width:36px"><input type="checkbox" id="hqChkAll" onchange="hqCheckAll(this)"></th><th>식별번호</th><th>매장명</th><th>지역</th><th>배송코스</th><th>구분</th><th>유/무상</th><th>제품명</th><th>수량</th><th>확인일자</th><th>수거예상일</th><th>수거완료일</th><th>상태</th><th>액션</th></tr></thead>
+          <thead><tr><th style="width:36px"><input type="checkbox" class="hq-chk-all-region" onchange="hqCheckRegion(this,'${region}')"></th><th>식별번호</th><th>매장명</th><th>지역</th><th>배송코스</th><th>구분</th><th>유/무상</th><th>제품명</th><th>수량</th><th>확인일자</th><th>수거예상일</th><th>수거완료일</th><th>상태</th><th>액션</th></tr></thead>
           <tbody>${renderHQRows(items)}</tbody>
         </table>
       </div>
     </div>`;
   }).join('');
+}
+
+function hqCheckRegion(cb, region){
+  document.querySelectorAll(`.hq-chk`).forEach(c=>{
+    const a=AS_LIST.find(x=>x.id===c.value);
+    if(a&&a.region===region&&!c.disabled) c.checked=cb.checked;
+  });
+  onHQCheck();
+}
+
+async function applyCourseConfirm(){
+  const d=document.getElementById('courseDateInput').value;
+  if(!d){notify('수거 예상일자를 입력해주세요','err');return}
+  const targets=AS_LIST.filter(a=>getCourse(a.route)===hqCourseFilter&&a.status==='pending');
+  if(!targets.length){notify('확인대기 건이 없습니다','warn');return}
+  if(!confirm(`${hqCourseFilter}코스 확인대기 ${targets.length}건을\n수거예상일자 ${d}로 일괄 확인처리하시겠습니까?`))return;
+  notify('처리 중...','ok');
+  const now=new Date().toLocaleString('ko-KR');
+  let cnt=0;
+  for(const a of targets){
+    try{
+      await dbUpdate(a.id,{status:'confirmed',confirmed_at:now,pick_exp_date:d});
+      a.status='confirmed'; a.confirmedAt=now; a.pickExpDate=d; cnt++;
+    } catch(e){ console.error(a.id,e); }
+  }
+  notify(`${hqCourseFilter}코스 ${cnt}건 확인처리 완료 (${d})`,'ok');
+  renderHQ(); updateHQBadge();
+}
+
+async function applyCoursePickup(){
+  const d=document.getElementById('coursePickupDateInput').value;
+  if(!d){notify('수거일자를 입력해주세요','err');return}
+  const targets=AS_LIST.filter(a=>getCourse(a.route)===hqCourseFilter&&a.status==='confirmed');
+  if(!targets.length){notify('최종확인 상태인 건이 없습니다','warn');return}
+  if(!confirm(`${hqCourseFilter}코스 최종확인 ${targets.length}건을\n수거일자 ${d}로 일괄 수거처리하시겠습니까?`))return;
+  notify('처리 중...','ok');
+  let cnt=0;
+  for(const a of targets){
+    try{
+      await dbUpdate(a.id,{status:'done',pickup_date:d});
+      a.status='done'; a.pickupDate=d; cnt++;
+    } catch(e){ console.error(a.id,e); }
+  }
+  notify(`${hqCourseFilter}코스 ${cnt}건 수거처리 완료 (${d})`,'ok');
+  renderHQ(); updateHQBadge();
 }
 
 function renderHQRows(items){
