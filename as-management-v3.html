@@ -190,6 +190,7 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
 .team-layout{display:grid;grid-template-columns:400px 1fr;gap:18px;align-items:start}
 @media(max-width:900px){.team-layout{grid-template-columns:1fr}.fg2,.fg3,.fg4{grid-template-columns:1fr}.span2,.span3,.span4{grid-column:span 1}.stats{grid-template-columns:1fr 1fr}}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 <div class="shell">
@@ -254,7 +255,9 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
     <span class="topbar-title" id="topbarTitle">대시보드</span>
     <span class="topbar-sub" id="topbarSub"></span>
   </div>
-  <div class="topbar-right"></div>
+  <div class="topbar-right">
+    <button id="hqExcelBtn" class="btn btn-gst btn-sm" onclick="exportHQExcel()" style="display:none">📥 엑셀 다운로드</button>
+  </div>
 </div>
 
 <!-- ══════════ 대시보드 ══════════ -->
@@ -870,6 +873,8 @@ function showPage(id, btn){
   const meta = PAGE_META[id]||[id,''];
   document.getElementById('topbarTitle').textContent = meta[0];
   document.getElementById('topbarSub').textContent = meta[1];
+  const excelBtn = document.getElementById('hqExcelBtn');
+  if(excelBtn) excelBtn.style.display = id==='hq' ? '' : 'none';
   if(id==='dash') renderDash();
   if(id==='hq'){renderHQ();updateHQBadge();}
   if(id==='team') renderTeamMini();
@@ -1585,6 +1590,43 @@ async function applyCoursePickup(){
   }
   notify(`${hqCourseFilter}코스 ${cnt}건 수거처리 완료 (${d})`,'ok');
   renderHQ(); updateHQBadge();
+}
+
+function exportHQExcel(){
+  const STATUS_LABEL = {pending:'확인대기', confirmed:'최종확인', pickup:'수거중', done:'수거완료'};
+  const data = hqCourseFilter==='all' ? AS_LIST
+    : AS_LIST.filter(a=>getCourse(a.route)===hqCourseFilter);
+  if(!data.length){notify('내보낼 데이터가 없습니다','warn');return}
+
+  const rows = data.map(a=>({
+    '식별번호': a.id,
+    '매장명':   a.store,
+    '지역':     a.region,
+    '배송코스': a.route,
+    '구분':     a.div||'',
+    '유/무상':  a.charge||'',
+    '제품명':   a.product||'',
+    '수량':     a.qty||'',
+    '확인일자': a.date||'',
+    '수거예상일': a.pickExpDate||'',
+    '수거완료일': a.pickupDate||'',
+    '신청일시': a.submittedAt||'',
+    '상태':     STATUS_LABEL[a.status]||a.status||'',
+    '메모':     a.memo||'',
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  // 컬럼 너비
+  ws['!cols'] = [
+    {wch:14},{wch:22},{wch:8},{wch:8},{wch:14},{wch:7},
+    {wch:36},{wch:5},{wch:12},{wch:12},{wch:12},{wch:18},{wch:8},{wch:20}
+  ];
+  const wb = XLSX.utils.book_new();
+  const sheetName = hqCourseFilter==='all' ? '전체' : `${hqCourseFilter}코스`;
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  const today = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `AS수거관리_${sheetName}_${today}.xlsx`);
+  notify(`${rows.length}건 엑셀 다운로드 완료`,'ok');
 }
 
 function renderHQRows(items){
