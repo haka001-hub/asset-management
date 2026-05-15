@@ -40,6 +40,9 @@ body{background:var(--bg);color:var(--tx);font-family:'Pretendard','Apple SD Got
 .topbar-title{font-weight:700;font-size:16px}
 .topbar-sub{font-size:12px;color:var(--tx3);margin-left:4px}
 .topbar-right{display:flex;gap:8px;align-items:center;margin-left:auto}
+.erp-ledger-badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:6px 10px;font-size:11px;font-weight:700;border:1px solid var(--bd);white-space:nowrap}
+.erp-ledger-badge.ok{color:var(--gn);border-color:rgba(15,185,129,.35);background:rgba(15,185,129,.08)}
+.erp-ledger-badge.err{color:var(--rd);border-color:rgba(242,87,87,.4);background:rgba(242,87,87,.08)}
 
 .page{display:none;padding:22px;flex:1}
 .page.active{display:block}
@@ -1580,7 +1583,7 @@ async function dbLoad(){
   try{
     const r = await fetch(`${SB_URL}/rest/v1/as_requests?order=created_at.desc&limit=1000`,{headers:SB_HDR});
     const rows = await r.json();
-    if(!Array.isArray(rows)) throw new Error(JSON.stringify(rows));
+    if(!Array.isArray(rows)) throw new Error(rows?.message || JSON.stringify(rows));
     AS_LIST = rows.map(r=>({
       id: r.seq_id, _dbid: r.id,
       store: r.store, region: r.region, route: r.route, code: r.store_code,
@@ -1618,12 +1621,8 @@ async function dbInsert(item){
   const r = await fetch(`${SB_URL}/rest/v1/as_requests`,{
     method:'POST', headers:{...SB_HDR,'Prefer':'return=representation'}, body:JSON.stringify(body)
   });
-  let data;
-  try{ data = await r.json(); } catch(_){ data = {}; }
-  if(!r.ok){
-    const msg = data?.message || data?.error || JSON.stringify(data);
-    throw new Error(msg);
-  }
+  let data; try{ data = await r.json(); } catch(_){ data = {}; }
+  if(!r.ok) throw new Error(data?.message || JSON.stringify(data));
   return Array.isArray(data) ? data[0].id : data.id;
 }
 
