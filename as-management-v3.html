@@ -388,8 +388,8 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
         <option value="">유/무상...</option>
         <option>무상</option><option>유상</option><option>수거</option>
       </select>
-      <button class="btn btn-gst btn-sm" onclick="applyCommonToAll()">전체 행에 적용</button>
-      <span style="font-size:11px;color:var(--tx3)">· 행 추가 시 자동 적용됨</span>
+      <button class="btn btn-gst btn-sm" onclick="applyCommonToAll()">선택 행에 적용</button>
+      <span style="font-size:11px;color:var(--tx3)" id="commonApplyHint">· 미선택 시 전체 적용 · 행 추가 시 자동 적용됨</span>
     </div>
 
     <!-- 품목 테이블 -->
@@ -400,15 +400,17 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
     <div class="tbl-wrap" style="margin-bottom:12px">
       <table id="itemTable">
         <thead><tr>
-          <th style="width:36px">#</th>
+          <th style="width:28px"><input type="checkbox" id="itemChkAll" onchange="itemCheckAll(this)" title="전체 선택/해제"></th>
+          <th style="width:28px">#</th>
           <th style="min-width:220px">제품명<em style="color:var(--rd2)">*</em></th>
           <th style="width:90px">구분<em style="color:var(--rd2)">*</em></th>
           <th style="width:80px">유/무상<em style="color:var(--rd2)">*</em></th>
           <th style="width:70px">수량<em style="color:var(--rd2)">*</em></th>
           <th style="min-width:160px">메모</th>
-          <th style="width:36px"></th>
+          <th style="width:50px"></th>
         </tr></thead>
         <tbody id="itemRows"><tr id="irow-1" data-rowid="1">
+    <td style="text-align:center"><input type="checkbox" class="item-row-chk" data-rowid="1" onchange="itemCheckChange()"></td>
     <td style="text-align:center;color:var(--tx3);font-size:12px;user-select:none">1</td>
     <td>
       <div class="acw">
@@ -432,8 +434,9 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
     <td>
       <input class="fi item-cell" id="im-1" placeholder="메모" style="font-size:12px;padding:6px 9px" value="" onkeydown="cellKey(event,&#39;im-1&#39;)">
     </td>
-    <td style="text-align:center">
-      <button onclick="removeItemRow(1)" style="background:transparent;border:none;color:var(--tx3);cursor:pointer;font-size:16px;padding:2px 6px" title="행 삭제">✕</button>
+    <td style="text-align:center;white-space:nowrap">
+      <button onclick="duplicateItemRow(1)" style="background:transparent;border:none;color:var(--tx2);cursor:pointer;font-size:13px;padding:2px 4px" title="행 복제">⎘</button>
+      <button onclick="removeItemRow(1)" style="background:transparent;border:none;color:var(--tx3);cursor:pointer;font-size:16px;padding:2px 4px" title="행 삭제">✕</button>
     </td></tr></tbody>
       </table>
     </div>
@@ -1012,6 +1015,7 @@ function addItemRow(prefill={}){
   const chOpts  = CHARGES.map(c=>`<option${prefill.charge===c?' selected':''}>${c}</option>`).join('');
 
   tr.innerHTML = `
+    <td style="text-align:center"><input type="checkbox" class="item-row-chk" data-rowid="${id}" onchange="itemCheckChange()"></td>
     <td style="text-align:center;color:var(--tx3);font-size:12px;user-select:none">${id}</td>
     <td>
       <div class="acw">
@@ -1070,16 +1074,31 @@ function duplicateItemRow(id){
   setTimeout(()=>document.getElementById(`ip-${newId}`)?.focus(), 30);
 }
 
+function itemCheckAll(cb){
+  document.querySelectorAll('.item-row-chk').forEach(c=>c.checked=cb.checked);
+  itemCheckChange();
+}
+
+function itemCheckChange(){
+  const all=document.querySelectorAll('.item-row-chk');
+  const checked=document.querySelectorAll('.item-row-chk:checked');
+  const allChk=document.getElementById('itemChkAll');
+  if(allChk) allChk.indeterminate=(checked.length>0&&checked.length<all.length), allChk.checked=(checked.length===all.length&&all.length>0);
+  const hint=document.getElementById('commonApplyHint');
+  if(hint) hint.textContent=checked.length>0?`· ${checked.length}개 행에 적용됩니다`:'· 미선택 시 전체 적용 · 행 추가 시 자동 적용됨';
+}
+
 function applyCommonToAll(){
   const div = document.getElementById('commonDiv').value;
   const charge = document.getElementById('commonCharge').value;
-  document.querySelectorAll('#itemRows tr').forEach(tr=>{
-    const id = tr.dataset.rowid;
-    if(!id) return;
-    if(div) document.getElementById(`id-${id}`).value = div;
-    if(charge) document.getElementById(`ic-${id}`).value = charge;
+  if(!div && !charge){notify('구분 또는 유/무상을 선택해주세요','warn');return}
+  const checked=[...document.querySelectorAll('.item-row-chk:checked')].map(c=>c.dataset.rowid);
+  const targets=checked.length>0 ? checked : [...document.querySelectorAll('#itemRows tr')].map(tr=>tr.dataset.rowid).filter(Boolean);
+  targets.forEach(id=>{
+    if(div) document.getElementById(`id-${id}`).value=div;
+    if(charge) document.getElementById(`ic-${id}`).value=charge;
   });
-  notify('전체 행에 적용됐습니다', 'ok');
+  notify(`${targets.length}개 행에 적용됐습니다`,'ok');
 }
 
 // ══════════════════════════════════════════
