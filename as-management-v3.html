@@ -1618,8 +1618,12 @@ async function dbInsert(item){
   const r = await fetch(`${SB_URL}/rest/v1/as_requests`,{
     method:'POST', headers:{...SB_HDR,'Prefer':'return=representation'}, body:JSON.stringify(body)
   });
-  const data = await r.json();
-  if(!r.ok) throw new Error(JSON.stringify(data));
+  let data;
+  try{ data = await r.json(); } catch(_){ data = {}; }
+  if(!r.ok){
+    const msg = data?.message || data?.error || JSON.stringify(data);
+    throw new Error(msg);
+  }
   return Array.isArray(data) ? data[0].id : data.id;
 }
 
