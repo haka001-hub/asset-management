@@ -389,7 +389,7 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
       </select>
       <select class="fsel" id="commonCharge" style="font-size:12px;padding:5px 8px;width:auto">
         <option value="">유/무상...</option>
-        <option>무상</option><option>유상</option><option>수거</option>
+        <option>무상</option><option>유상</option><option>수거</option><option>초기불량(팟)</option>
       </select>
       <button class="btn btn-gst btn-sm" onclick="applyCommonToAll()">선택 행에 적용</button>
       <span style="font-size:11px;color:var(--tx3)" id="commonApplyHint">· 미선택 시 전체 적용 · 행 추가 시 자동 적용됨</span>
@@ -428,7 +428,7 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
     </td>
     <td>
       <select class="fsel item-cell" id="ic-1" style="font-size:12px;padding:6px 9px" onkeydown="cellKey(event,&#39;ic-1&#39;)">
-        <option value="">선택...</option><option>무상</option><option>유상</option><option>수거</option>
+        <option value="">선택...</option><option>무상</option><option>유상</option><option>수거</option><option>초기불량(팟)</option>
       </select>
     </td>
     <td>
@@ -1015,7 +1015,7 @@ function addItemRow(prefill={}){
   tr.dataset.rowid = id;
 
   const DIVS = ['즉시처리','예외조치','보상판매에어릭스','보상판매R','보상판매H','본사별도수거 박시영','본사별도수거 이지영'];
-  const CHARGES = ['무상','유상','수거'];
+  const CHARGES = ['무상','유상','수거','초기불량(팟)'];
   const divOpts = DIVS.map(d=>`<option${prefill.div===d?' selected':''}>${d}</option>`).join('');
   const chOpts  = CHARGES.map(c=>`<option${prefill.charge===c?' selected':''}>${c}</option>`).join('');
 
@@ -1293,7 +1293,7 @@ document.addEventListener('paste', e=>{
   if(!text) return;
 
   const DIVS = ['즉시처리','예외조치','보상판매에어릭스','보상판매R','보상판매H','본사별도수거 박시영','본사별도수거 이지영'];
-  const CHARGES = ['무상','유상','수거'];
+  const CHARGES = ['무상','유상','수거','초기불량(팟)'];
 
   const lines = text.split(/\r?\n/).filter(l=>l.trim());
   // 현재 커서 행의 rowid 파악
@@ -1955,7 +1955,7 @@ function statusBadge(s){
   return `<span class="badge ${c}">${t}</span>`;
 }
 function chargeBadge(c){
-  const m={무상:'b-free 무상',유상:'b-paid 유상',수거:'b-etc 수거'};
+  const m={무상:'b-free 무상',유상:'b-paid 유상',수거:'b-etc 수거','초기불량(팟)':'b-etc 초기불량(팟)'};
   const v=m[c]||('b-etc '+c);
   const[cls,txt]=v.split(' ');
   return `<span class="badge ${cls}">${txt}</span>`;
