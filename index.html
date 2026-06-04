@@ -4741,8 +4741,8 @@ async function dispatchBagBatch(batchId) {
     const batchItems = BAG_SHIPPING.filter(r => r.batch_id === batchId && r.need_ship);
     const totalShop = batchItems.filter(r => r.product_code === 'SB-1-001').reduce((s,r) => s + r.ship_qty, 0);
     const totalEnv  = batchItems.filter(r => r.product_code === 'PB-0-001').reduce((s,r) => s + r.ship_qty, 0);
-    const shopItem  = LOGI.find(l => l.name.includes('쇼핑백'));
-    const envItem   = LOGI.find(l => l.name.includes('무지봉투'));
+    const shopItem  = LOGI.find(l => l.code === 'SB-1-001');
+    const envItem   = LOGI.find(l => l.code === 'PB-0-001');
     const invUpdates = [];
     if (shopItem && totalShop > 0) {
       const newQty = Math.max(0, shopItem.qty - totalShop);
