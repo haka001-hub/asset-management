@@ -4618,20 +4618,30 @@ function processBagPosFile(file) {
 }
 
 // 웹포스 재고 파일 파싱
-// 헤더(행1): 기준일시 | 매장코드(B) | 매장명(C) | 상품ID(D) | 상품코드(E) | 상품명(F) | ... | 현재수량(K)
+// 신형: 매장명(A) | 매장코드(B) | 상품코드(C) | 상품명(D) | 현재수량(E)
+// 구형: 기준일시(A) | 매장코드(B) | 매장명(C) | 상품ID(D) | 상품코드(E) | 상품명(F) | ... | 현재수량(K)
 function parseWebPosStock(rows) {
   const TARGET={'SB-1-001':true,'PB-0-001':true};
   const storeMap={};
   let startIdx=1;
+  let colStoreName=2, colStoreCode=1, colProductCode=4, colQty=10;
   for(let i=0;i<Math.min(5,rows.length);i++){
-    if(String(rows[i][2]||'').trim()==='매장명'){startIdx=i+1;break;}
+    const h=rows[i].map(c=>String(c||'').trim());
+    if(h[0]==='매장명'&&h[2]==='상품코드'){
+      // 신형 포맷
+      startIdx=i+1; colStoreName=0; colStoreCode=1; colProductCode=2; colQty=4; break;
+    }
+    if(h[2]==='매장명'){
+      // 구형 포맷
+      startIdx=i+1; colStoreName=2; colStoreCode=1; colProductCode=4; colQty=10; break;
+    }
   }
   for(let i=startIdx;i<rows.length;i++){
     const row=rows[i];
-    const storeName=String(row[2]||'').trim();
-    const storeCode=String(row[1]||'').trim();
-    const productCode=String(row[4]||'').trim();
-    const qty=Number(row[10])||0;
+    const storeName=String(row[colStoreName]||'').trim();
+    const storeCode=String(row[colStoreCode]||'').trim();
+    const productCode=String(row[colProductCode]||'').trim();
+    const qty=Number(row[colQty])||0;
     if(!storeName)continue;
     if(!TARGET[productCode])continue;
     const key=storeCode||storeName;
