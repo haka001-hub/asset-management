@@ -1597,6 +1597,13 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
 // ═══ ERP AMS BRIDGE CONFIG ═══
 const ERP_BRIDGE_BASE = 'https://second.hakakorea.com/api/ams/github-bridge';
 const ERP_BLOCKED_WRITE_TABLES = new Set(['inventory','stores','store_assets','uniform_managers','uniform_manager_stock']);
+const ERP_APP_BASE = 'https://second.hakakorea.com';
+const ERP_LEDGER_LINKS = {
+  store: '/dashboard/management-support/store-management',
+  assetInventory: '/dashboard/management-support/asset-inventory',
+  employee: '/dashboard/hr/employees',
+  uniformLedger: '/dashboard/management-support/uniform-management-ledger'
+};
 
 function createErpBridgeClient(baseUrl) {
   class BridgeQuery {
@@ -6225,38 +6232,66 @@ if(localStorage.getItem('ams-theme')==='light'){
 }
 
 // ERP 원장 전환 보호: GitHub 화면에서는 삭제/초기화/마스터 직접수정을 막는다.
-function blockedErpLedgerAction(message='이 기능은 ERP 원장 화면에서만 처리할 수 있습니다.') {
-  notify(message, 'error');
+function erpLedgerUrl(linkKey) {
+  const path = ERP_LEDGER_LINKS[linkKey];
+  return path ? `${ERP_APP_BASE}${path}` : ERP_APP_BASE;
+}
+function openErpLedgerLink(linkKey) {
+  window.open(erpLedgerUrl(linkKey), '_blank', 'noopener,noreferrer');
+}
+function blockedErpLedgerAction(message='이 기능은 ERP 원장 화면에서만 처리할 수 있습니다.', linkKey='assetInventory') {
+  const help = 'ERP 계정이 없거나 권한이 없으면 본사에 문의해주세요.';
+  notify(`${message} ${help}`, 'error');
+  if (confirm(`${message}\n\nERP 화면으로 이동하시겠습니까?\n${help}`)) {
+    openErpLedgerLink(linkKey);
+  }
 }
 function installErpLedgerGuards() {
   const blocked = {
-    saveNewStore: '매장 등록/주소 수정은 ERP 매장 원장에서 처리해주세요.',
-    saveEditStore: '매장 등록/주소 수정은 ERP 매장 원장에서 처리해주세요.',
-    deleteStore: '매장 삭제는 GitHub 자산관리에서 허용하지 않습니다.',
-    openDeleteInvModal: '자산 삭제는 ERP 원장 화면에서만 가능합니다.',
-    confirmDeleteInv: '자산 삭제는 ERP 원장 화면에서만 가능합니다.',
-    saveEditInv: '본사 재고/자산 마스터 수정은 ERP 원장 화면에서만 가능합니다.',
-    deleteReq: '신청 삭제는 ERP 원장 화면에서만 가능합니다.',
-    deletePickup: '수거신청 삭제는 ERP 원장 화면에서만 가능합니다.',
-    deletePurchaseReq: '구매요청 삭제는 ERP 원장 화면에서만 가능합니다.',
-    deleteBagRow: '쇼핑백 이력 삭제는 ERP 원장 화면에서만 가능합니다.',
-    deleteBagBatch: '쇼핑백 배치 삭제는 ERP 원장 화면에서만 가능합니다.',
-    clearBagHistory: '쇼핑백 전체 이력 초기화는 허용하지 않습니다.',
-    deleteUniBatch: '유니폼 일괄삭제는 ERP 원장 화면에서만 가능합니다.',
-    deleteUniReq: '유니폼 신청 삭제는 ERP 원장 화면에서만 가능합니다.',
-    deleteUniPkp: '유니폼 수거 삭제는 ERP 원장 화면에서만 가능합니다.',
-    saveUniMgrEdit: '직원/매니저 정보는 ERP 직원 원장에서 관리해주세요.',
-    deleteUniMgr: '직원/매니저 삭제는 GitHub 자산관리에서 허용하지 않습니다.',
-    saveUniStockEdit: '직원별 유니폼 보유량 직접수정은 ERP 원장 화면에서만 가능합니다.',
-    deleteUniStock: '직원별 유니폼 보유량 삭제는 GitHub 자산관리에서 허용하지 않습니다.'
+    addNewStore: { message: '매장 등록/주소 수정은 ERP 매장 원장에서 처리해주세요.', link: 'store' },
+    saveNewStore: { message: '매장 등록/주소 수정은 ERP 매장 원장에서 처리해주세요.', link: 'store' },
+    saveEditStore: { message: '매장 등록/주소 수정은 ERP 매장 원장에서 처리해주세요.', link: 'store' },
+    deleteStore: { message: '매장 삭제는 GitHub 자산관리에서 허용하지 않습니다.', link: 'store' },
+    openAddModal: { message: '자산/재고 마스터 추가는 ERP 물류재고 원장에서 처리해주세요.', link: 'assetInventory' },
+    openDeleteInvModal: { message: '자산 삭제는 ERP 원장 화면에서만 가능합니다.', link: 'assetInventory' },
+    confirmDeleteInv: { message: '자산 삭제는 ERP 원장 화면에서만 가능합니다.', link: 'assetInventory' },
+    saveEditInv: { message: '본사 재고/자산 마스터 수정은 ERP 원장 화면에서만 가능합니다.', link: 'assetInventory' },
+    deleteReq: { message: '신청 삭제는 ERP 원장 화면에서만 가능합니다.', link: 'assetInventory' },
+    deletePickup: { message: '수거신청 삭제는 ERP 원장 화면에서만 가능합니다.', link: 'assetInventory' },
+    deletePurchaseReq: { message: '구매요청 삭제는 ERP 원장 화면에서만 가능합니다.', link: 'assetInventory' },
+    deleteBagRow: { message: '쇼핑백 이력 삭제는 ERP 원장 화면에서만 가능합니다.', link: 'assetInventory' },
+    deleteBagBatch: { message: '쇼핑백 배치 삭제는 ERP 원장 화면에서만 가능합니다.', link: 'assetInventory' },
+    clearBagHistory: { message: '쇼핑백 전체 이력 초기화는 허용하지 않습니다.', link: 'assetInventory' },
+    deleteUniBatch: { message: '유니폼 일괄삭제는 ERP 원장 화면에서만 가능합니다.', link: 'uniformLedger' },
+    deleteUniReq: { message: '유니폼 신청 삭제는 ERP 원장 화면에서만 가능합니다.', link: 'uniformLedger' },
+    deleteUniPkp: { message: '유니폼 수거 삭제는 ERP 원장 화면에서만 가능합니다.', link: 'uniformLedger' },
+    saveUniMgrEdit: { message: '직원/매니저 정보는 ERP 직원 원장에서 관리해주세요.', link: 'employee' },
+    deleteUniMgr: { message: '직원/매니저 삭제는 GitHub 자산관리에서 허용하지 않습니다.', link: 'employee' },
+    saveUniStockEdit: { message: '직원별 유니폼 보유량 직접수정은 ERP 유니폼 관리대장에서 처리해주세요.', link: 'uniformLedger' },
+    deleteUniStock: { message: '직원별 유니폼 보유량 삭제는 GitHub 자산관리에서 허용하지 않습니다.', link: 'uniformLedger' }
   };
-  Object.entries(blocked).forEach(([name, message]) => {
-    window[name] = () => blockedErpLedgerAction(message);
+  Object.entries(blocked).forEach(([name, config]) => {
+    window[name] = () => blockedErpLedgerAction(config.message, config.link);
   });
   document.querySelectorAll('button').forEach((button) => {
     const onclick = button.getAttribute('onclick') || '';
-    if (/delete|Delete|clearBagHistory|openDeleteInvModal|saveNewStore|saveEditStore|saveEditInv|saveUniMgrEdit|saveUniStockEdit/.test(onclick)) {
-      button.title = 'ERP 원장 전환으로 GitHub 화면에서 차단된 기능입니다.';
+    const match = Object.keys(blocked).find((name) => onclick.includes(name));
+    if (match) {
+      button.title = 'ERP 원장 전환으로 GitHub 화면에서 차단된 기능입니다. 계정은 본사에 문의해주세요.';
+      if (!button.dataset.erpLinkPatched) {
+        const link = document.createElement('button');
+        link.type = 'button';
+        link.className = 'btn btn-gst btn-sm';
+        link.textContent = 'ERP에서 수정';
+        link.title = 'ERP 계정이 없거나 권한이 없으면 본사에 문의해주세요.';
+        link.onclick = (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          openErpLedgerLink(blocked[match].link);
+        };
+        button.insertAdjacentElement('afterend', link);
+        button.dataset.erpLinkPatched = '1';
+      }
     }
   });
 }
