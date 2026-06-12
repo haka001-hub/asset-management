@@ -5,7 +5,6 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>자산관리 시스템 v3</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0a0e1a;--sf:#111827;--sf2:#1a2235;--sf3:#1f2d42;--bd:#2a3a52;--ac:#3b82f6;--ac2:#60a5fa;--gn:#10b981;--yw:#f59e0b;--rd:#ef4444;--or:#f97316;--pu:#8b5cf6;--tx:#e2e8f0;--tx2:#94a3b8;--tx3:#64748b;--mono:'JetBrains Mono',monospace;--sans:'Noto Sans KR',sans-serif}
@@ -1595,10 +1594,78 @@ tbody td{padding:10px 14px;font-size:13px;color:var(--tx2)}
 
 <script>
 
-// ═══ SUPABASE CONFIG ═══
-const SUPA_URL = 'https://fmbcrvhyfxkcphveodet.supabase.co';
-const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZtYmNydmh5ZnhrY3BodmVvZGV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNjg4OTgsImV4cCI6MjA4ODg0NDg5OH0.YweP1WaduzmvGPiakyy2okraIHN8FCpRz0-nEcNxiTg';
-const db = supabase.createClient(SUPA_URL, SUPA_KEY);
+// ═══ ERP AMS BRIDGE CONFIG ═══
+const ERP_BRIDGE_BASE = 'https://second.hakakorea.com/api/ams/github-bridge';
+const ERP_BLOCKED_WRITE_TABLES = new Set(['inventory','stores','store_assets','uniform_managers','uniform_manager_stock']);
+
+function createErpBridgeClient(baseUrl) {
+  class BridgeQuery {
+    constructor(table, method = 'GET', body = undefined) {
+      this.table = table;
+      this.method = method;
+      this.body = body;
+      this.params = new URLSearchParams();
+      this.headers = {'Content-Type':'application/json'};
+    }
+    select() { return this; }
+    single() { this.headers.Accept = 'application/vnd.pgrst.object+json'; return this; }
+    order(field, opts = {}) {
+      this.params.set('order', `${field}.${opts.ascending === false ? 'desc' : 'asc'}`);
+      return this;
+    }
+    limit(value) { this.params.set('limit', String(value)); return this; }
+    eq(field, value) { this.params.set(field, `eq.${encodeURIComponent(value ?? '')}`); return this; }
+    gte(field, value) { this.params.set(field, `gte.${encodeURIComponent(value ?? '')}`); return this; }
+    lte(field, value) { this.params.set(field, `lte.${encodeURIComponent(value ?? '')}`); return this; }
+    like(field, value) { this.params.set(field, `like.${encodeURIComponent(value ?? '')}`); return this; }
+    ilike(field, value) { this.params.set(field, `ilike.${encodeURIComponent(value ?? '')}`); return this; }
+    in(field, values) { this.params.set(field, `in.(${(values || []).map(v => encodeURIComponent(v)).join(',')})`); return this; }
+    async execute() {
+      try {
+        if (this.method === 'DELETE') {
+          return {data:null, error:{message:'ERP 전환 후 GitHub 자산관리에서는 삭제/초기화를 허용하지 않습니다.'}};
+        }
+        if (this.method !== 'GET' && ERP_BLOCKED_WRITE_TABLES.has(this.table)) {
+          return {data:null, error:{message:`${this.table} 직접 수정은 ERP 원장 화면에서만 가능합니다.`}};
+        }
+        const qs = this.params.toString();
+        const res = await fetch(`${baseUrl}/${encodeURIComponent(this.table)}${qs ? `?${qs}` : ''}`, {
+          method: this.method,
+          headers: this.headers,
+          body: this.body === undefined ? undefined : JSON.stringify(this.body),
+          cache: 'no-store'
+        });
+        const text = await res.text();
+        let payload = null;
+        if (text) {
+          try { payload = JSON.parse(text); } catch (_) { payload = text; }
+        }
+        if (!res.ok) {
+          const message = payload?.message || payload?.error?.message || text || `ERP 요청 실패 (${res.status})`;
+          return {data:null, error:{message, status:res.status, details:payload}};
+        }
+        return {data:payload, error:null};
+      } catch (error) {
+        return {data:null, error:{message:error?.message || String(error)}};
+      }
+    }
+    then(resolve, reject) { return this.execute().then(resolve, reject); }
+    catch(reject) { return this.execute().catch(reject); }
+  }
+  return {
+    from(table) {
+      return {
+        select() { return new BridgeQuery(table, 'GET'); },
+        insert(body) { return new BridgeQuery(table, 'POST', body); },
+        update(body) { return new BridgeQuery(table, 'PATCH', body); },
+        upsert(body) { return new BridgeQuery(table, 'POST', body); },
+        delete() { return new BridgeQuery(table, 'DELETE'); }
+      };
+    }
+  };
+}
+
+const erp = createErpBridgeClient(ERP_BRIDGE_BASE);
 
 function showLoading(msg='데이터 로딩 중...') {
   let el = document.getElementById('db-loading');
@@ -1617,14 +1684,14 @@ async function loadFromDB() {
   showLoading();
   try {
     const [invRes, storeRes, saRes, reqRes, pkRes, purchReqRes, purchItemRes, bagRes] = await Promise.all([
-      db.from('inventory').select('*').order('id'),
-      db.from('stores').select('*').order('name'),
-      db.from('store_assets').select('*'),
-      db.from('requests').select('*').order('created_at', {ascending: false}),
-      db.from('pickups').select('*').order('created_at', {ascending: false}),
-      db.from('purchase_requests').select('*').order('created_at', {ascending: false}),
-      db.from('purchase_items').select('*').order('id'),
-      db.from('bag_shipping').select('*').order('created_at', {ascending: false})
+      erp.from('inventory').select('*').order('id'),
+      erp.from('stores').select('*').order('name'),
+      erp.from('store_assets').select('*'),
+      erp.from('requests').select('*').order('created_at', {ascending: false}),
+      erp.from('pickups').select('*').order('created_at', {ascending: false}),
+      erp.from('purchase_requests').select('*').order('created_at', {ascending: false}),
+      erp.from('purchase_items').select('*').order('id'),
+      erp.from('bag_shipping').select('*').order('created_at', {ascending: false})
     ]);
     if (invRes.data && invRes.data.length > 0) {
       LOGI.length = 0;
@@ -1659,7 +1726,7 @@ async function loadFromDB() {
       pkRes.data.forEach(r => PICKUPS.push({id:r.id,date:r.date,manager:r.manager||'',team:r.team||'',store:r.store,route:r.route||'',address:r.address||'',asset:r.asset,code:r.code,qty:r.qty,brokenQty:r.broken_qty||0,normalQty:r.qty-(r.broken_qty||0),reason:r.reason||'',note:r.note||'',shipType:r.ship_type||'직납',status:r.status,pickupDate:r.pickup_date||'',confDate:r.confirmed_at||'',confMgr:r.confirmed_mgr||'',confMemo:r.conf_memo||''}));
     }
     // store_history
-    const histRes = await db.from('store_history').select('*').order('created_at', {ascending: false}).limit(1000);
+    const histRes = await erp.from('store_history').select('*').order('created_at', {ascending: false}).limit(1000);
     if (histRes.data) {
       SA_HIST.length = 0;
       histRes.data.forEach(r => SA_HIST.push({date:r.created_at ? new Date(r.created_at).toLocaleString('ko-KR') : r.date_str||'', store:r.store_name, col:r.asset_name||'', before:r.before_val, after:r.after_val, type:r.type||'', memo:r.memo||''}));
@@ -1684,10 +1751,10 @@ async function loadFromDB() {
   // 유니폼 테이블 별도 로드
   try {
     const [uniReqRes, uniPkpRes, uniMgrRes, uniMgrListRes] = await Promise.all([
-      db.from('uniform_requests').select('*').order('created_at', {ascending: false}),
-      db.from('uniform_pickups').select('*').order('created_at', {ascending: false}),
-      db.from('uniform_manager_stock').select('*').order('store_name'),
-      db.from('uniform_managers').select('*').order('manager_name')
+      erp.from('uniform_requests').select('*').order('created_at', {ascending: false}),
+      erp.from('uniform_pickups').select('*').order('created_at', {ascending: false}),
+      erp.from('uniform_manager_stock').select('*').order('store_name'),
+      erp.from('uniform_managers').select('*').order('manager_name')
     ]);
     if (uniReqRes.data) { UNIFORM_REQS.length=0; uniReqRes.data.forEach(r=>UNIFORM_REQS.push(r)); }
     if (uniPkpRes.data) { UNIFORM_PKPS.length=0; uniPkpRes.data.forEach(r=>UNIFORM_PKPS.push(r)); }
@@ -1884,7 +1951,7 @@ async function addNewStore(){
   const route=document.getElementById('newStRoute').value.trim();
   const address=document.getElementById('newStAddr').value.trim();
   if(!name){notify('매장명은 필수입니다','error');return;}
-  const {data,error}=await db.from('stores').insert({code:code||null,name,route:route||null,address:address||null}).select().single();
+  const {data,error}=await erp.from('stores').insert({code:code||null,name,route:route||null,address:address||null}).select().single();
   if(error){notify('등록 실패: '+error.message,'error');return;}
   ADDR.push({id:data.id,code:data.code||'',name:data.name,route:data.route||'',address:data.address||''});
   document.getElementById('newStCode').value='';
@@ -1911,11 +1978,11 @@ async function deleteStore(id, name){
   const s=ADDR.find(a=>a.id===id);
   const storeName=s?s.name:name;
   // 관련 테이블 삭제
-  await db.from('requests').delete().eq('store',storeName);
-  await db.from('pickups').delete().eq('store',storeName);
-  await db.from('store_history').delete().eq('store_name',storeName);
-  await db.from('store_assets').delete().eq('store_name',storeName);
-  const {error}=await db.from('stores').delete().eq('id',id);
+  await erp.from('requests').delete().eq('store',storeName);
+  await erp.from('pickups').delete().eq('store',storeName);
+  await erp.from('store_history').delete().eq('store_name',storeName);
+  await erp.from('store_assets').delete().eq('store_name',storeName);
+  const {error}=await erp.from('stores').delete().eq('id',id);
   if(error){notify('삭제 실패: '+error.message,'error');return;}
   // 메모리 갱신
   const idx=ADDR.findIndex(a=>a.id===id);
@@ -1934,7 +2001,7 @@ async function saveEditStore(){
   const route=document.getElementById('editStRoute').value.trim();
   const address=document.getElementById('editStAddr').value.trim();
   if(!name){notify('매장명은 필수입니다','error');return;}
-  const {error}=await db.from('stores').update({code:code||null,name,route:route||null,address:address||null}).eq('id',id);
+  const {error}=await erp.from('stores').update({code:code||null,name,route:route||null,address:address||null}).eq('id',id);
   if(error){notify('수정 실패: '+error.message,'error');return;}
   const s=ADDR.find(a=>a.id===id);
   const oldName=s?s.name:name;
@@ -2300,7 +2367,7 @@ function confirmRepair(){
   if(actual<=0){notify('고장 재고가 부족합니다','error');return;}
   l.broken=(l.broken||0)-actual;
   l.qty+=actual;
-  db.from('inventory').update({qty:l.qty, broken_qty:l.broken}).eq('code',repairCode).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
+  erp.from('inventory').update({qty:l.qty, broken_qty:l.broken}).eq('code',repairCode).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   // 자산현황 반영
   const inv=INV.find(i=>i.code===repairCode);
   if(inv) inv.total+=actual;
@@ -2356,7 +2423,7 @@ async function confirmUniReturn(){
   try {
     l.returnQty=(l.returnQty||0)-actual;
     l.qty+=actual;
-    await db.from('inventory').update({qty:l.qty,return_qty:l.returnQty}).eq('code',uniReturnCode);
+    await erp.from('inventory').update({qty:l.qty,return_qty:l.returnQty}).eq('code',uniReturnCode);
     const inv=INV.find(i=>i.code===uniReturnCode);
     if(inv) inv.total+=actual;
     histPush({
@@ -2719,9 +2786,9 @@ function saveNewStore(){
     entry[inp.dataset.col] = inp.value==='' ? null : parseInt(inp.value);
   });
   SA_DATA[name] = entry;
-  db.from('stores').insert({code:storeCode, name:name, route:'직영', address:entry['지역']||''}).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
+  erp.from('stores').insert({code:storeCode, name:name, route:'직영', address:entry['지역']||''}).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   const _saEntries=Object.entries(entry).filter(([k,v])=>typeof v==='number').map(([k,v])=>({store_name:name,asset_name:k,qty:v}));
-  if(_saEntries.length) db.from('store_assets').insert(_saEntries).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
+  if(_saEntries.length) erp.from('store_assets').insert(_saEntries).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   // ADDR에도 등록 (자산신청·수거 자동완성에서 검색 가능하도록)
   const region = entry['지역']||'';
   if(!ADDR.find(a=>a.name===name)){
@@ -2746,7 +2813,7 @@ function applyStoreAssetDelta(storeName, assetName, delta, memo){
   if(before==='구매장'||before===null||before===undefined) return;
   const after = Math.max(0, (before||0) + delta);
   d[col] = after;
-  db.from('store_assets').upsert({store_name:storeName, asset_name:col, qty:after}).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
+  erp.from('store_assets').upsert({store_name:storeName, asset_name:col, qty:after}).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   histPush({
     date: new Date().toLocaleString('ko-KR'),
     store: storeName, col,
@@ -2769,7 +2836,7 @@ function toggleTheme(){
 
 function histPush(entry) {
   SA_HIST.push(entry);
-  db.from('store_history').insert({
+  erp.from('store_history').insert({
     store_name: entry.store,
     asset_name: entry.col||null,
     before_val: entry.before!==undefined ? String(entry.before) : null,
@@ -2801,7 +2868,7 @@ async function exportAllTables(){
     ];
 
     for(const {t, s, order} of tables){
-      const {data, error} = await db.from(t).select('*').order(order, {ascending: true});
+      const {data, error} = await erp.from(t).select('*').order(order, {ascending: true});
       if(error){
         console.error(`[export][${t}] 오류:`, error.message, error);
         // 오류나도 빈 시트로 추가
@@ -3011,7 +3078,7 @@ async function submitReqInline(){
   }
   try{
   const yr=new Date().getFullYear();
-  const{data:lastRows}=await db.from('requests').select('id').like('id',`REQ-${yr}-%`).order('id',{ascending:false}).limit(1);
+  const{data:lastRows}=await erp.from('requests').select('id').like('id',`REQ-${yr}-%`).order('id',{ascending:false}).limit(1);
   let nextNum=1;
   if(lastRows&&lastRows.length>0){const m=lastRows[0].id.match(/(\d+)$/);if(m)nextNum=parseInt(m[1])+1;}
   // 인메모리 REQS에서도 최대값 확인 (동시 제출·중복 방지)
@@ -3019,7 +3086,7 @@ async function submitReqInline(){
   const created=[];
   for(const it of items){
     const id=`REQ-${yr}-${String(nextNum).padStart(4,'0')}`;nextNum++;
-    const{error:insErr}=await db.from('requests').insert({id,date,manager,team,asset:it.name,code:it.code,qty:it.qty,store,route,ship_type:it.shipType,address,note,status:'pending',out_date:'',out_mgr:'',out_memo:'',arr_date:''});
+    const{error:insErr}=await erp.from('requests').insert({id,date,manager,team,asset:it.name,code:it.code,qty:it.qty,store,route,ship_type:it.shipType,address,note,status:'pending',out_date:'',out_mgr:'',out_memo:'',arr_date:''});
     if(insErr){
       if(insErr.message&&insErr.message.includes('duplicate')){
         notify('이미 저장된 신청이 있습니다. 페이지를 새로고침 후 목록을 확인해주세요.','error');
@@ -3047,7 +3114,7 @@ async function deleteReq(id){
   const r=REQS.find(x=>x.id===id);
   if(r&&r.status!=='pending'){notify('대기중 신청만 삭제할 수 있습니다','error');return}
   const idx=REQS.findIndex(x=>x.id===id);if(idx!==-1)REQS.splice(idx,1);
-  const{error}=await db.from('requests').delete().eq('id',id);
+  const{error}=await erp.from('requests').delete().eq('id',id);
   if(error){notify('삭제 실패: '+error.message,'error');return}
   notify('삭제 완료');updateBadge();renderReqs();
 }
@@ -3093,15 +3160,15 @@ function doShip(){
   if(li)li.qty=Math.max(0,li.qty-r.qty);
   // ② 자산현황 out 증가
   const inv=INV.find(i=>i.code===r.code);
-  if(inv){inv.out+=r.qty; db.from('inventory').update({qty:li?li.qty:0}).eq('code',r.code).then(r2=>{if(r2&&r2.error)console.error('[DB오류]',r2.error.message);});}
+  if(inv){inv.out+=r.qty; erp.from('inventory').update({qty:li?li.qty:0}).eq('code',r.code).then(r2=>{if(r2&&r2.error)console.error('[DB오류]',r2.error.message);});}
   // ③ 직영점 출고 로그에 기록 (누적 트래킹)
   STORE_OUT_LOG.push({store:r.store,code:r.code,name:r.asset,qty:r.qty,date:oDate,route,manager:oMgr,memo:oMemo});
   // ④ 직영점 자산 현황 반영 (+수량)
   applyStoreAssetDelta(r.store, r.asset, r.qty, `자산신청 출고 / ${oMgr}`);
   // ⑤ 상태 변경
   r.status='shipped';r.outDate=oDate;r.arrDate=oArrDate;r.outMgr=oMgr;r.route=route;r.outMemo=oMemo;
-  db.from('requests').update({status:'shipped',out_date:oDate,arr_date:oArrDate,out_mgr:oMgr,out_memo:oMemo}).eq('id',curOutId).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
-  const _liShip=LOGI.find(l=>l.code===r.code); if(_liShip) db.from('inventory').update({qty:_liShip.qty}).eq('code',r.code).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
+  erp.from('requests').update({status:'shipped',out_date:oDate,arr_date:oArrDate,out_mgr:oMgr,out_memo:oMemo}).eq('id',curOutId).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
+  const _liShip=LOGI.find(l=>l.code===r.code); if(_liShip) erp.from('inventory').update({qty:_liShip.qty}).eq('code',r.code).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   closeMo('moOut');
   notify(`출고 완료 ✓  물류재고 -${r.qty} · 직영점[${r.store}] 출고 기록 저장`,'success');
   updateBadge();renderOut();renderInv();
@@ -3109,7 +3176,7 @@ function doShip(){
 function rejectReq(){
   const r=REQS.find(x=>x.id===curOutId);if(!r)return;
   r.status='rejected';
-  db.from('requests').update({status:'rejected'}).eq('id',curOutId).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
+  erp.from('requests').update({status:'rejected'}).eq('id',curOutId).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   closeMo('moOut');notify('신청 반려 처리됨','error');
   updateBadge();renderReqs();renderOut();
 }
@@ -3228,7 +3295,7 @@ function confirmDeleteInv(){
   const logiIdx = LOGI.findIndex(l=>l.code===code);
   if(logiIdx > -1) LOGI.splice(logiIdx, 1);
 
-  db.from('inventory').delete().eq('code',code).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
+  erp.from('inventory').delete().eq('code',code).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   closeMo('moDeleteInv');
   deleteInvCode = null;
   notify(`"${name}" (${code}) 삭제 완료 — 물류재고에서도 제거됨`, 'success');
@@ -3306,7 +3373,7 @@ function saveEditInv(){
   }
 
   const newQtyLogi = Math.max(0, newTotal - newOut);
-  db.from('inventory').update({name:newName, qty:newQtyLogi}).eq('code',editInvCode).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
+  erp.from('inventory').update({name:newName, qty:newQtyLogi}).eq('code',editInvCode).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   closeMo('moEditInv');
   const diff = newStock - oldStock;
   const msg = diff===0 ? `"${newName}" 수정 완료` : diff>0
@@ -3347,7 +3414,7 @@ function addAsset(){
     const before=inv.total;
     inv.total+=qty;
     if(li) li.qty+=qty;
-    db.from('inventory').update({qty: (li?li.qty:inv.total)}).eq('code',addExistingCode).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
+    erp.from('inventory').update({qty: (li?li.qty:inv.total)}).eq('code',addExistingCode).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
     closeMo('moAdd');
     notify(`"${name}" 수량 추가 완료 — ${before}개 → ${inv.total}개`,'success');
     renderInv();renderLogi();renderDash();
@@ -3363,7 +3430,7 @@ function addAsset(){
   if(INV.find(i=>i.name===name)){notify('이미 존재하는 자산명입니다','error');return}
   INV.push({code,name,cat,total:qty,out:0,note,fixed:false});
   syncLogiFromInv();
-  db.from('inventory').upsert({code,name,qty,broken_qty:0},{onConflict:'code'}).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
+  erp.from('inventory').upsert({code,name,qty,broken_qty:0},{onConflict:'code'}).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   closeMo('moAdd');
   notify(`"${name}" (${code}) 신규 등록 완료`,'success');
   renderInv();renderLogi();renderDash();
@@ -3593,7 +3660,7 @@ async function submitPickupInline(){
     if(!(it.qty>0)){notify(`${j+1}번 품목: 수량을 입력해주세요`,'error');return}
   }
   const yr=new Date().getFullYear();
-  const{data:lastRows}=await db.from('pickups').select('id').like('id',`PKU-${yr}-%`).order('id',{ascending:false}).limit(1);
+  const{data:lastRows}=await erp.from('pickups').select('id').like('id',`PKU-${yr}-%`).order('id',{ascending:false}).limit(1);
   let nextNum=1;
   if(lastRows&&lastRows.length>0){const m=lastRows[0].id.match(/(\d+)$/);if(m)nextNum=parseInt(m[1])+1;}
   const created=[];
@@ -3601,7 +3668,7 @@ async function submitPickupInline(){
     const id=`PKU-${yr}-${String(nextNum).padStart(3,'0')}`;nextNum++;
     const brokenQtyVal = reason==='고장' ? it.qty : 0;
     const normalQtyVal = reason==='고장' ? 0 : it.qty;
-    const{error:insErr}=await db.from('pickups').insert({id,date,manager,team,reason,asset:it.name,code:it.code,qty:it.qty,broken_qty:brokenQtyVal,store,route,ship_type:it.shipType,address,note,status:'pending'});
+    const{error:insErr}=await erp.from('pickups').insert({id,date,manager,team,reason,asset:it.name,code:it.code,qty:it.qty,broken_qty:brokenQtyVal,store,route,ship_type:it.shipType,address,note,status:'pending'});
     if(insErr){notify('저장 실패: '+insErr.message,'error');return}
     PICKUPS.push({id,date,manager,team,reason,asset:it.name,code:it.code,qty:it.qty,brokenQty:brokenQtyVal,normalQty:normalQtyVal,store,route,shipType:it.shipType,address,note,status:'pending',pickupDate:'',confDate:'',confMgr:'',confMemo:''});
     created.push(`${it.name} ${it.qty}개`);
@@ -3624,9 +3691,9 @@ async function deletePickup(id){
   const warnMsg=p?.status==='confirmed'?'\n\n⚠️ 이미 수거완료된 내역입니다.\n물류재고(고장포함)는 수동으로 정정해야 합니다.':'';
   if(!confirm(`수거신청 ${id} [${statusLabel}]를 삭제하시겠습니까?\n관련 이력도 함께 삭제됩니다.${warnMsg}`))return;
   const idx=PICKUPS.findIndex(x=>x.id===id);if(idx!==-1)PICKUPS.splice(idx,1);
-  await db.from('store_history').delete().ilike('memo',`%${id}%`);
+  await erp.from('store_history').delete().ilike('memo',`%${id}%`);
   SA_HIST=SA_HIST.filter(h=>!((h.memo||'').includes(id)));
-  const{error}=await db.from('pickups').delete().eq('id',id);
+  const{error}=await erp.from('pickups').delete().eq('id',id);
   if(error){notify('삭제 실패: '+error.message,'error');return}
   notify('삭제 완료');updateBadge();renderPickup();renderPickupHist();
 }
@@ -3680,7 +3747,7 @@ async function startPickup(){
   const confMemo=document.getElementById('pkConfMemo').value.trim();
   if(!pickupDate||!confMgr){notify('수거일자와 담당자를 입력해주세요','error');return}
   p.status='in_progress';p.pickupDate=pickupDate;p.confMgr=confMgr;p.confMemo=confMemo;
-  const {error}=await db.from('pickups').update({status:'in_progress',pickup_date:pickupDate,confirmed_mgr:confMgr,conf_memo:confMemo}).eq('id',curPkId);
+  const {error}=await erp.from('pickups').update({status:'in_progress',pickup_date:pickupDate,confirmed_mgr:confMgr,conf_memo:confMemo}).eq('id',curPkId);
   if(error){notify('저장 실패: '+error.message,'error');return}
   closeMo('moPkConfirm');
   notify(`수거 진행 처리 완료 (${curPkId})`,'success');
@@ -3708,9 +3775,9 @@ async function confirmPickup(){
   applyStoreAssetDelta(p.store, p.asset, -p.qty, `수거 확인 / ${p.confMgr}`);
   // 상태 변경
   p.status='confirmed';p.confDate=confDate;
-  const {error:updErr}=await db.from('pickups').update({status:'confirmed',confirmed_at:confDate}).eq('id',curPkId);
+  const {error:updErr}=await erp.from('pickups').update({status:'confirmed',confirmed_at:confDate}).eq('id',curPkId);
   if(updErr){notify('수거 확인 저장 실패: '+updErr.message,'error');return}
-  const _liPk=LOGI.find(l=>l.code===p.code); if(_liPk) db.from('inventory').update({qty:_liPk.qty,broken_qty:_liPk.broken||0}).eq('code',p.code).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
+  const _liPk=LOGI.find(l=>l.code===p.code); if(_liPk) erp.from('inventory').update({qty:_liPk.qty,broken_qty:_liPk.broken||0}).eq('code',p.code).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   histPush({date:new Date().toLocaleString('ko-KR'),store:p.store,col:p.asset,before:null,after:p.qty,type:'수거확인',memo:`${curPkId} / 수거확인일: ${confDate} / 담당: ${p.confMgr||'-'}`});
   closeMo('moPkConfirm');
   notify(`수거 확인 완료 ✓  물류재고 +${p.qty}개 증가`,'success');
@@ -3720,7 +3787,7 @@ async function confirmPickup(){
 function rejectPickup(){
   const p=PICKUPS.find(x=>x.id===curPkId);if(!p)return;
   p.status='rejected';
-  db.from('pickups').update({status:'rejected'}).eq('id',curPkId).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
+  erp.from('pickups').update({status:'rejected'}).eq('id',curPkId).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
   closeMo('moPkConfirm');notify('수거 신청 반려 처리됨','error');
   updateBadge();renderPickup();renderPickupMgmt();
 }
@@ -3915,7 +3982,7 @@ async function confirmBulkShip(){
   const yr=new Date().getFullYear();
 
   // DB에서 최신 REQ ID 조회 후 채번
-  const {data:lastReqRows}=await db.from('requests').select('id').like('id',`REQ-${yr}-%`).order('id',{ascending:false}).limit(1);
+  const {data:lastReqRows}=await erp.from('requests').select('id').like('id',`REQ-${yr}-%`).order('id',{ascending:false}).limit(1);
   let nextNum=1;
   if(lastReqRows&&lastReqRows.length>0){const m=lastReqRows[0].id.match(/(\d+)$/);if(m)nextNum=parseInt(m[1])+1;}
 
@@ -3929,10 +3996,10 @@ async function confirmBulkShip(){
 
     // 재고 차감
     li.qty-=r.qty; inv.out+=r.qty;
-    await db.from('inventory').update({qty:li.qty}).eq('code',r.assetCode);
+    await erp.from('inventory').update({qty:li.qty}).eq('code',r.assetCode);
 
     // requests 테이블에 shipped 상태로 저장
-    const {error:insErr}=await db.from('requests').insert({
+    const {error:insErr}=await erp.from('requests').insert({
       id:reqId, date:todayStr, manager:'물류팀', team:'물류팀',
       asset:r.assetName, code:r.assetCode, qty:r.qty,
       store:r.storeName, route:r.route||'', ship_type:'직납',
@@ -4174,17 +4241,17 @@ async function submitPurchaseRequest() {
   if(!items.length){notify('품목명과 수량을 입력해주세요','error');return;}
 
   // DB에서 최신 ID 조회해서 다음 번호 결정 (중복 방지)
-  const {data:lastReqs} = await db.from('purchase_requests').select('id').order('created_at',{ascending:false}).limit(1);
+  const {data:lastReqs} = await erp.from('purchase_requests').select('id').order('created_at',{ascending:false}).limit(1);
   let nextNum = 1;
   if(lastReqs&&lastReqs.length>0){const m=lastReqs[0].id.match(/(\d+)$/);if(m)nextNum=parseInt(m[1])+1;}
   const rid = 'PO-' + new Date().getFullYear() + '-' + String(nextNum).padStart(3,'0');
 
   const reqData = {id:rid, request_date:reqDate, manager, status:'pending', note:''};
-  const {error:e1} = await db.from('purchase_requests').insert(reqData);
+  const {error:e1} = await erp.from('purchase_requests').insert(reqData);
   if(e1){notify('제출 실패: '+e1.message,'error');return;}
 
   const itemsData = items.map(i=>({request_id:rid, asset_code:i.code, asset_name:i.name, req_qty:i.qty, order_qty:i.qty, status:'pending', note:i.note}));
-  const {data:insertedItems, error:e2} = await db.from('purchase_items').insert(itemsData).select();
+  const {data:insertedItems, error:e2} = await erp.from('purchase_items').insert(itemsData).select();
   if(e2){notify('품목 저장 실패: '+e2.message,'error');return;}
   if(insertedItems) insertedItems.forEach(item => PURCHASE_ITEMS.push(item));
 
@@ -4219,8 +4286,8 @@ function renderPurchaseHist() {
 // ─── 구매요청 삭제 ───
 async function deletePurchaseReq(reqId) {
   if(!confirm(`"${reqId}" 구매요청을 삭제하시겠습니까?\n비품주문표의 관련 품목도 함께 삭제됩니다.`)) return;
-  const {error:e1} = await db.from('purchase_items').delete().eq('request_id', reqId);
-  const {error:e2} = await db.from('purchase_requests').delete().eq('id', reqId);
+  const {error:e1} = await erp.from('purchase_items').delete().eq('request_id', reqId);
+  const {error:e2} = await erp.from('purchase_requests').delete().eq('id', reqId);
   if(e1||e2){notify('삭제 실패: '+(e1||e2).message,'error');return}
   PURCHASE_ITEMS.splice(0, PURCHASE_ITEMS.length, ...PURCHASE_ITEMS.filter(i=>i.request_id!==reqId));
   PURCHASE_REQS.splice(0, PURCHASE_REQS.length, ...PURCHASE_REQS.filter(r=>r.id!==reqId));
@@ -4380,12 +4447,12 @@ async function saveOrderQtyInline(itemId) {
   if(item) item.order_qty = qty;
   cell?.setAttribute('data-qty', String(qty));
   if(cell) cell.innerHTML = `<span class="tm" ondblclick="editOrderQty(${itemId})" title="더블클릭으로 수량 수정" style="cursor:text;border-bottom:1px dashed var(--tx3);padding-bottom:1px">${qty}</span>`;
-  await db.from('purchase_items').update({order_qty:qty}).eq('id',itemId);
+  await erp.from('purchase_items').update({order_qty:qty}).eq('id',itemId);
 }
 
 // ─── 승인 ───
 async function approvePurchaseReq(reqId) {
-  const {error} = await db.from('purchase_requests').update({status:'approved'}).eq('id',reqId);
+  const {error} = await erp.from('purchase_requests').update({status:'approved'}).eq('id',reqId);
   if(error){notify('승인 실패: '+error.message,'error');return;}
   const req = PURCHASE_REQS.find(r=>r.id===reqId);
   if(req) req.status='approved';
@@ -4395,7 +4462,7 @@ async function approvePurchaseReq(reqId) {
 
 // ─── 주문완료 ───
 async function markOrdered(reqId) {
-  const {error} = await db.from('purchase_requests').update({status:'ordered'}).eq('id',reqId);
+  const {error} = await erp.from('purchase_requests').update({status:'ordered'}).eq('id',reqId);
   if(error){notify('주문완료 저장 실패: '+error.message,'error');return;}
   const req = PURCHASE_REQS.find(r=>r.id===reqId);
   if(req) req.status='ordered';
@@ -4410,10 +4477,10 @@ async function bulkMarkItemOrdered(reqId) {
   for(const item of reqItems){
     const oq=parseInt(item.order_qty||0), rq=parseInt(item.req_qty||0);
     const st = oq!==rq ? 'modified_ordered' : 'ordered';
-    await db.from('purchase_items').update({status:st}).eq('id',item.id);
+    await erp.from('purchase_items').update({status:st}).eq('id',item.id);
     item.status=st;
   }
-  await db.from('purchase_requests').update({status:'ordered'}).eq('id',reqId);
+  await erp.from('purchase_requests').update({status:'ordered'}).eq('id',reqId);
   const req=PURCHASE_REQS.find(r=>r.id===reqId);
   if(req) req.status='ordered';
   notify(`${reqItems.length}건 일괄 주문완료 처리됨`,'success');
@@ -4428,20 +4495,20 @@ async function markItemOrdered(itemId, reqId) {
   if(liveInput && item) {
     const inputQty = parseInt(liveInput.value)||0;
     item.order_qty = inputQty;
-    await db.from('purchase_items').update({order_qty:inputQty}).eq('id',itemId);
+    await erp.from('purchase_items').update({order_qty:inputQty}).eq('id',itemId);
   }
   // 구매수량이 요청수량과 다르면 modified_ordered
   const orderQty = parseInt(item?.order_qty||0);
   const reqQty   = parseInt(item?.req_qty||0);
   const newStatus = (item && orderQty !== reqQty) ? 'modified_ordered' : 'ordered';
-  const {error} = await db.from('purchase_items').update({status:newStatus}).eq('id',itemId);
+  const {error} = await erp.from('purchase_items').update({status:newStatus}).eq('id',itemId);
   if(error){notify('주문완료 저장 실패: '+error.message,'error');return;}
   if(item) item.status=newStatus;
   // 해당 요청의 모든 품목이 주문완료이면 요청도 ordered로 전환
   const reqItems = PURCHASE_ITEMS.filter(i=>i.request_id===reqId);
   const allOrdered = reqItems.every(i=>i.status==='ordered'||i.status==='modified_ordered'||i.status==='partial'||i.status==='received');
   if(allOrdered){
-    await db.from('purchase_requests').update({status:'ordered'}).eq('id',reqId);
+    await erp.from('purchase_requests').update({status:'ordered'}).eq('id',reqId);
     const req = PURCHASE_REQS.find(r=>r.id===reqId);
     if(req) req.status='ordered';
   }
@@ -4451,7 +4518,7 @@ async function markItemOrdered(itemId, reqId) {
 
 // ─── 반려 ───
 async function rejectPurchaseReq(reqId) {
-  const {error} = await db.from('purchase_requests').update({status:'rejected'}).eq('id',reqId);
+  const {error} = await erp.from('purchase_requests').update({status:'rejected'}).eq('id',reqId);
   if(error){notify('반려 실패: '+error.message,'error');return;}
   const req = PURCHASE_REQS.find(r=>r.id===reqId);
   if(req) req.status='rejected';
@@ -4471,10 +4538,10 @@ async function bulkConfirmReceiving(reqId) {
   for(const item of pendingItems) {
     const remaining = (item.order_qty||item.req_qty)-(item.received_qty||0);
     const newReceived = (item.received_qty||0)+remaining;
-    await db.from('purchase_items').update({received_qty:newReceived, status:'received'}).eq('id',item.id);
+    await erp.from('purchase_items').update({received_qty:newReceived, status:'received'}).eq('id',item.id);
     item.received_qty = newReceived; item.status = 'received';
     const li = LOGI.find(l=>l.code===item.asset_code);
-    if(li){li.qty+=remaining; await db.from('inventory').update({qty:li.qty}).eq('code',item.asset_code);}
+    if(li){li.qty+=remaining; await erp.from('inventory').update({qty:li.qty}).eq('code',item.asset_code);}
     const inv = INV.find(i=>i.code===item.asset_code);
     if(inv) inv.total+=remaining;
     histPush({date:new Date().toLocaleString('ko-KR'), store:'물류창고', col:item.asset_name, before:(li?li.qty-remaining:0), after:(li?li.qty:remaining), type:'입고확인', memo:`일괄입고 +${remaining}개 (${reqId})`});
@@ -4494,14 +4561,14 @@ async function confirmReceiving(itemId, assetCode, assetName, maxQty, reqId) {
   const item = PURCHASE_ITEMS.find(i=>i.id===itemId);
   const newReceived = (item?.received_qty||0) + actual;
   const newStatus = newReceived>=(item?.order_qty||0)?'received':'partial';
-  await db.from('purchase_items').update({received_qty:newReceived, status:newStatus}).eq('id',itemId);
+  await erp.from('purchase_items').update({received_qty:newReceived, status:newStatus}).eq('id',itemId);
   if(item){item.received_qty=newReceived; item.status=newStatus;}
 
   // 물류재고 & 자산현황 증가
   const li = LOGI.find(l=>l.code===assetCode);
   if(li){
     li.qty += actual;
-    await db.from('inventory').update({qty:li.qty}).eq('code',assetCode);
+    await erp.from('inventory').update({qty:li.qty}).eq('code',assetCode);
   }
   const inv = INV.find(i=>i.code===assetCode);
   if(inv) inv.total += actual;
@@ -4520,7 +4587,7 @@ async function checkAndCompleteRequest(reqId) {
   if(!reqItems.length) return;
   const allDone = reqItems.every(i=>(i.received_qty||0)>=(i.order_qty||i.req_qty));
   if(!allDone) return;
-  const {error} = await db.from('purchase_requests').update({status:'completed'}).eq('id',reqId);
+  const {error} = await erp.from('purchase_requests').update({status:'completed'}).eq('id',reqId);
   if(error){notify('완료 처리 실패: '+error.message,'error');return;}
   const req = PURCHASE_REQS.find(r=>r.id===reqId);
   if(req) req.status='completed';
@@ -4717,7 +4784,7 @@ async function calcBagShipping() {
 
   showLoading('출고 계산 저장 중...');
   try {
-    const {data, error} = await db.from('bag_shipping').insert(insertRows).select();
+    const {data, error} = await erp.from('bag_shipping').insert(insertRows).select();
     if (error) throw error;
     data.forEach(r => BAG_SHIPPING.unshift(r));
     const shipCnt = data.filter(r => r.need_ship).length;
@@ -4736,7 +4803,7 @@ async function dispatchBagBatch(batchId) {
   showLoading('출고 처리 중...');
   try {
     const now = new Date().toISOString();
-    const {error} = await db.from('bag_shipping')
+    const {error} = await erp.from('bag_shipping')
       .update({dispatched: true, dispatched_at: now})
       .eq('batch_id', batchId)
       .eq('need_ship', true);
@@ -4756,13 +4823,13 @@ async function dispatchBagBatch(batchId) {
     const invUpdates = [];
     if (shopItem && totalShop > 0) {
       const newQty = Math.max(0, shopItem.qty - totalShop);
-      invUpdates.push(db.from('inventory').update({qty: newQty}).eq('code', shopItem.code));
+      invUpdates.push(erp.from('inventory').update({qty: newQty}).eq('code', shopItem.code));
       shopItem.qty = newQty;
       const invRow = INV.find(i => i.code === shopItem.code); if (invRow) invRow.total = newQty;
     }
     if (envItem && totalEnv > 0) {
       const newQty = Math.max(0, envItem.qty - totalEnv);
-      invUpdates.push(db.from('inventory').update({qty: newQty}).eq('code', envItem.code));
+      invUpdates.push(erp.from('inventory').update({qty: newQty}).eq('code', envItem.code));
       envItem.qty = newQty;
       const invRow = INV.find(i => i.code === envItem.code); if (invRow) invRow.total = newQty;
     }
@@ -4778,7 +4845,7 @@ async function dispatchBagBatch(batchId) {
 async function deleteBagRow(id) {
   if (!confirm('이 항목을 삭제하시겠습니까?')) return;
   try {
-    const {error} = await db.from('bag_shipping').delete().eq('id', id);
+    const {error} = await erp.from('bag_shipping').delete().eq('id', id);
     if (error) throw error;
     const idx = BAG_SHIPPING.findIndex(r => r.id === id);
     if (idx !== -1) BAG_SHIPPING.splice(idx, 1);
@@ -4791,7 +4858,7 @@ async function deleteBagRow(id) {
 async function loadBagFromDB() {
   showLoading('출고 데이터 로딩 중...');
   try {
-    const {data, error} = await db.from('bag_shipping').select('*').order('created_at', {ascending:false});
+    const {data, error} = await erp.from('bag_shipping').select('*').order('created_at', {ascending:false});
     if (error) throw error;
     BAG_SHIPPING.length = 0;
     data.forEach(r => BAG_SHIPPING.push(r));
@@ -4903,7 +4970,7 @@ async function deleteBagBatch(batchId) {
   if (!confirm(`"${batchId}" 배치 전체(${cnt}건)를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
   showLoading('삭제 중...');
   try {
-    const {error} = await db.from('bag_shipping').delete().eq('batch_id', batchId);
+    const {error} = await erp.from('bag_shipping').delete().eq('batch_id', batchId);
     if (error) throw error;
     BAG_SHIPPING.splice(0, BAG_SHIPPING.length, ...BAG_SHIPPING.filter(r => r.batch_id !== batchId));
     notify('일괄삭제 완료', 'success');
@@ -4970,7 +5037,7 @@ async function clearBagHistory() {
   if (!confirm('모든 출고 이력을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) return;
   showLoading('이력 삭제 중...');
   try {
-    const {error} = await db.from('bag_shipping').delete().gte('id', 0);
+    const {error} = await erp.from('bag_shipping').delete().gte('id', 0);
     if (error) throw error;
     BAG_SHIPPING.length = 0;
     renderBagHistory();
@@ -5093,12 +5160,8 @@ async function checkAndRegisterMgr(name, storeName) {
   if (!name) return true;
   const exists = UNIFORM_MANAGERS.find(m => m.manager_name === name);
   if (exists) return true;
-  const ok = confirm(`"${name}"은 관리대장에 없는 이름입니다.\n신규 입사자인가요? 관리대장에 등록하시겠습니까?`);
-  if (!ok) return false;
-  const {data: ins} = await db.from('uniform_managers').insert({manager_name: name, employment_status: '재직'}).select().single();
-  if (ins) UNIFORM_MANAGERS.push(ins);
-  notify(`"${name}" 신규 매니저로 등록되었습니다`, 'success');
-  return true;
+  notify(`"${name}"은 ERP 직원 원장에 없는 이름입니다. ERP 직원 원장에서 먼저 등록/수정해주세요.`, 'error');
+  return false;
 }
 
 // ─── 폼 토글/초기화 ───
@@ -5198,7 +5261,7 @@ async function submitUniformReq() {
   try {
     const ok = await checkAndRegisterMgr(recvMgr, store);
     if (!ok) { hideLoading(); return; }
-    const {data:inserted,error}=await db.from('uniform_requests').insert(
+    const {data:inserted,error}=await erp.from('uniform_requests').insert(
       items.map(it=>({req_date:date,manager,store_name:store,recv_manager:recvMgr,
         item_name:it.name,item_code:it.code,size:it.size,qty:it.qty,reason:it.reason,note:it.note,
         delivery_type:delivery,status:'pending'}))
@@ -5351,7 +5414,8 @@ async function submitUrBulk() {
     const toInsert = [];
     for (const row of urBulkRows) {
       if (!row.qty || row.qty <= 0) continue;
-      await checkAndRegisterMgr(row.mgrName, row.storeName);
+      const ok = await checkAndRegisterMgr(row.mgrName, row.storeName);
+      if (!ok) throw new Error(`ERP 직원 원장에서 담당자를 확인해주세요: ${row.mgrName}`);
       const item = allItems.find(x=>x.name===row.itemName);
       const size = row.itemName.trim().split(/\s+/).pop();
       toInsert.push({
@@ -5365,7 +5429,7 @@ async function submitUrBulk() {
     const CHUNK = 50;
     let inserted = [];
     for (let i = 0; i < toInsert.length; i += CHUNK) {
-      const {data, error} = await db.from('uniform_requests').insert(toInsert.slice(i,i+CHUNK)).select();
+      const {data, error} = await erp.from('uniform_requests').insert(toInsert.slice(i,i+CHUNK)).select();
       if (error) throw error;
       if (data) inserted = inserted.concat(data);
     }
@@ -5391,7 +5455,7 @@ async function submitUniformPkp() {
   try {
     const ok = await checkAndRegisterMgr(returnMgr, store);
     if (!ok) { hideLoading(); return; }
-    const {data:inserted,error}=await db.from('uniform_pickups').insert(
+    const {data:inserted,error}=await erp.from('uniform_pickups').insert(
       items.map(it=>({req_date:date,manager,store_name:store,return_manager:returnMgr,
         item_name:it.name,item_code:it.code,size:it.size,qty:it.qty,reason:it.reason,note:it.note,
         delivery_type:deliveryType,status:'pending'}))
@@ -5433,7 +5497,7 @@ async function doUniExpectedPickup() {
   const r = UNIFORM_PKPS.find(x=>x.id===id); if(!r) return;
   showLoading();
   try {
-    const {error}=await db.from('uniform_pickups').update({status:'scheduled',expected_pickup_date:expDate}).eq('id',id);
+    const {error}=await erp.from('uniform_pickups').update({status:'scheduled',expected_pickup_date:expDate}).eq('id',id);
     if(error)throw error;
     Object.assign(r,{status:'scheduled',expected_pickup_date:expDate});
     closeMo('moUniExpectedPickup');
@@ -5460,11 +5524,11 @@ async function doUniPickup() {
   const r = UNIFORM_PKPS.find(x=>x.id===id); if(!r) return;
   showLoading();
   try {
-    const {error}=await db.from('uniform_pickups').update({status:'confirmed',pickup_date:pickupDate,pickup_note:pickupNote}).eq('id',id);
+    const {error}=await erp.from('uniform_pickups').update({status:'confirmed',pickup_date:pickupDate,pickup_note:pickupNote}).eq('id',id);
     if(error)throw error;
     // 반납재고 증가 (사용가능 재고가 아닌 반납재고로 귀속 대기)
     const l=LOGI.find(x=>x.code===r.item_code);
-    if(l){const nrq=(l.returnQty||0)+r.qty;await db.from('inventory').update({return_qty:nrq}).eq('code',r.item_code);l.returnQty=nrq;}
+    if(l){const nrq=(l.returnQty||0)+r.qty;await erp.from('inventory').update({return_qty:nrq}).eq('code',r.item_code);l.returnQty=nrq;}
     // 매니저 재고 -
     await _updateUniMgrStock(r.store_name,r.return_manager,{name:r.item_name,code:r.item_code,size:r.size},-r.qty);
     // 이력
@@ -5489,7 +5553,7 @@ async function _updateUniMgrStock(store, mgrName, item, delta) {
   const rawSize = normSz((item.name||'').replace(season,'').trim() || item.size);
 
   // ── DB에서 직접 조회 (메모리 캐시 무시) ──
-  const {data: rows, error: fetchErr} = await db.from('uniform_manager_stock')
+  const {data: rows, error: fetchErr} = await erp.from('uniform_manager_stock')
     .select('*').eq('manager_name', mgrName).eq('item_name', season);
 
   if(fetchErr){ console.error('[MGR_STOCK 조회 오류]', fetchErr.message); return; }
@@ -5499,7 +5563,7 @@ async function _updateUniMgrStock(store, mgrName, item, delta) {
 
   if(existing){
     const nq = Math.max(0, existing.qty + delta);
-    const {error:updErr} = await db.from('uniform_manager_stock')
+    const {error:updErr} = await erp.from('uniform_manager_stock')
       .update({qty:nq, store_name:store, updated_at:new Date().toISOString()})
       .eq('id', existing.id);
     if(updErr){ console.error('[MGR_STOCK 업데이트 오류]', updErr.message); return; }
@@ -5511,7 +5575,7 @@ async function _updateUniMgrStock(store, mgrName, item, delta) {
     // 해당 매니저의 같은 시즌 레코드가 있으면 그 사이즈 형식 재사용
     const sameSeasonRow = (rows||[])[0];
     const sizeForInsert = sameSeasonRow ? sameSeasonRow.size : rawSize;
-    const {data:ins, error:insErr} = await db.from('uniform_manager_stock')
+    const {data:ins, error:insErr} = await erp.from('uniform_manager_stock')
       .insert({store_name:store, manager_name:mgrName, item_name:season,
                item_code:item.code, size:sizeForInsert, qty:Math.max(0,delta)})
       .select().single();
@@ -5688,7 +5752,7 @@ async function deleteUniBatch(batchId) {
   if(!confirm(msg)) return;
   showLoading();
   try {
-    const {error}=await db.from('uniform_requests').delete().eq('batch_id',batchId);
+    const {error}=await erp.from('uniform_requests').delete().eq('batch_id',batchId);
     if(error) throw error;
     for(let i=UNIFORM_REQS.length-1;i>=0;i--){if(UNIFORM_REQS[i].batch_id===batchId)UNIFORM_REQS.splice(i,1);}
     notify(`삭제 완료 — ${items.length}건`,'success');
@@ -5727,11 +5791,11 @@ async function doUniShip() {
     showLoading();
     try {
       for(const r of pending) {
-        const {error}=await db.from('uniform_requests').update({status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote}).eq('id',r.id);
+        const {error}=await erp.from('uniform_requests').update({status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote}).eq('id',r.id);
         if(error) throw error;
         // 물류재고 차감
         const l=LOGI.find(x=>x.code===r.item_code);
-        if(l){const nq=Math.max(0,l.qty-r.qty);await db.from('inventory').update({qty:nq}).eq('code',r.item_code);l.qty=nq;const iv=INV.find(x=>x.code===r.item_code);if(iv)iv.total=nq;}
+        if(l){const nq=Math.max(0,l.qty-r.qty);await erp.from('inventory').update({qty:nq}).eq('code',r.item_code);l.qty=nq;const iv=INV.find(x=>x.code===r.item_code);if(iv)iv.total=nq;}
         // 관리대장 반영
         await _updateUniMgrStock(r.store_name,r.recv_manager,{name:r.item_name,code:r.item_code,size:r.size},r.qty);
         // 이력
@@ -5755,10 +5819,10 @@ async function doUniShip() {
   const r=UNIFORM_REQS.find(x=>x.id===id); if(!r) return;
   showLoading();
   try {
-    const {error}=await db.from('uniform_requests').update({status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote}).eq('id',id);
+    const {error}=await erp.from('uniform_requests').update({status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote}).eq('id',id);
     if(error)throw error;
     const l=LOGI.find(x=>x.code===r.item_code);
-    if(l){const nq=Math.max(0,l.qty-r.qty);await db.from('inventory').update({qty:nq}).eq('code',r.item_code);l.qty=nq;const iv=INV.find(x=>x.code===r.item_code);if(iv)iv.total=nq;}
+    if(l){const nq=Math.max(0,l.qty-r.qty);await erp.from('inventory').update({qty:nq}).eq('code',r.item_code);l.qty=nq;const iv=INV.find(x=>x.code===r.item_code);if(iv)iv.total=nq;}
     await _updateUniMgrStock(r.store_name,r.recv_manager,{name:r.item_name,code:r.item_code,size:r.size},r.qty);
     histPush({date:outDate,store:r.store_name,col:r.item_name,before:'',after:r.qty,type:'유니폼출고',memo:`${r.recv_manager}/${r.size}/${r.reason}${outNote?' / '+outNote:''}`});
     Object.assign(r,{status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote});
@@ -5799,12 +5863,12 @@ async function deleteUniReq(id) {
   if(!confirm(`신청 내역을 삭제하시겠습니까?\n\n${label}${r.status==='shipped'?'\n\n⚠️ 이미 출고된 내역입니다. 재고도 함께 되돌립니다.':''}`)) return;
   showLoading();
   try {
-    const {error}=await db.from('uniform_requests').delete().eq('id',id);
+    const {error}=await erp.from('uniform_requests').delete().eq('id',id);
     if(error) throw error;
     // 출고된 경우 재고 원복
     if(r.status==='shipped'){
       const l=LOGI.find(x=>x.code===r.item_code);
-      if(l){const nq=Math.max(0,l.qty-r.qty);await db.from('inventory').update({qty:nq}).eq('code',r.item_code);l.qty=nq;const iv=INV.find(x=>x.code===r.item_code);if(iv)iv.total=nq;}
+      if(l){const nq=Math.max(0,l.qty-r.qty);await erp.from('inventory').update({qty:nq}).eq('code',r.item_code);l.qty=nq;const iv=INV.find(x=>x.code===r.item_code);if(iv)iv.total=nq;}
     }
     const idx=UNIFORM_REQS.findIndex(x=>x.id===id);
     if(idx>-1) UNIFORM_REQS.splice(idx,1);
@@ -5820,12 +5884,12 @@ async function deleteUniPkp(id) {
   if(!confirm(`수거 내역을 삭제하시겠습니까?\n\n${label}${r.status==='confirmed'?'\n\n⚠️ 이미 수거확인된 내역입니다. 반납재고도 함께 되돌립니다.':''}`)) return;
   showLoading();
   try {
-    const {error}=await db.from('uniform_pickups').delete().eq('id',id);
+    const {error}=await erp.from('uniform_pickups').delete().eq('id',id);
     if(error) throw error;
     // 수거확인된 경우 반납재고 원복
     if(r.status==='confirmed'){
       const l=LOGI.find(x=>x.code===r.item_code);
-      if(l){const nrq=Math.max(0,(l.returnQty||0)-r.qty);await db.from('inventory').update({return_qty:nrq}).eq('code',r.item_code);l.returnQty=nrq;}
+      if(l){const nrq=Math.max(0,(l.returnQty||0)-r.qty);await erp.from('inventory').update({return_qty:nrq}).eq('code',r.item_code);l.returnQty=nrq;}
     }
     const idx=UNIFORM_PKPS.findIndex(x=>x.id===id);
     if(idx>-1) UNIFORM_PKPS.splice(idx,1);
@@ -6008,13 +6072,13 @@ async function saveUniMgrEdit() {
     if(id) {
       const oldM=UNIFORM_MANAGERS.find(x=>x.id===parseInt(id));
       const oldName=oldM?oldM.manager_name:name;
-      await db.from('uniform_managers').update({manager_name:name,employment_status:status,note,updated_at:new Date().toISOString()}).eq('id',parseInt(id));
+      await erp.from('uniform_managers').update({manager_name:name,employment_status:status,note,updated_at:new Date().toISOString()}).eq('id',parseInt(id));
       if(oldM){oldM.manager_name=name;oldM.employment_status=status;oldM.note=note;}
       // 매니저명 변경 시 stock 테이블도 업데이트
-      if(oldName!==name) await db.from('uniform_manager_stock').update({manager_name:name}).eq('manager_name',oldName);
+      if(oldName!==name) await erp.from('uniform_manager_stock').update({manager_name:name}).eq('manager_name',oldName);
       mgrName=name;
     } else {
-      const {data:ins}=await db.from('uniform_managers').insert({manager_name:name,employment_status:status,note}).select().single();
+      const {data:ins}=await erp.from('uniform_managers').insert({manager_name:name,employment_status:status,note}).select().single();
       if(ins)UNIFORM_MANAGERS.push(ins);
     }
     // 3시즌 재고 upsert
@@ -6023,12 +6087,12 @@ async function saveUniMgrEdit() {
       const qty=parseInt(document.getElementById(s.qtId).value)||0;
       const exist=UNIFORM_MGRSTK.find(x=>x.manager_name===mgrName&&x.item_name===s.key);
       if(exist){
-        await db.from('uniform_manager_stock').update({size:sz,qty,updated_at:new Date().toISOString()}).eq('id',exist.id);
+        await erp.from('uniform_manager_stock').update({size:sz,qty,updated_at:new Date().toISOString()}).eq('id',exist.id);
         exist.size=sz; exist.qty=qty;
       } else {
         const existStock=UNIFORM_MGRSTK.find(x=>x.manager_name===mgrName);
         const storeName=existStock?existStock.store_name:'';
-        const {data:ins}=await db.from('uniform_manager_stock').insert({store_name:storeName,manager_name:mgrName,item_name:s.key,item_code:s.code,size:sz,qty}).select().single();
+        const {data:ins}=await erp.from('uniform_manager_stock').insert({store_name:storeName,manager_name:mgrName,item_name:s.key,item_code:s.code,size:sz,qty}).select().single();
         if(ins)UNIFORM_MGRSTK.push(ins);
       }
     }
@@ -6043,8 +6107,8 @@ async function deleteUniMgr(id) {
   if(!confirm(`"${m.manager_name}" 매니저를 삭제하시겠습니까?\n보유 유니폼 현황도 함께 삭제됩니다.`)) return;
   showLoading();
   try {
-    await db.from('uniform_manager_stock').delete().eq('manager_name',m.manager_name);
-    await db.from('uniform_managers').delete().eq('id',id);
+    await erp.from('uniform_manager_stock').delete().eq('manager_name',m.manager_name);
+    await erp.from('uniform_managers').delete().eq('id',id);
     const idx=UNIFORM_MANAGERS.findIndex(x=>x.id===id); if(idx>-1)UNIFORM_MANAGERS.splice(idx,1);
     UNIFORM_MGRSTK=UNIFORM_MGRSTK.filter(s=>s.manager_name!==m.manager_name);
     notify('삭제 완료','success');
@@ -6088,7 +6152,7 @@ async function saveUniStockEdit() {
   try {
     if(id) {
       // 기존 레코드 수정
-      await db.from('uniform_manager_stock').update({item_name:itemName,size,qty,updated_at:new Date().toISOString()}).eq('id',id);
+      await erp.from('uniform_manager_stock').update({item_name:itemName,size,qty,updated_at:new Date().toISOString()}).eq('id',id);
       const s=UNIFORM_MGRSTK.find(x=>x.id===id);
       if(s){s.item_name=itemName;s.size=size;s.qty=qty;}
     } else {
@@ -6098,7 +6162,7 @@ async function saveUniStockEdit() {
       const codeMap={'유니폼(하계)':'AST-126','유니폼(춘추)':'AST-127','유니폼(동계)':'AST-128'};
       const existStk=UNIFORM_MGRSTK.find(x=>x.manager_name===mgrName);
       const storeName=existStk?existStk.store_name:'';
-      const {data:ins,error:insErr}=await db.from('uniform_manager_stock').insert({
+      const {data:ins,error:insErr}=await erp.from('uniform_manager_stock').insert({
         store_name:storeName, manager_name:mgrName, item_name:itemName,
         item_code:codeMap[season]||'', size, qty
       }).select().single();
@@ -6115,7 +6179,7 @@ async function deleteUniStock(id) {
   if(!confirm('이 유니폼 보유 내역을 삭제하시겠습니까?')) return;
   showLoading();
   try {
-    await db.from('uniform_manager_stock').delete().eq('id',id);
+    await erp.from('uniform_manager_stock').delete().eq('id',id);
     UNIFORM_MGRSTK=UNIFORM_MGRSTK.filter(x=>x.id!==id);
     notify('삭제 완료','success');
     renderUniformMgmt();
@@ -6160,9 +6224,47 @@ if(localStorage.getItem('ams-theme')==='light'){
   document.getElementById('themeLabel').textContent='다크 모드';
 }
 
+// ERP 원장 전환 보호: GitHub 화면에서는 삭제/초기화/마스터 직접수정을 막는다.
+function blockedErpLedgerAction(message='이 기능은 ERP 원장 화면에서만 처리할 수 있습니다.') {
+  notify(message, 'error');
+}
+function installErpLedgerGuards() {
+  const blocked = {
+    saveNewStore: '매장 등록/주소 수정은 ERP 매장 원장에서 처리해주세요.',
+    saveEditStore: '매장 등록/주소 수정은 ERP 매장 원장에서 처리해주세요.',
+    deleteStore: '매장 삭제는 GitHub 자산관리에서 허용하지 않습니다.',
+    openDeleteInvModal: '자산 삭제는 ERP 원장 화면에서만 가능합니다.',
+    confirmDeleteInv: '자산 삭제는 ERP 원장 화면에서만 가능합니다.',
+    saveEditInv: '본사 재고/자산 마스터 수정은 ERP 원장 화면에서만 가능합니다.',
+    deleteReq: '신청 삭제는 ERP 원장 화면에서만 가능합니다.',
+    deletePickup: '수거신청 삭제는 ERP 원장 화면에서만 가능합니다.',
+    deletePurchaseReq: '구매요청 삭제는 ERP 원장 화면에서만 가능합니다.',
+    deleteBagRow: '쇼핑백 이력 삭제는 ERP 원장 화면에서만 가능합니다.',
+    deleteBagBatch: '쇼핑백 배치 삭제는 ERP 원장 화면에서만 가능합니다.',
+    clearBagHistory: '쇼핑백 전체 이력 초기화는 허용하지 않습니다.',
+    deleteUniBatch: '유니폼 일괄삭제는 ERP 원장 화면에서만 가능합니다.',
+    deleteUniReq: '유니폼 신청 삭제는 ERP 원장 화면에서만 가능합니다.',
+    deleteUniPkp: '유니폼 수거 삭제는 ERP 원장 화면에서만 가능합니다.',
+    saveUniMgrEdit: '직원/매니저 정보는 ERP 직원 원장에서 관리해주세요.',
+    deleteUniMgr: '직원/매니저 삭제는 GitHub 자산관리에서 허용하지 않습니다.',
+    saveUniStockEdit: '직원별 유니폼 보유량 직접수정은 ERP 원장 화면에서만 가능합니다.',
+    deleteUniStock: '직원별 유니폼 보유량 삭제는 GitHub 자산관리에서 허용하지 않습니다.'
+  };
+  Object.entries(blocked).forEach(([name, message]) => {
+    window[name] = () => blockedErpLedgerAction(message);
+  });
+  document.querySelectorAll('button').forEach((button) => {
+    const onclick = button.getAttribute('onclick') || '';
+    if (/delete|Delete|clearBagHistory|openDeleteInvModal|saveNewStore|saveEditStore|saveEditInv|saveUniMgrEdit|saveUniStockEdit/.test(onclick)) {
+      button.title = 'ERP 원장 전환으로 GitHub 화면에서 차단된 기능입니다.';
+    }
+  });
+}
+
 // ═══ INIT ═══
 (async()=>{
   try { await loadFromDB(); } catch(e){ console.error('[loadFromDB 오류]',e); }
+  try { installErpLedgerGuards(); } catch(e){ console.error(e); }
   try { STORE_OUT_LOG = REQS.filter(r=>r.status==='shipped').map(r=>({store:r.store,code:r.code,name:r.asset,qty:r.qty,date:r.outDate,route:r.route,manager:r.outMgr,memo:r.outMemo})); } catch(e){ console.error(e); }
   try { renderDash(); } catch(e){ console.error('[renderDash 오류]',e); }
   try { updateBadge(); } catch(e){ console.error(e); }
