@@ -1754,7 +1754,7 @@ async function loadFromDB() {
       erp.from('uniform_requests').select('*').order('created_at', {ascending: false}),
       erp.from('uniform_pickups').select('*').order('created_at', {ascending: false}),
       erp.from('uniform_manager_stock').select('*').order('store_name'),
-      erp.from('uniform_managers').select('*').order('manager_name')
+      erp.from('employees').select('*').order('manager_name')
     ]);
     if (uniReqRes.data) { UNIFORM_REQS.length=0; uniReqRes.data.forEach(r=>UNIFORM_REQS.push(r)); }
     if (uniPkpRes.data) { UNIFORM_PKPS.length=0; uniPkpRes.data.forEach(r=>UNIFORM_PKPS.push(r)); }
