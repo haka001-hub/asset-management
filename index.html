@@ -4513,7 +4513,7 @@ function clearBagUpload() {
   const fn=document.getElementById('webPosFileName');if(fn){fn.textContent='파일 없음';fn.style.color='';}
 }
 
-// 출고량 계산 & Supabase 저장
+// 출고량 계산 & ERP AMS 원장 저장
 async function calcBagShipping() {
   if (!bagUploadRows.length) { notify('업로드된 데이터가 없습니다', 'error'); return; }
   const now = new Date();
