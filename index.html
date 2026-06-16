@@ -1660,13 +1660,34 @@ function createErpBridgeClient(baseUrl) {
     catch(reject) { return this.execute().catch(reject); }
   }
   return {
+    async action(name, body = {}) {
+      try {
+        const res = await fetch(`${baseUrl}/actions/${encodeURIComponent(name)}`, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify(body),
+          cache: 'no-store'
+        });
+        const text = await res.text();
+        let payload = null;
+        if (text) {
+          try { payload = JSON.parse(text); } catch (_) { payload = text; }
+        }
+        if (!res.ok) {
+          const message = payload?.message || payload?.error?.message || text || `ERP 업무 처리 실패 (${res.status})`;
+          return {data:null, error:{message, status:res.status, details:payload}};
+        }
+        return {data:payload?.data ?? payload, error:null};
+      } catch (error) {
+        return {data:null, error:{message:error?.message || String(error)}};
+      }
+    },
     from(table) {
       return {
         select() { return new BridgeQuery(table, 'GET'); },
         insert(body) { return new BridgeQuery(table, 'POST', body); },
         update(body) { return new BridgeQuery(table, 'PATCH', body); },
-        upsert(body) { return new BridgeQuery(table, 'POST', body); },
-        delete() { return new BridgeQuery(table, 'DELETE'); }
+        upsert(body) { return new BridgeQuery(table, 'POST', body); }
       };
     }
   };
@@ -1953,20 +1974,7 @@ function renderStoreMgmt(){
 }
 
 async function addNewStore(){
-  const code=document.getElementById('newStCode').value.trim();
-  const name=document.getElementById('newStName').value.trim();
-  const route=document.getElementById('newStRoute').value.trim();
-  const address=document.getElementById('newStAddr').value.trim();
-  if(!name){notify('매장명은 필수입니다','error');return;}
-  const {data,error}=await erp.from('stores').insert({code:code||null,name,route:route||null,address:address||null}).select().single();
-  if(error){notify('등록 실패: '+error.message,'error');return;}
-  ADDR.push({id:data.id,code:data.code||'',name:data.name,route:data.route||'',address:data.address||''});
-  document.getElementById('newStCode').value='';
-  document.getElementById('newStName').value='';
-  document.getElementById('newStRoute').value='';
-  document.getElementById('newStAddr').value='';
-  notify(`"${name}" 등록 완료`,'success');
-  renderStoreMgmt();
+  blockedErpLedgerAction('매장 등록', 'store');
 }
 
 function openEditStore(id){
@@ -1981,56 +1989,11 @@ function openEditStore(id){
 }
 
 async function deleteStore(id, name){
-  if(!confirm(`"${name}"\n\n이 매장을 삭제하면 관련된 자산신청·수거신청·이력·자산현황 데이터도 모두 삭제됩니다.\n정말 삭제하시겠습니까?`))return;
-  const s=ADDR.find(a=>a.id===id);
-  const storeName=s?s.name:name;
-  // 관련 테이블 삭제
-  await erp.from('requests').delete().eq('store',storeName);
-  await erp.from('pickups').delete().eq('store',storeName);
-  await erp.from('store_history').delete().eq('store_name',storeName);
-  await erp.from('store_assets').delete().eq('store_name',storeName);
-  const {error}=await erp.from('stores').delete().eq('id',id);
-  if(error){notify('삭제 실패: '+error.message,'error');return;}
-  // 메모리 갱신
-  const idx=ADDR.findIndex(a=>a.id===id);
-  if(idx>-1)ADDR.splice(idx,1);
-  REQS=REQS.filter(r=>r.store!==storeName);
-  PICKUPS=PICKUPS.filter(p=>p.store!==storeName);
-  SA_HIST=SA_HIST.filter(h=>h.store_name!==storeName);
-  notify(`"${storeName}" 삭제 완료`,'success');
-  renderStoreMgmt();
+  blockedErpLedgerAction('매장 삭제', 'store');
 }
 
 async function saveEditStore(){
-  const id=parseInt(document.getElementById('editStId').value);
-  const code=document.getElementById('editStCode').value.trim();
-  const name=document.getElementById('editStName').value.trim();
-  const route=document.getElementById('editStRoute').value.trim();
-  const address=document.getElementById('editStAddr').value.trim();
-  if(!name){notify('매장명은 필수입니다','error');return;}
-  const {error}=await erp.from('stores').update({code:code||null,name,route:route||null,address:address||null}).eq('id',id);
-  if(error){notify('수정 실패: '+error.message,'error');return;}
-  const s=ADDR.find(a=>a.id===id);
-  const oldName=s?s.name:name;
-  if(s){s.code=code;s.name=name;s.route=route;s.address=address;}
-  // 매장명 변경 시 관련 인메모리 데이터도 갱신
-  if(oldName!==name){
-    REQS.forEach(r=>{if(r.store===oldName)r.store=name;});
-    PICKUPS.forEach(p=>{if(p.store===oldName)p.store=name;});
-    SA_HIST.forEach(h=>{if(h.store_name===oldName)h.store_name=name;});
-    UNIFORM_REQS.forEach(r=>{if(r.store_name===oldName)r.store_name=name;});
-    UNIFORM_PKPS.forEach(r=>{if(r.store_name===oldName)r.store_name=name;});
-    // SA_DATA 키 변경
-    if(SA_DATA[oldName]!==undefined){SA_DATA[name]=SA_DATA[oldName];delete SA_DATA[oldName];}
-  }
-  document.getElementById('stEditModal').style.display='none';
-  notify(`"${name}" 수정 완료`,'success');
-  renderStoreMgmt();
-  // 현재 열려있는 탭 새로고침
-  const curPage=document.querySelector('.ni.active')?.getAttribute('onclick')?.match(/showPage\('([^']+)'/)?.[1];
-  if(curPage&&curPage!=='store-mgmt'){
-    ({'request':renderReqs,'outgoing':renderOut,'history':renderHist,'pickup':renderPickup,'pickupmgmt':renderPickupMgmt,'pickuphist':renderPickupHist,'bag-result':renderBagResult,'bag-history':renderBagHistory,'uniform-req':renderUniformReqList,'uniform-pickup':renderUniformPkpList,'uniform-hist':renderUniformHist})[curPage]?.();
-  }
+  blockedErpLedgerAction('매장 수정', 'store');
 }
 
 // ═══ DASHBOARD ═══
@@ -2363,31 +2326,7 @@ function updateRepairPreview(){
   document.getElementById('prvOk').textContent=`${l.qty}개 → ${newOk}개`;
 }
 function confirmRepair(){
-  const l=LOGI.find(x=>x.code===repairCode);
-  if(!l) return;
-  const qty=parseInt(document.getElementById('repairQty').value)||0;
-  const mgr=document.getElementById('repairMgr').value.trim();
-  const note=document.getElementById('repairNote').value.trim();
-  if(!qty||qty<=0){notify('수리완료 수량을 입력해주세요','error');return;}
-  if(!mgr){notify('처리 담당자를 입력해주세요','error');return;}
-  const actual=Math.min(qty,l.broken||0);
-  if(actual<=0){notify('고장 재고가 부족합니다','error');return;}
-  l.broken=(l.broken||0)-actual;
-  l.qty+=actual;
-  erp.from('inventory').update({qty:l.qty, broken_qty:l.broken}).eq('code',repairCode).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
-  // 자산현황 반영
-  const inv=INV.find(i=>i.code===repairCode);
-  if(inv) inv.total+=actual;
-  // 이력 기록
-  histPush({
-    date:new Date().toLocaleString('ko-KR'),
-    store:'물류창고', col:l.name,
-    before:`고장${l.broken+actual}`, after:`고장${l.broken}`,
-    type:'수리완료', memo:`${mgr}${note?' / '+note:''}`
-  });
-  closeMo('moRepair');
-  notify(`✅ 수리완료 처리 — ${l.name} ${actual}개 사용가능으로 전환 (담당: ${mgr})`,'success');
-  renderLogi(); renderInv();
+  blockedErpLedgerAction('수리완료 재고 전환', 'assetInventory');
 }
 
 // ═══ 유니폼 반납재고 귀속 ═══
@@ -2417,33 +2356,7 @@ function updateUniReturnPreview(){
   document.getElementById('uniPrvOk').textContent=`${l.qty}개 → ${newOk}개`;
 }
 async function confirmUniReturn(){
-  const l=LOGI.find(x=>x.code===uniReturnCode);
-  if(!l) return;
-  const qty=parseInt(document.getElementById('uniReturnQty').value)||0;
-  const mgr=document.getElementById('uniReturnMgr').value.trim();
-  const note=document.getElementById('uniReturnNote').value.trim();
-  if(!qty||qty<=0){notify('귀속 수량을 입력해주세요','error');return;}
-  if(!mgr){notify('처리 담당자를 입력해주세요','error');return;}
-  const actual=Math.min(qty,l.returnQty||0);
-  if(actual<=0){notify('반납재고가 부족합니다','error');return;}
-  showLoading();
-  try {
-    l.returnQty=(l.returnQty||0)-actual;
-    l.qty+=actual;
-    await erp.from('inventory').update({qty:l.qty,return_qty:l.returnQty}).eq('code',uniReturnCode);
-    const inv=INV.find(i=>i.code===uniReturnCode);
-    if(inv) inv.total+=actual;
-    histPush({
-      date:new Date().toLocaleString('ko-KR'),
-      store:'물류창고', col:l.name,
-      before:`반납${l.returnQty+actual}`, after:`반납${l.returnQty}`,
-      type:'유니폼귀속', memo:`${mgr}${note?' / '+note:''}`
-    });
-    closeMo('moUniReturn');
-    notify(`✅ 귀속 처리 완료 — ${l.name} ${actual}개 사용가능으로 전환 (담당: ${mgr})`,'success');
-    renderLogi(); renderInv();
-  } catch(e){console.error(e);notify('오류: '+e.message,'error');}
-  hideLoading();
+  blockedErpLedgerAction('유니폼 반납재고 귀속', 'assetInventory');
 }
 
 // ═══ STORE OUTGOING (직영점 출고 현황) ═══
@@ -2773,61 +2686,12 @@ function openSAAddStoreModal(){
 }
 
 function saveNewStore(){
-  const name = document.getElementById('nsName').value.trim();
-  if(!name){notify('매장명을 입력하세요','error');return;}
-  if(SA_DATA[name]){notify('이미 등록된 매장명입니다','error');return;}
-  const storeCode = document.getElementById('nsStoreCode')?.value.trim()||'';
-  const entry = {
-    '매장코드':       storeCode,
-    '지역':           document.getElementById('nsRegion')?.value.trim()||'',
-    '매장전화번호':   document.getElementById('nsPhone')?.value.trim()||'',
-    '카드단말기 기종':document.getElementById('nsTerminal').value.trim(),
-    'VAN사':          document.getElementById('nsVan')?.value.trim()||'',
-    '단말기 업체':    document.getElementById('nsTermCo')?.value.trim()||'',
-    '노트북 종류':    document.getElementById('nsLaptop').value.trim(),
-    '공유기 기종':    document.getElementById('nsRouter').value.trim(),
-    '에어컨/난방기 기종': document.getElementById('nsAC').value.trim(),
-    '도어락':         document.getElementById('nsDoor').value,
-  };
-  document.querySelectorAll('#nsQtyGrid input[data-col]').forEach(inp=>{
-    entry[inp.dataset.col] = inp.value==='' ? null : parseInt(inp.value);
-  });
-  SA_DATA[name] = entry;
-  erp.from('stores').insert({code:storeCode, name:name, route:'직영', address:entry['지역']||''}).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
-  const _saEntries=Object.entries(entry).filter(([k,v])=>typeof v==='number').map(([k,v])=>({store_name:name,asset_name:k,qty:v}));
-  if(_saEntries.length) erp.from('store_assets').insert(_saEntries).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
-  // ADDR에도 등록 (자산신청·수거 자동완성에서 검색 가능하도록)
-  const region = entry['지역']||'';
-  if(!ADDR.find(a=>a.name===name)){
-    ADDR.push({code:storeCode, name:name, route:'직영', address:region});
-  }
-  histPush({date:new Date().toLocaleString('ko-KR'),store:name,col:'(전체)',before:null,after:null,type:'매장등록',memo:'신규 매장 등록'});
-  closeMo('moSAAddStore');
-  notify(`"${name}" 매장 등록 완료`, 'success');
-  renderSA();
+  blockedErpLedgerAction('직영점 자산현황 매장 등록', 'store');
 }
 
 // ─── 자산신청/수거 연동: 매장 재고 반영 ───
 function applyStoreAssetDelta(storeName, assetName, delta, memo){
-  if(!storeName || !SA_DATA[storeName]) return;
-  // assetName → qty_col 매핑
-  const col = SA_QTY_COLS.find(c=> SA_COL_LABELS[c]===assetName || c===assetName ||
-    c.replace(/[()선포함개수 ]/g,'').includes(assetName.replace(/[()선포함개수 ]/g,''))
-  );
-  if(!col) return;
-  const d = SA_DATA[storeName];
-  const before = d[col];
-  if(before==='구매장'||before===null||before===undefined) return;
-  const after = Math.max(0, (before||0) + delta);
-  d[col] = after;
-  erp.from('store_assets').upsert({store_name:storeName, asset_name:col, qty:after}).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
-  histPush({
-    date: new Date().toLocaleString('ko-KR'),
-    store: storeName, col,
-    before, after,
-    type: delta > 0 ? '신청' : '수거',
-    memo: memo||''
-  });
+  return;
 }
 
 
@@ -3117,13 +2981,7 @@ function clearReqForm(){
   reqItemRows=[];renderReqItems();
 }
 async function deleteReq(id){
-  if(!confirm(`신청 ${id}를 삭제하시겠습니까?`))return;
-  const r=REQS.find(x=>x.id===id);
-  if(r&&r.status!=='pending'){notify('대기중 신청만 삭제할 수 있습니다','error');return}
-  const idx=REQS.findIndex(x=>x.id===id);if(idx!==-1)REQS.splice(idx,1);
-  const{error}=await erp.from('requests').delete().eq('id',id);
-  if(error){notify('삭제 실패: '+error.message,'error');return}
-  notify('삭제 완료');updateBadge();renderReqs();
+  blockedErpLedgerAction('자산 출고신청 삭제', 'assetInventory');
 }
 
 // ═══ OUTGOING MODAL ═══
@@ -3154,7 +3012,7 @@ function openOutModal(reqId){
     <div class="cfr"><span class="cfk">매장 주소</span><span class="cfv" style="font-size:12px">${r.address}</span></div>`;
   openMo('moOut');
 }
-function doShip(){
+async function doShip(){
   const r=REQS.find(x=>x.id===curOutId);if(!r)return;
   const oDate=document.getElementById('oDate').value;
   const oArrDate=document.getElementById('oArrDate').value;
@@ -3162,23 +3020,27 @@ function doShip(){
   const route=document.getElementById('oRoute').value.trim();
   const oMemo=document.getElementById('oMemo').value.trim();
   if(!oDate||!oMgr||!route){notify('출고 정보를 입력해주세요','error');return}
-  // ① 물류재고 차감
-  const li=LOGI.find(l=>l.code===r.code);
-  if(li)li.qty=Math.max(0,li.qty-r.qty);
-  // ② 자산현황 out 증가
-  const inv=INV.find(i=>i.code===r.code);
-  if(inv){inv.out+=r.qty; erp.from('inventory').update({qty:li?li.qty:0}).eq('code',r.code).then(r2=>{if(r2&&r2.error)console.error('[DB오류]',r2.error.message);});}
-  // ③ 직영점 출고 로그에 기록 (누적 트래킹)
-  STORE_OUT_LOG.push({store:r.store,code:r.code,name:r.asset,qty:r.qty,date:oDate,route,manager:oMgr,memo:oMemo});
-  // ④ 직영점 자산 현황 반영 (+수량)
-  applyStoreAssetDelta(r.store, r.asset, r.qty, `자산신청 출고 / ${oMgr}`);
-  // ⑤ 상태 변경
-  r.status='shipped';r.outDate=oDate;r.arrDate=oArrDate;r.outMgr=oMgr;r.route=route;r.outMemo=oMemo;
-  erp.from('requests').update({status:'shipped',out_date:oDate,arr_date:oArrDate,out_mgr:oMgr,out_memo:oMemo}).eq('id',curOutId).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
-  const _liShip=LOGI.find(l=>l.code===r.code); if(_liShip) erp.from('inventory').update({qty:_liShip.qty}).eq('code',r.code).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
-  closeMo('moOut');
-  notify(`출고 완료 ✓  물류재고 -${r.qty} · 직영점[${r.store}] 출고 기록 저장`,'success');
-  updateBadge();renderOut();renderInv();
+  showLoading('출고 처리 중...');
+  try {
+    const {error}=await erp.action('asset-request-ship',{
+      id:curOutId,
+      outDate:oDate,
+      arrivalDate:oArrDate,
+      outManager:oMgr,
+      outMemo:oMemo,
+      shipType:route
+    });
+    if(error)throw error;
+    closeMo('moOut');
+    notify(`출고 완료 ✓ ERP 원장에 재고/매장 자산이 함께 반영됐습니다.`,'success');
+    await loadFromDB();
+    updateBadge();renderOut();renderInv();renderLogi();renderHist();renderDash();
+  } catch(e) {
+    console.error(e);
+    notify('출고 처리 실패: '+(e.message||String(e)),'error');
+  } finally {
+    hideLoading();
+  }
 }
 function rejectReq(){
   const r=REQS.find(x=>x.id===curOutId);if(!r)return;
@@ -3289,24 +3151,7 @@ function openDeleteInvModal(code){
 }
 
 function confirmDeleteInv(){
-  const inv = INV.find(i=>i.code===deleteInvCode);
-  if(!inv){notify('자산을 찾을 수 없습니다','error');return;}
-  const name = inv.name;
-  const code = inv.code;
-
-  // INV에서 제거
-  const invIdx = INV.findIndex(i=>i.code===code);
-  if(invIdx > -1) INV.splice(invIdx, 1);
-
-  // LOGI에서 제거
-  const logiIdx = LOGI.findIndex(l=>l.code===code);
-  if(logiIdx > -1) LOGI.splice(logiIdx, 1);
-
-  erp.from('inventory').delete().eq('code',code).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
-  closeMo('moDeleteInv');
-  deleteInvCode = null;
-  notify(`"${name}" (${code}) 삭제 완료 — 물류재고에서도 제거됨`, 'success');
-  renderInv(); renderLogi(); renderDash();
+  blockedErpLedgerAction('자산 삭제', 'assetInventory');
 }
 
 
@@ -3347,47 +3192,7 @@ function updateEditInvPreview(){
 }
 
 function saveEditInv(){
-  const inv = INV.find(i=>i.code===editInvCode);
-  if(!inv){notify('자산을 찾을 수 없습니다','error');return;}
-
-  const newName  = document.getElementById('eiName').value.trim();
-  const newCat   = document.getElementById('eiCat').value;
-  const newTotal = parseInt(document.getElementById('eiTotal').value)||0;
-  const newOut   = parseInt(document.getElementById('eiOut').value)||0;
-  const newNote  = document.getElementById('eiNote').value.trim();
-
-  if(!newName){notify('자산명을 입력해주세요','error');return;}
-  if(newOut > newTotal){notify('출고누계가 총보유수량을 초과할 수 없습니다','error');return;}
-
-  const oldStock = Math.max(0, inv.total - inv.out);
-  const newStock = Math.max(0, newTotal - newOut);
-
-  // INV 업데이트
-  inv.name  = newName;
-  inv.cat   = newCat;
-  inv.total = newTotal;
-  inv.out   = newOut;
-  inv.note  = newNote;
-
-  // LOGI 동기화 — 재고량(qty) = 총보유 - 출고누계
-  const li = LOGI.find(l=>l.code===editInvCode);
-  if(li){
-    li.name = newName;
-    li.qty  = newStock;
-  } else {
-    // LOGI에 없으면 추가
-    LOGI.push({code:editInvCode, name:newName, qty:newStock, broken:0});
-  }
-
-  const newQtyLogi = Math.max(0, newTotal - newOut);
-  erp.from('inventory').update({name:newName, qty:newQtyLogi}).eq('code',editInvCode).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
-  closeMo('moEditInv');
-  const diff = newStock - oldStock;
-  const msg = diff===0 ? `"${newName}" 수정 완료` : diff>0
-    ? `"${newName}" 수정 완료 — 물류재고 +${diff}개 반영`
-    : `"${newName}" 수정 완료 — 물류재고 ${diff}개 반영`;
-  notify(msg, 'success');
-  renderInv(); renderLogi(); renderDash();
+  blockedErpLedgerAction('자산/물류재고 수정', 'assetInventory');
 }
 
 function openAddModal(){
@@ -3409,38 +3214,7 @@ function openAddModal(){
 }
 
 function addAsset(){
-  const name=document.getElementById('aName').value.trim();
-  const qtyRaw=document.getElementById('aQty').value;
-  const qty=qtyRaw===''?0:parseInt(qtyRaw);
-
-  if(addExistingCode){
-    // ── 기존 품목 수량 합산 모드 ──
-    if(!name){notify('품목명을 입력해주세요','error');return}
-    const inv=INV.find(i=>i.code===addExistingCode);
-    const li=LOGI.find(l=>l.code===addExistingCode);
-    const before=inv.total;
-    inv.total+=qty;
-    if(li) li.qty+=qty;
-    erp.from('inventory').update({qty: (li?li.qty:inv.total)}).eq('code',addExistingCode).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
-    closeMo('moAdd');
-    notify(`"${name}" 수량 추가 완료 — ${before}개 → ${inv.total}개`,'success');
-    renderInv();renderLogi();renderDash();
-    return;
-  }
-
-  // ── 신규 품목 등록 모드 ──
-  const code=document.getElementById('aCode').value.trim();
-  const cat=document.getElementById('aCat').value;
-  const note=document.getElementById('aNote').value.trim();
-  if(!code||!name){notify('코드와 자산명을 입력해주세요','error');return}
-  if(INV.find(i=>i.code===code)){notify('이미 존재하는 자산코드입니다','error');return}
-  if(INV.find(i=>i.name===name)){notify('이미 존재하는 자산명입니다','error');return}
-  INV.push({code,name,cat,total:qty,out:0,note,fixed:false});
-  syncLogiFromInv();
-  erp.from('inventory').upsert({code,name,qty,broken_qty:0},{onConflict:'code'}).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
-  closeMo('moAdd');
-  notify(`"${name}" (${code}) 신규 등록 완료`,'success');
-  renderInv();renderLogi();renderDash();
+  blockedErpLedgerAction('자산/물류재고 등록', 'assetInventory');
 }
 
 // ═══ PICKUP: 수거 신청 목록 ═══
@@ -3693,16 +3467,7 @@ function clearPkForm(){
   pkItemRows=[];renderPkItems();
 }
 async function deletePickup(id){
-  const p=PICKUPS.find(x=>x.id===id);
-  const statusLabel={pending:'대기중',in_progress:'수거진행중',confirmed:'수거완료',rejected:'반려'}[p?.status]||p?.status||'';
-  const warnMsg=p?.status==='confirmed'?'\n\n⚠️ 이미 수거완료된 내역입니다.\n물류재고(고장포함)는 수동으로 정정해야 합니다.':'';
-  if(!confirm(`수거신청 ${id} [${statusLabel}]를 삭제하시겠습니까?\n관련 이력도 함께 삭제됩니다.${warnMsg}`))return;
-  const idx=PICKUPS.findIndex(x=>x.id===id);if(idx!==-1)PICKUPS.splice(idx,1);
-  await erp.from('store_history').delete().ilike('memo',`%${id}%`);
-  SA_HIST=SA_HIST.filter(h=>!((h.memo||'').includes(id)));
-  const{error}=await erp.from('pickups').delete().eq('id',id);
-  if(error){notify('삭제 실패: '+error.message,'error');return}
-  notify('삭제 완료');updateBadge();renderPickup();renderPickupHist();
+  blockedErpLedgerAction('자산 수거신청 삭제', 'assetInventory');
 }
 
 // ═══ PICKUP: 수거 확인 모달 ═══
@@ -3765,30 +3530,26 @@ async function confirmPickup(){
   const p=PICKUPS.find(x=>x.id===curPkId);if(!p)return;
   const confDate=document.getElementById('pkConfDate').value;
   if(!confDate){notify('수거확인일자를 입력해주세요','error');return}
-  // 물류재고 증가 (고장 여부 분리)
-  const li=LOGI.find(l=>l.code===p.code);
-  if(li){
-    if(p.reason==='고장'){
-      li.qty += (p.normalQty||0);          // 사용가능만 일반 재고에 합산
-      li.broken = (li.broken||0) + (p.brokenQty||0); // 고장 재고 별도 누적
-    } else {
-      li.qty += p.qty;                     // 전량 사용가능으로 반영
-    }
+  showLoading('수거 확인 처리 중...');
+  try {
+    const {error}=await erp.action('asset-pickup-confirm',{
+      id:curPkId,
+      confirmedAt:confDate,
+      confirmedManager:p.confMgr,
+      confirmMemo:p.confMemo,
+      pickupDate:p.pickupDate||confDate
+    });
+    if(error)throw error;
+    closeMo('moPkConfirm');
+    notify(`수거 확인 완료 ✓ ERP 원장에 재고/매장 자산이 함께 반영됐습니다.`,'success');
+    await loadFromDB();
+    updateBadge();renderPickupMgmt();renderLogi();renderInv();renderDash();renderHist();
+  } catch(e) {
+    console.error(e);
+    notify('수거 확인 실패: '+(e.message||String(e)),'error');
+  } finally {
+    hideLoading();
   }
-  // 자산현황 total 증가
-  const inv=INV.find(i=>i.code===p.code);
-  if(inv)inv.total+=p.qty;
-  // 직영점 자산 현황 반영 (-수량)
-  applyStoreAssetDelta(p.store, p.asset, -p.qty, `수거 확인 / ${p.confMgr}`);
-  // 상태 변경
-  p.status='confirmed';p.confDate=confDate;
-  const {error:updErr}=await erp.from('pickups').update({status:'confirmed',confirmed_at:confDate}).eq('id',curPkId);
-  if(updErr){notify('수거 확인 저장 실패: '+updErr.message,'error');return}
-  const _liPk=LOGI.find(l=>l.code===p.code); if(_liPk) erp.from('inventory').update({qty:_liPk.qty,broken_qty:_liPk.broken||0}).eq('code',p.code).then(r=>{if(r&&r.error)console.error('[DB오류]',r.error.message,r.error);});
-  histPush({date:new Date().toLocaleString('ko-KR'),store:p.store,col:p.asset,before:null,after:p.qty,type:'수거확인',memo:`${curPkId} / 수거확인일: ${confDate} / 담당: ${p.confMgr||'-'}`});
-  closeMo('moPkConfirm');
-  notify(`수거 확인 완료 ✓  물류재고 +${p.qty}개 증가`,'success');
-  updateBadge();renderPickupMgmt();renderLogi();renderInv();renderDash();
 }
 
 function rejectPickup(){
@@ -4001,35 +3762,38 @@ async function confirmBulkShip(){
 
     const reqId=`REQ-${yr}-${String(nextNum).padStart(3,'0')}`;nextNum++;
 
-    // 재고 차감
-    li.qty-=r.qty; inv.out+=r.qty;
-    await erp.from('inventory').update({qty:li.qty}).eq('code',r.assetCode);
-
-    // requests 테이블에 shipped 상태로 저장
+    // requests 테이블에는 먼저 pending으로 만들고, ERP 업무 action이 출고확정/재고반영을 한 번에 처리한다.
     const {error:insErr}=await erp.from('requests').insert({
       id:reqId, date:todayStr, manager:'물류팀', team:'물류팀',
       asset:r.assetName, code:r.assetCode, qty:r.qty,
       store:r.storeName, route:r.route||'', ship_type:'직납',
       address:r.address||'', note:'일괄자산신청',
-      status:'shipped', out_date:r.dateVal, out_mgr:'물류팀', out_memo:'일괄출고'
+      status:'pending'
     });
-    if(insErr){errors.push(`${reqId}: ${insErr.message}`);skipped++;li.qty+=r.qty;inv.out-=r.qty;continue;}
+    if(insErr){errors.push(`${reqId}: ${insErr.message}`);skipped++;continue;}
+
+    const {error:shipErr}=await erp.action('asset-request-ship',{
+      id:reqId,
+      outDate:r.dateVal,
+      outManager:'물류팀',
+      outMemo:'일괄출고',
+      shipType:'직납'
+    });
+    if(shipErr){errors.push(`${reqId}: ${shipErr.message}`);skipped++;continue;}
 
     REQS.push({id:reqId,date:todayStr,manager:'물류팀',team:'물류팀',asset:r.assetName,
       code:r.assetCode,qty:r.qty,store:r.storeName,route:r.route||'',shipType:'직납',
       address:r.address||'',note:'일괄자산신청',
       status:'shipped',outDate:r.dateVal,outMgr:'물류팀',outMemo:'일괄출고',arrDate:''});
 
-    applyStoreAssetDelta(r.storeName,r.assetName,r.qty,`일괄출고 / ${r.dateVal}`);
-    histPush({date:now,store:r.storeName,col:r.assetName,before:li.qty+r.qty,after:li.qty,type:'일괄출고',memo:`일괄자산신청 (${reqId})`});
     BULK_HIST.unshift({processedAt:now,dateVal:r.dateVal,storeCode:r.storeCode,
       storeName:r.storeName,assetCode:r.assetCode,assetName:r.assetName,qty:r.qty,mgr:'물류팀'});
     shipped++;
   }
   if(errors.length) console.error('[일괄출고 오류]',errors);
-  STORE_OUT_LOG=REQS.filter(r=>r.status==='shipped').map(r=>({store:r.store,code:r.code,name:r.asset,qty:r.qty,date:r.outDate,route:r.route,manager:r.outMgr,memo:r.outMemo}));
   clearBulkPreview();
   notify(`일괄 출고 완료 — ${shipped}건 처리${skipped?', '+skipped+'건 스킵':''}${errors.length?' / 오류 '+errors.length+'건 (콘솔 확인)':''}`, shipped?'success':'error');
+  await loadFromDB();
   renderBulkHist();renderLogi();renderInv();renderDash();renderOut();renderHist();renderReqs();
 }
 
@@ -4292,14 +4056,7 @@ function renderPurchaseHist() {
 
 // ─── 구매요청 삭제 ───
 async function deletePurchaseReq(reqId) {
-  if(!confirm(`"${reqId}" 구매요청을 삭제하시겠습니까?\n비품주문표의 관련 품목도 함께 삭제됩니다.`)) return;
-  const {error:e1} = await erp.from('purchase_items').delete().eq('request_id', reqId);
-  const {error:e2} = await erp.from('purchase_requests').delete().eq('id', reqId);
-  if(e1||e2){notify('삭제 실패: '+(e1||e2).message,'error');return}
-  PURCHASE_ITEMS.splice(0, PURCHASE_ITEMS.length, ...PURCHASE_ITEMS.filter(i=>i.request_id!==reqId));
-  PURCHASE_REQS.splice(0, PURCHASE_REQS.length, ...PURCHASE_REQS.filter(r=>r.id!==reqId));
-  notify(`${reqId} 삭제 완료`,'success');
-  renderPurchaseHist(); renderOrderMgmt(); updateOrderBadge();
+  blockedErpLedgerAction('구매요청 삭제', 'assetInventory');
 }
 
 // ─── 비품주문표 렌더 ───
@@ -4545,15 +4302,12 @@ async function bulkConfirmReceiving(reqId) {
   for(const item of pendingItems) {
     const remaining = (item.order_qty||item.req_qty)-(item.received_qty||0);
     const newReceived = (item.received_qty||0)+remaining;
-    await erp.from('purchase_items').update({received_qty:newReceived, status:'received'}).eq('id',item.id);
+    const {error}=await erp.action('purchase-receipt',{id:item.id, receivedQty:newReceived, status:'received'});
+    if(error)throw error;
     item.received_qty = newReceived; item.status = 'received';
-    const li = LOGI.find(l=>l.code===item.asset_code);
-    if(li){li.qty+=remaining; await erp.from('inventory').update({qty:li.qty}).eq('code',item.asset_code);}
-    const inv = INV.find(i=>i.code===item.asset_code);
-    if(inv) inv.total+=remaining;
-    histPush({date:new Date().toLocaleString('ko-KR'), store:'물류창고', col:item.asset_name, before:(li?li.qty-remaining:0), after:(li?li.qty:remaining), type:'입고확인', memo:`일괄입고 +${remaining}개 (${reqId})`});
   }
   notify(`✅ ${reqId} 전체 ${pendingItems.length}건 일괄입고 완료`,'success');
+  await loadFromDB();
   renderOrderMgmt(); renderLogi(); renderInv(); renderDash();
   await checkAndCompleteRequest(reqId);
 }
@@ -4564,26 +4318,15 @@ async function confirmReceiving(itemId, assetCode, assetName, maxQty, reqId) {
   if(!qty||qty<=0){return;}
   const actual = Math.min(qty, maxQty);
 
-  // DB 업데이트
   const item = PURCHASE_ITEMS.find(i=>i.id===itemId);
   const newReceived = (item?.received_qty||0) + actual;
   const newStatus = newReceived>=(item?.order_qty||0)?'received':'partial';
-  await erp.from('purchase_items').update({received_qty:newReceived, status:newStatus}).eq('id',itemId);
+  const {error}=await erp.action('purchase-receipt',{id:itemId, receivedQty:newReceived, status:newStatus});
+  if(error){notify('입고확인 실패: '+error.message,'error');return;}
   if(item){item.received_qty=newReceived; item.status=newStatus;}
 
-  // 물류재고 & 자산현황 증가
-  const li = LOGI.find(l=>l.code===assetCode);
-  if(li){
-    li.qty += actual;
-    await erp.from('inventory').update({qty:li.qty}).eq('code',assetCode);
-  }
-  const inv = INV.find(i=>i.code===assetCode);
-  if(inv) inv.total += actual;
-
-  // 이력
-  histPush({date:new Date().toLocaleString('ko-KR'), store:'물류창고', col:assetName, before:(li?li.qty-actual:0), after:(li?li.qty:actual), type:'입고확인', memo:`구매입고 +${actual}개`});
-
   notify(`✅ "${assetName}" ${actual}개 입고확인 완료 — 물류재고 반영`,'success');
+  await loadFromDB();
   renderOrderMgmt(); renderLogi(); renderInv(); renderDash();
   if(reqId) await checkAndCompleteRequest(reqId);
 }
@@ -4810,10 +4553,11 @@ async function dispatchBagBatch(batchId) {
   showLoading('출고 처리 중...');
   try {
     const now = new Date().toISOString();
-    const {error} = await erp.from('bag_shipping')
-      .update({dispatched: true, dispatched_at: now})
-      .eq('batch_id', batchId)
-      .eq('need_ship', true);
+    const {error} = await erp.action('shopping-bag-dispatch',{
+      batchId,
+      dispatchedAt: now,
+      dispatchDate: now.slice(0,10)
+    });
     if (error) throw error;
 
     // 로컬 메모리 업데이트
@@ -4821,28 +4565,8 @@ async function dispatchBagBatch(batchId) {
       r.dispatched = true; r.dispatched_at = now;
     });
 
-    // 물류재고 차감
-    const batchItems = BAG_SHIPPING.filter(r => r.batch_id === batchId && r.need_ship);
-    const totalShop = batchItems.filter(r => r.product_code === 'SB-1-001').reduce((s,r) => s + r.ship_qty, 0);
-    const totalEnv  = batchItems.filter(r => r.product_code === 'PB-0-001').reduce((s,r) => s + r.ship_qty, 0);
-    const shopItem  = LOGI.find(l => l.code === 'SB-1-001');
-    const envItem   = LOGI.find(l => l.code === 'PB-0-001');
-    const invUpdates = [];
-    if (shopItem && totalShop > 0) {
-      const newQty = Math.max(0, shopItem.qty - totalShop);
-      invUpdates.push(erp.from('inventory').update({qty: newQty}).eq('code', shopItem.code));
-      shopItem.qty = newQty;
-      const invRow = INV.find(i => i.code === shopItem.code); if (invRow) invRow.total = newQty;
-    }
-    if (envItem && totalEnv > 0) {
-      const newQty = Math.max(0, envItem.qty - totalEnv);
-      invUpdates.push(erp.from('inventory').update({qty: newQty}).eq('code', envItem.code));
-      envItem.qty = newQty;
-      const invRow = INV.find(i => i.code === envItem.code); if (invRow) invRow.total = newQty;
-    }
-    if (invUpdates.length) await Promise.all(invUpdates);
-
     notify('출고 처리 완료 — 물류재고 차감 완료', 'success');
+    await loadFromDB();
     renderBagResult();
   } catch(e) { notify('출고 처리 실패: '+e.message, 'error'); }
   finally { hideLoading(); }
@@ -4850,15 +4574,7 @@ async function dispatchBagBatch(batchId) {
 
 // ── 행 삭제 ──
 async function deleteBagRow(id) {
-  if (!confirm('이 항목을 삭제하시겠습니까?')) return;
-  try {
-    const {error} = await erp.from('bag_shipping').delete().eq('id', id);
-    if (error) throw error;
-    const idx = BAG_SHIPPING.findIndex(r => r.id === id);
-    if (idx !== -1) BAG_SHIPPING.splice(idx, 1);
-    renderBagResult();
-    notify('삭제 완료', 'success');
-  } catch(e) { notify('삭제 실패: '+e.message, 'error'); }
+  blockedErpLedgerAction('쇼핑백 출고행 삭제', 'assetInventory');
 }
 
 // DB에서 bag_shipping 다시 로드
@@ -4973,17 +4689,7 @@ function renderBagResult() {
 
 // ── 배치 일괄삭제 ──
 async function deleteBagBatch(batchId) {
-  const cnt = BAG_SHIPPING.filter(r => r.batch_id === batchId).length;
-  if (!confirm(`"${batchId}" 배치 전체(${cnt}건)를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
-  showLoading('삭제 중...');
-  try {
-    const {error} = await erp.from('bag_shipping').delete().eq('batch_id', batchId);
-    if (error) throw error;
-    BAG_SHIPPING.splice(0, BAG_SHIPPING.length, ...BAG_SHIPPING.filter(r => r.batch_id !== batchId));
-    notify('일괄삭제 완료', 'success');
-    renderBagResult();
-  } catch(e) { notify('삭제 실패: '+e.message, 'error'); }
-  finally { hideLoading(); }
+  blockedErpLedgerAction('쇼핑백 배치 삭제', 'assetInventory');
 }
 
 // ── 출고 이력 탭 ──
@@ -5041,16 +4747,7 @@ function renderBagHistory() {
 
 // 이력 전체 삭제
 async function clearBagHistory() {
-  if (!confirm('모든 출고 이력을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) return;
-  showLoading('이력 삭제 중...');
-  try {
-    const {error} = await erp.from('bag_shipping').delete().gte('id', 0);
-    if (error) throw error;
-    BAG_SHIPPING.length = 0;
-    renderBagHistory();
-    notify('이력이 초기화되었습니다', 'success');
-  } catch(e) { notify('삭제 실패: '+e.message, 'error'); }
-  finally { hideLoading(); }
+  blockedErpLedgerAction('쇼핑백 이력 초기화', 'assetInventory');
 }
 
 // ── 웹포스 등록 양식 다운로드 ──
@@ -5531,19 +5228,11 @@ async function doUniPickup() {
   const r = UNIFORM_PKPS.find(x=>x.id===id); if(!r) return;
   showLoading();
   try {
-    const {error}=await erp.from('uniform_pickups').update({status:'confirmed',pickup_date:pickupDate,pickup_note:pickupNote}).eq('id',id);
+    const {error}=await erp.action('uniform-pickup-confirm',{id,pickupDate,pickupNote});
     if(error)throw error;
-    // 반납재고 증가 (사용가능 재고가 아닌 반납재고로 귀속 대기)
-    const l=LOGI.find(x=>x.code===r.item_code);
-    if(l){const nrq=(l.returnQty||0)+r.qty;await erp.from('inventory').update({return_qty:nrq}).eq('code',r.item_code);l.returnQty=nrq;}
-    // 매니저 재고 -
-    await _updateUniMgrStock(r.store_name,r.return_manager,{name:r.item_name,code:r.item_code,size:r.size},-r.qty);
-    // 이력
-    histPush({date:pickupDate,store:r.store_name,col:r.item_name,before:'',after:-r.qty,type:'유니폼수거(반납대기)',memo:`${r.return_manager} / ${r.size} / ${r.reason}${pickupNote?' / '+pickupNote:''}`});
-    // 로컬 업데이트
-    Object.assign(r,{status:'confirmed',pickup_date:pickupDate,pickup_note:pickupNote});
     closeMo('moUniPickup');
     notify('수거 확인 처리 완료 ✓','success');
+    await loadFromDB();
     renderUniformPkpList();
   } catch(e){console.error(e);notify('오류: '+e.message,'error');}
   hideLoading();
@@ -5551,44 +5240,7 @@ async function doUniPickup() {
 
 // ─── 매니저 재고 업데이트 헬퍼 ───
 async function _updateUniMgrStock(store, mgrName, item, delta) {
-  // 사이즈 정규화: '2XL(105)' → '2XL', '2XL' → '2XL'
-  const normSz = s => (s||'').replace(/\([^)]*\)/g,'').trim().toUpperCase();
-
-  // 품목명 '유니폼(하계) 2XL' → season='유니폼(하계)', rawSize='2XL'
-  const seasonMatch = (item.name||'').match(/(유니폼\([^)]+\))/);
-  const season = seasonMatch ? seasonMatch[1] : item.name;
-  const rawSize = normSz((item.name||'').replace(season,'').trim() || item.size);
-
-  // ── DB에서 직접 조회 (메모리 캐시 무시) ──
-  const {data: rows, error: fetchErr} = await erp.from('uniform_manager_stock')
-    .select('*').eq('manager_name', mgrName).eq('item_name', season);
-
-  if(fetchErr){ console.error('[MGR_STOCK 조회 오류]', fetchErr.message); return; }
-
-  // 사이즈 퍼지 매칭
-  const existing = (rows||[]).find(m => normSz(m.size) === rawSize);
-
-  if(existing){
-    const nq = Math.max(0, existing.qty + delta);
-    const {error:updErr} = await erp.from('uniform_manager_stock')
-      .update({qty:nq, store_name:store, updated_at:new Date().toISOString()})
-      .eq('id', existing.id);
-    if(updErr){ console.error('[MGR_STOCK 업데이트 오류]', updErr.message); return; }
-    // 메모리 동기화
-    const mem = UNIFORM_MGRSTK.find(m=>m.id===existing.id);
-    if(mem){ mem.qty=nq; mem.store_name=store; }
-    else { existing.qty=nq; UNIFORM_MGRSTK.push(existing); }
-  } else {
-    // 해당 매니저의 같은 시즌 레코드가 있으면 그 사이즈 형식 재사용
-    const sameSeasonRow = (rows||[])[0];
-    const sizeForInsert = sameSeasonRow ? sameSeasonRow.size : rawSize;
-    const {data:ins, error:insErr} = await erp.from('uniform_manager_stock')
-      .insert({store_name:store, manager_name:mgrName, item_name:season,
-               item_code:item.code, size:sizeForInsert, qty:Math.max(0,delta)})
-      .select().single();
-    if(insErr){ console.error('[MGR_STOCK 삽입 오류]', insErr.message); return; }
-    if(ins) UNIFORM_MGRSTK.push(ins);
-  }
+  console.warn('유니폼 관리대장 직접 수정은 ERP action service에서만 처리됩니다.', {store, mgrName, item, delta});
 }
 
 // ─── 목록 렌더 ───
@@ -5751,21 +5403,7 @@ function exportUniBatch(batchId) {
 
 // ─── 일괄삭제 (batch 전체 삭제) ───
 async function deleteUniBatch(batchId) {
-  const items=UNIFORM_REQS.filter(r=>r.batch_id===batchId);
-  if(!items.length) return;
-  const shippedCnt=items.filter(r=>r.status==='shipped').length;
-  const msg=`일괄등록 내역 ${items.length}건을 모두 삭제하시겠습니까?`
-    +(shippedCnt?`\n\n⚠️ 이미 출고된 ${shippedCnt}건이 포함되어 있습니다.`:'');
-  if(!confirm(msg)) return;
-  showLoading();
-  try {
-    const {error}=await erp.from('uniform_requests').delete().eq('batch_id',batchId);
-    if(error) throw error;
-    for(let i=UNIFORM_REQS.length-1;i>=0;i--){if(UNIFORM_REQS[i].batch_id===batchId)UNIFORM_REQS.splice(i,1);}
-    notify(`삭제 완료 — ${items.length}건`,'success');
-    renderUniformReqList();
-  } catch(e){console.error(e);notify('오류: '+e.message,'error');}
-  hideLoading();
+  blockedErpLedgerAction('유니폼 일괄등록 삭제', 'uniformLedger');
 }
 
 // ─── 일괄출고 (batch 전체 pending 항목 한번에 출고) ───
@@ -5797,21 +5435,17 @@ async function doUniShip() {
     if(!pending.length){notify('대기중 항목 없음','warn');return;}
     showLoading();
     try {
-      for(const r of pending) {
-        const {error}=await erp.from('uniform_requests').update({status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote}).eq('id',r.id);
-        if(error) throw error;
-        // 물류재고 차감
-        const l=LOGI.find(x=>x.code===r.item_code);
-        if(l){const nq=Math.max(0,l.qty-r.qty);await erp.from('inventory').update({qty:nq}).eq('code',r.item_code);l.qty=nq;const iv=INV.find(x=>x.code===r.item_code);if(iv)iv.total=nq;}
-        // 관리대장 반영
-        await _updateUniMgrStock(r.store_name,r.recv_manager,{name:r.item_name,code:r.item_code,size:r.size},r.qty);
-        // 이력
-        histPush({date:outDate,store:r.store_name,col:r.item_name,before:'',after:r.qty,type:'유니폼출고',memo:`${r.recv_manager}/${r.size}/${r.reason}${outNote?' / '+outNote:''}`});
-        Object.assign(r,{status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote});
-      }
+      const {error}=await erp.action('uniform-request-ship',{
+        ids: pending.map(r=>r.id),
+        outDate,
+        arrivalDate:arrDate,
+        outNote
+      });
+      if(error) throw error;
       _collapsedBatches.add(batchId);
       closeMo('moUniShip');
       notify(`일괄출고 완료 — ${pending.length}건 처리 ✓`,'success');
+      await loadFromDB();
       renderUniformReqList();
     } catch(e){console.error(e);notify('오류: '+e.message,'error');}
     hideLoading();
@@ -5826,15 +5460,11 @@ async function doUniShip() {
   const r=UNIFORM_REQS.find(x=>x.id===id); if(!r) return;
   showLoading();
   try {
-    const {error}=await erp.from('uniform_requests').update({status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote}).eq('id',id);
+    const {error}=await erp.action('uniform-request-ship',{id,outDate,arrivalDate:arrDate,outNote});
     if(error)throw error;
-    const l=LOGI.find(x=>x.code===r.item_code);
-    if(l){const nq=Math.max(0,l.qty-r.qty);await erp.from('inventory').update({qty:nq}).eq('code',r.item_code);l.qty=nq;const iv=INV.find(x=>x.code===r.item_code);if(iv)iv.total=nq;}
-    await _updateUniMgrStock(r.store_name,r.recv_manager,{name:r.item_name,code:r.item_code,size:r.size},r.qty);
-    histPush({date:outDate,store:r.store_name,col:r.item_name,before:'',after:r.qty,type:'유니폼출고',memo:`${r.recv_manager}/${r.size}/${r.reason}${outNote?' / '+outNote:''}`});
-    Object.assign(r,{status:'shipped',out_date:outDate,arr_date:arrDate,out_note:outNote});
     closeMo('moUniShip');
     notify('출고 처리 완료 ✓','success');
+    await loadFromDB();
     renderUniformReqList();
   } catch(e){console.error(e);notify('오류: '+e.message,'error');}
   hideLoading();
@@ -5865,45 +5495,11 @@ function renderUniformPkpList() {
 
 // ─── 삭제 ───
 async function deleteUniReq(id) {
-  const r = UNIFORM_REQS.find(x=>x.id===id); if(!r) return;
-  const label = `${r.req_date||''} / ${r.store_name||''} / ${r.item_name||''} ${r.size||''} ${r.qty}벌`;
-  if(!confirm(`신청 내역을 삭제하시겠습니까?\n\n${label}${r.status==='shipped'?'\n\n⚠️ 이미 출고된 내역입니다. 재고도 함께 되돌립니다.':''}`)) return;
-  showLoading();
-  try {
-    const {error}=await erp.from('uniform_requests').delete().eq('id',id);
-    if(error) throw error;
-    // 출고된 경우 재고 원복
-    if(r.status==='shipped'){
-      const l=LOGI.find(x=>x.code===r.item_code);
-      if(l){const nq=Math.max(0,l.qty-r.qty);await erp.from('inventory').update({qty:nq}).eq('code',r.item_code);l.qty=nq;const iv=INV.find(x=>x.code===r.item_code);if(iv)iv.total=nq;}
-    }
-    const idx=UNIFORM_REQS.findIndex(x=>x.id===id);
-    if(idx>-1) UNIFORM_REQS.splice(idx,1);
-    notify('삭제 완료','success');
-    renderUniformReqList();
-  } catch(e){console.error(e);notify('오류: '+e.message,'error');}
-  hideLoading();
+  blockedErpLedgerAction('유니폼 신청 삭제', 'uniformLedger');
 }
 
 async function deleteUniPkp(id) {
-  const r = UNIFORM_PKPS.find(x=>x.id===id); if(!r) return;
-  const label = `${r.req_date||''} / ${r.store_name||''} / ${r.item_name||''} ${r.size||''} ${r.qty}벌`;
-  if(!confirm(`수거 내역을 삭제하시겠습니까?\n\n${label}${r.status==='confirmed'?'\n\n⚠️ 이미 수거확인된 내역입니다. 반납재고도 함께 되돌립니다.':''}`)) return;
-  showLoading();
-  try {
-    const {error}=await erp.from('uniform_pickups').delete().eq('id',id);
-    if(error) throw error;
-    // 수거확인된 경우 반납재고 원복
-    if(r.status==='confirmed'){
-      const l=LOGI.find(x=>x.code===r.item_code);
-      if(l){const nrq=Math.max(0,(l.returnQty||0)-r.qty);await erp.from('inventory').update({return_qty:nrq}).eq('code',r.item_code);l.returnQty=nrq;}
-    }
-    const idx=UNIFORM_PKPS.findIndex(x=>x.id===id);
-    if(idx>-1) UNIFORM_PKPS.splice(idx,1);
-    notify('삭제 완료','success');
-    renderUniformPkpList();
-  } catch(e){console.error(e);notify('오류: '+e.message,'error');}
-  hideLoading();
+  blockedErpLedgerAction('유니폼 수거 삭제', 'uniformLedger');
 }
 
 // ─── 수불 이력 ───
@@ -6063,65 +5659,10 @@ function openUniMgrEdit(id) {
   document.getElementById('moUniMgrEdit').classList.add('open');
 }
 async function saveUniMgrEdit() {
-  const id=document.getElementById('uniMgrEditId').value;
-  const name=document.getElementById('uniMgrEditName').value.trim();
-  const status=document.getElementById('uniMgrEditStatus').value;
-  const note=document.getElementById('uniMgrEditNote').value.trim();
-  if(!name){notify('성함을 입력해주세요','error');return;}
-  const seasons=[
-    {key:'유니폼(하계)',code:'AST-126',szId:'uniMgrEditSzS',qtId:'uniMgrEditQtS'},
-    {key:'유니폼(춘추)',code:'AST-127',szId:'uniMgrEditSzP',qtId:'uniMgrEditQtP'},
-    {key:'유니폼(동계)',code:'AST-128',szId:'uniMgrEditSzW',qtId:'uniMgrEditQtW'},
-  ];
-  showLoading();
-  try {
-    let mgrName=name;
-    if(id) {
-      const oldM=UNIFORM_MANAGERS.find(x=>x.id===parseInt(id));
-      const oldName=oldM?oldM.manager_name:name;
-      await erp.from('uniform_managers').update({manager_name:name,employment_status:status,note,updated_at:new Date().toISOString()}).eq('id',parseInt(id));
-      if(oldM){oldM.manager_name=name;oldM.employment_status=status;oldM.note=note;}
-      // 매니저명 변경 시 stock 테이블도 업데이트
-      if(oldName!==name) await erp.from('uniform_manager_stock').update({manager_name:name}).eq('manager_name',oldName);
-      mgrName=name;
-    } else {
-      const {data:ins}=await erp.from('uniform_managers').insert({manager_name:name,employment_status:status,note}).select().single();
-      if(ins)UNIFORM_MANAGERS.push(ins);
-    }
-    // 3시즌 재고 upsert
-    for(const s of seasons){
-      const sz=document.getElementById(s.szId).value;
-      const qty=parseInt(document.getElementById(s.qtId).value)||0;
-      const exist=UNIFORM_MGRSTK.find(x=>x.manager_name===mgrName&&x.item_name===s.key);
-      if(exist){
-        await erp.from('uniform_manager_stock').update({size:sz,qty,updated_at:new Date().toISOString()}).eq('id',exist.id);
-        exist.size=sz; exist.qty=qty;
-      } else {
-        const existStock=UNIFORM_MGRSTK.find(x=>x.manager_name===mgrName);
-        const storeName=existStock?existStock.store_name:'';
-        const {data:ins}=await erp.from('uniform_manager_stock').insert({store_name:storeName,manager_name:mgrName,item_name:s.key,item_code:s.code,size:sz,qty}).select().single();
-        if(ins)UNIFORM_MGRSTK.push(ins);
-      }
-    }
-    closeMo('moUniMgrEdit');
-    notify(id?'수정 완료':'신규 추가 완료','success');
-    renderUniformMgmt();
-  } catch(e){console.error(e);notify('오류: '+e.message,'error');}
-  hideLoading();
+  blockedErpLedgerAction('직원/유니폼 관리자 정보는 ERP 직원 원장에서 관리해주세요.', 'employee');
 }
 async function deleteUniMgr(id) {
-  const m=UNIFORM_MANAGERS.find(x=>x.id===id); if(!m) return;
-  if(!confirm(`"${m.manager_name}" 매니저를 삭제하시겠습니까?\n보유 유니폼 현황도 함께 삭제됩니다.`)) return;
-  showLoading();
-  try {
-    await erp.from('uniform_manager_stock').delete().eq('manager_name',m.manager_name);
-    await erp.from('uniform_managers').delete().eq('id',id);
-    const idx=UNIFORM_MANAGERS.findIndex(x=>x.id===id); if(idx>-1)UNIFORM_MANAGERS.splice(idx,1);
-    UNIFORM_MGRSTK=UNIFORM_MGRSTK.filter(s=>s.manager_name!==m.manager_name);
-    notify('삭제 완료','success');
-    renderUniformMgmt();
-  } catch(e){console.error(e);notify('오류: '+e.message,'error');}
-  hideLoading();
+  blockedErpLedgerAction('유니폼 관리자 삭제', 'uniformLedger');
 }
 
 // ─── 재고 수정/삭제 ───
@@ -6151,47 +5692,10 @@ function openUniStockEdit(id) {
   document.getElementById('moUniStockEdit').classList.add('open');
 }
 async function saveUniStockEdit() {
-  const id=parseInt(document.getElementById('uniStockEditId').value)||0;
-  const itemName=document.getElementById('uniStockEditItem').value.trim();
-  const size=document.getElementById('uniStockEditSize').value;
-  const qty=parseInt(document.getElementById('uniStockEditQty').value)||0;
-  showLoading();
-  try {
-    if(id) {
-      // 기존 레코드 수정
-      await erp.from('uniform_manager_stock').update({item_name:itemName,size,qty,updated_at:new Date().toISOString()}).eq('id',id);
-      const s=UNIFORM_MGRSTK.find(x=>x.id===id);
-      if(s){s.item_name=itemName;s.size=size;s.qty=qty;}
-    } else {
-      // 신규 레코드 생성 (-셀)
-      const {mgrName, season} = _uniNewStkTarget||{};
-      if(!mgrName){notify('오류: 매니저 정보 없음','error');hideLoading();return;}
-      const codeMap={'유니폼(하계)':'AST-126','유니폼(춘추)':'AST-127','유니폼(동계)':'AST-128'};
-      const existStk=UNIFORM_MGRSTK.find(x=>x.manager_name===mgrName);
-      const storeName=existStk?existStk.store_name:'';
-      const {data:ins,error:insErr}=await erp.from('uniform_manager_stock').insert({
-        store_name:storeName, manager_name:mgrName, item_name:itemName,
-        item_code:codeMap[season]||'', size, qty
-      }).select().single();
-      if(insErr) throw insErr;
-      if(ins) UNIFORM_MGRSTK.push(ins);
-    }
-    closeMo('moUniStockEdit');
-    notify(id?'수정 완료':'등록 완료','success');
-    renderUniformMgmt();
-  } catch(e){console.error(e);notify('오류: '+e.message,'error');}
-  hideLoading();
+  blockedErpLedgerAction('유니폼 보유현황 직접 수정은 ERP 유니폼 관리대장에서 처리해주세요.', 'uniformLedger');
 }
 async function deleteUniStock(id) {
-  if(!confirm('이 유니폼 보유 내역을 삭제하시겠습니까?')) return;
-  showLoading();
-  try {
-    await erp.from('uniform_manager_stock').delete().eq('id',id);
-    UNIFORM_MGRSTK=UNIFORM_MGRSTK.filter(x=>x.id!==id);
-    notify('삭제 완료','success');
-    renderUniformMgmt();
-  } catch(e){console.error(e);notify('오류: '+e.message,'error');}
-  hideLoading();
+  blockedErpLedgerAction('유니폼 보유현황 삭제', 'uniformLedger');
 }
 
 // ─── 엑셀 내보내기 ───
